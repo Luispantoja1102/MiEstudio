@@ -2,7 +2,6 @@
   import { goto } from '$app/navigation';
   import Header from '$lib/Header.svelte';
   import { api, setToken } from '$lib/api.js';
-  import { applyKindTheme } from '$lib/theme.svelte.js';
 
   const kinds = [
     ['barberia', 'Barbería'],
@@ -14,9 +13,6 @@
   let form = $state({ business_name: '', kind: 'barberia', name: '', email: '', password: '' });
   let error = $state('');
   let busy = $state(false);
-
-  // Vista previa del tema del giro (si no se eligió uno manualmente).
-  $effect(() => applyKindTheme(form.kind));
 
   async function submit(e) {
     e.preventDefault();

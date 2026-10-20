@@ -1,8 +1,5 @@
-// Dos temas intercambiables: 'dark' (barbería) y 'light' (spa).
+// Dos temas intercambiables en toda la app: 'dark' (oscuro y elegante) y 'light' (claro y suave).
 const KEY = 'miestudio-theme';
-
-// Tema por defecto según el giro del negocio.
-export const themeForKind = (kind) => (kind === 'barberia' ? 'dark' : 'light');
 
 function stored() {
   try {
@@ -24,7 +21,7 @@ export function initTheme() {
   apply(theme.name);
 }
 
-// Cambio manual: se recuerda y gana sobre el tema del giro.
+// Se recuerda la elección en este navegador.
 export function setTheme(name) {
   theme.name = name;
   apply(name);
@@ -34,10 +31,3 @@ export function setTheme(name) {
 }
 
 export const toggleTheme = () => setTheme(theme.name === 'dark' ? 'light' : 'dark');
-
-// Aplica el tema del giro, salvo que la persona ya haya elegido uno.
-export function applyKindTheme(kind) {
-  if (stored()) return;
-  theme.name = themeForKind(kind);
-  apply(theme.name);
-}

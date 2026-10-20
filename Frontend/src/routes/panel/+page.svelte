@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import Header from '$lib/Header.svelte';
   import { api, getToken, setToken } from '$lib/api.js';
-  import { applyKindTheme } from '$lib/theme.svelte.js';
 
   let me = $state(null);
 
@@ -11,7 +10,6 @@
     if (!getToken()) return goto('/login');
     try {
       me = await api('/api/me');
-      applyKindTheme(me.business.kind);
     } catch {
       setToken(null);
       goto('/login');
