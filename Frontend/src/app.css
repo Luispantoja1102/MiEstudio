@@ -1,0 +1,101 @@
+/* Tema claro y suave (spa) — predeterminado */
+:root,
+:root[data-theme='light'] {
+  --bg: #f5f8f6;
+  --surface: #ffffff;
+  --text: #2b3a36;
+  --muted: #6b7d77;
+  --border: #dbe6e1;
+  --accent: #5f9c88;
+  --accent-contrast: #ffffff;
+  --accent-soft: #e4f0eb;
+  --danger: #b4443c;
+  --radius: 16px;
+  --font-heading: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --heading-weight: 600;
+  --heading-tracking: 0;
+  --shadow: 0 8px 30px rgba(60, 100, 85, 0.1);
+  color-scheme: light;
+}
+
+/* Tema oscuro y elegante (barbería) */
+:root[data-theme='dark'] {
+  --bg: #0e0e10;
+  --surface: #17171a;
+  --text: #f1ece2;
+  --muted: #9a958b;
+  --border: #2b2b30;
+  --accent: #c9a45c;
+  --accent-contrast: #14110a;
+  --accent-soft: #241f13;
+  --danger: #e0786f;
+  --radius: 4px;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --heading-weight: 700;
+  --heading-tracking: 0.02em;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.55;
+  transition: background 0.25s, color 0.25s;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-tracking);
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+a { color: var(--accent); }
+
+.container { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.3rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: 0.6; cursor: wait; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 1rem; }
+input, select {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.error { color: var(--danger); font-size: 0.9rem; margin: 0 0 1rem; }
