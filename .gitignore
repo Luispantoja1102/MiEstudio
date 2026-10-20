@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+.svelte-kit/
+
+# Go
+/api-go/bin/
+*.exe
+*.test
+*.out
+
+# Postgres local data
+pgdata/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
