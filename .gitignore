@@ -10,7 +10,7 @@ dist/
 .svelte-kit/
 
 # Go
-/api-go/bin/
+/Backend/go/bin/
 *.exe
 *.test
 *.out

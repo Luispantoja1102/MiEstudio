@@ -1,0 +1,14 @@
+{
+  "name": "miestudio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm --prefix Frontend install && npm --prefix Backend/node install",
+    "dev": "dotenv -e .env -- concurrently -n front,node,go -c cyan,green,yellow \"npm --prefix Frontend run dev\" \"npm --prefix Backend/node run dev\" \"go -C Backend/go run .\"",
+    "build": "npm --prefix Frontend run build && go -C Backend/go build -o bin/server ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "dotenv-cli": "^7.4.0"
+  }
+}

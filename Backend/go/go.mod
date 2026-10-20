@@ -1,4 +1,4 @@
-module miestudio/api-go
+module miestudio/backend-go
 
 go 1.25.0
 
