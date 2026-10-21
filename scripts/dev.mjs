@@ -3,6 +3,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
 
 const win = process.platform === 'win32';
 const COLORS = { dev: 35, go: 33, node: 32, front: 36 };
@@ -54,8 +55,9 @@ if (!(await reachable(dbHost, dbPort))) {
 
 // ── 3. Compilar la API (se ejecuta el binario para poder detenerlo limpio)
 say('dev', 'Compilando la API de Go…');
-const exe = `Backend/go/bin/server${win ? '.exe' : ''}`;
-const build = spawnSync('go', ['-C', 'Backend/go', 'build', '-o', win ? 'bin/server.exe' : 'bin/server', './cmd/server'], { stdio: 'inherit', shell: win });
+// ruta absoluta y sin shell: en Windows, cmd.exe leería «Backend/go/...» como el comando «Backend» con la opción /go
+const exe = path.resolve('Backend', 'go', 'bin', win ? 'server.exe' : 'server');
+const build = spawnSync('go', ['-C', 'Backend/go', 'build', '-o', win ? 'bin/server.exe' : 'bin/server', './cmd/server'], { stdio: 'inherit' });
 if (build.error?.code === 'ENOENT') die('No se encontró el comando «go»', 'Instala Go 1.26+ desde https://go.dev/dl/ y abre una terminal nueva.');
 if (build.status !== 0) die('No se pudo compilar la API de Go', 'Revisa el error de arriba. Si dice que necesitas una versión más nueva de Go, instala Go 1.26+.');
 
@@ -79,8 +81,9 @@ function shutdown(code) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
-function run(tag, cmd, args, { critical = true } = {}) {
-  const child = spawn(cmd, args, { env, shell: win, detached: !win, stdio: ['ignore', 'pipe', 'pipe'] });
+function run(tag, cmd, args, { critical = true, shell = false } = {}) {
+  // con shell se pasa una sola cadena (evita el aviso DEP0190 y el escape de argumentos de Node)
+  const child = (shell ? spawn(`${cmd} ${args.join(' ')}`, { env, shell: true, detached: !win, stdio: ['ignore', 'pipe', 'pipe'] }) : spawn(cmd, args, { env, detached: !win, stdio: ['ignore', 'pipe', 'pipe'] }));
   children.push(child);
   const pipe = (stream, out) => {
     let buf = '';
@@ -119,6 +122,6 @@ while (!stopping && !(await alive())) {
 }
 if (!stopping) {
   say('dev', `API lista en http://localhost:${apiPort}`);
-  run('node', 'npm', ['--prefix', 'Backend/node', 'run', 'dev'], { critical: false });
-  run('front', 'npm', ['--prefix', 'Frontend', 'run', 'dev']);
+  run('node', 'npm', ['--prefix', 'Backend/node', 'run', 'dev'], { critical: false, shell: true });
+  run('front', 'npm', ['--prefix', 'Frontend', 'run', 'dev'], { shell: true });
 }
