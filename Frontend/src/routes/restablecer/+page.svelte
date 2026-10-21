@@ -27,9 +27,7 @@
   }
 </script>
 
-<AuthLayout title="Elige una contraseña nueva" subtitle="Al guardarla se cerrarán tus sesiones abiertas.">
-  {#snippet nav()}<a class="btn ghost" href="/login">Entrar</a>{/snippet}
-
+<AuthLayout title="Elige una contraseña" accent="nueva" subtitle="Al guardarla se cerrarán tus sesiones abiertas.">
   {#if !token}
     <p class="error" role="alert">Este enlace está incompleto. <a href="/olvide">Pide uno nuevo</a>.</p>
   {:else if done}

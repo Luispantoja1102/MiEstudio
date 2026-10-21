@@ -6,7 +6,7 @@
   import Shell from '$lib/Shell.svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
-  import { isPlatform, loadSession, session } from '$lib/session.svelte.js';
+  import { homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
 
   let { children } = $props();
 
@@ -65,6 +65,7 @@
     try {
       await loadSession();
       if (isPlatform()) goto('/plataforma');
+      else if (homeFor(session.me) === '/bienvenida') goto('/bienvenida', { replaceState: true });
     } catch {
       goto('/login');
     }

@@ -137,6 +137,7 @@ func (a *API) Routes() http.Handler {
 	// negocio: datos del negocio
 	mux.Handle("GET /api/business", a.tenant(a.getBusiness, admin))
 	mux.Handle("PUT /api/business", a.tenant(a.putBusiness, admin))
+	mux.Handle("POST /api/business/setup/complete", a.tenant(a.completeSetup, admin))
 
 	// negocio: mensajes a clientes (cumpleaños, reactivación, encuesta con reseña)
 	mux.Handle("GET /api/engagement", a.tenant(a.getEngagement, admin))

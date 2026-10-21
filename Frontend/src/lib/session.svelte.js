@@ -13,4 +13,10 @@ export const isPlatform = (me = session.me) => me?.role === 'platform_admin' || 
 export const canWritePlatform = () => session.me?.role === 'platform_admin';
 
 // A dónde va cada persona tras iniciar sesión.
-export const homeFor = (me) => (isPlatform(me) ? '/plataforma' : '/panel');
+export const homeFor = (me) => {
+  if (isPlatform(me)) return '/plataforma';
+  // un negocio nuevo pasa primero por el asistente de inicio (solo su titular, y si la cuenta ya está activa)
+  const b = me?.business;
+  if (b?.setup_pending && !['pending', 'suspended'].includes(b.status)) return '/bienvenida';
+  return '/panel';
+};

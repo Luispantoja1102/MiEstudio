@@ -23,9 +23,7 @@
   }
 </script>
 
-<AuthLayout title="Recupera tu contraseña" subtitle="Te enviaremos un enlace para elegir una nueva.">
-  {#snippet nav()}<a class="btn ghost" href="/login">Entrar</a>{/snippet}
-
+<AuthLayout title="Recupera tu" accent="contraseña" subtitle="Te enviaremos un enlace para elegir una nueva.">
   {#if sent}
     <div class="card" role="status">
       <p><b>Revisa tu correo.</b></p>

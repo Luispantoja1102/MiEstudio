@@ -270,11 +270,11 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	var name, email string
 	var bizName, kind, status, tz, plan *string
-	var trialEnds, periodEnd *time.Time
+	var trialEnds, periodEnd, setupDone *time.Time
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone, b.plan, b.current_period_end
+		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone, b.plan, b.current_period_end, b.setup_completed_at
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id WHERE u.id = $1`, p.UserID).
-		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz, &plan, &periodEnd)
+		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz, &plan, &periodEnd, &setupDone)
 	if err != nil {
 		serverErr(w)
 		return
@@ -283,10 +283,13 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	a.DB.QueryRow(r.Context(), `SELECT totp_secret_enc IS NOT NULL FROM users WHERE id = $1`, p.UserID).Scan(&twoFactor)
 	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil, "two_factor": twoFactor}
 	if p.BusinessID != 0 {
+		isOwner := p.Role == "admin" && a.isOwner(r.Context(), p.BusinessID, p.UserID)
 		out["business"] = map[string]any{
 			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
 			"plan": plan, "billing_state": p.BillingState, "current_period_end": periodEnd,
-			"is_owner": p.Role == "admin" && a.isOwner(r.Context(), p.BusinessID, p.UserID),
+			"is_owner": isOwner,
+			// el asistente de inicio lo ve solo el titular, y solo mientras no lo termine u omita
+			"setup_pending": isOwner && setupDone == nil,
 		}
 	}
 	writeJSON(w, http.StatusOK, out)

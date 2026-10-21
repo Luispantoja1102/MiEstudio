@@ -54,3 +54,13 @@ func (a *API) putBusiness(w http.ResponseWriter, r *http.Request) {
 	a.logActivity(r.Context(), p.UserID, p.BusinessID, "business_profile_changed", map[string]any{"kind": req.Kind, "timezone_changed": before != req.Timezone})
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// completeSetup marca terminado (o omitido) el asistente de inicio.
+func (a *API) completeSetup(w http.ResponseWriter, r *http.Request) {
+	p := auth.FromContext(r.Context())
+	if _, err := a.DB.Exec(r.Context(), `UPDATE businesses SET setup_completed_at = COALESCE(setup_completed_at, now()) WHERE id = $1`, p.BusinessID); err != nil {
+		serverErr(w)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
