@@ -9,7 +9,7 @@
   let error = $state('');
   let showForm = $state(false);
   let busy = $state(false);
-  let form = $state({ name: '', phone: '', email: '', birthday: '', reminders_consent: false, marketing_consent: false });
+  let form = $state({ name: '', phone: '', email: '', birthday: '', reminders_consent: false, marketing_consent: false, whatsapp_consent: false });
   let timer;
 
   async function load() {
@@ -62,6 +62,7 @@
       <label class="field">Cumpleaños <input type="date" bind:value={form.birthday} /></label>
     </div>
     <label class="check"><input type="checkbox" bind:checked={form.reminders_consent} disabled={!form.email} /> El cliente aceptó recibir recordatorios de sus citas por correo</label>
+    <label class="check"><input type="checkbox" bind:checked={form.whatsapp_consent} disabled={form.phone.replace(/\D/g, '').length < 10} /> El cliente aceptó recibir recordatorios por WhatsApp</label>
     <label class="check"><input type="checkbox" bind:checked={form.marketing_consent} disabled={!form.email} /> El cliente aceptó recibir promociones y felicitación de cumpleaños por correo</label>
     <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar y abrir ficha'}</button></div>
   </form>

@@ -13,15 +13,16 @@ import (
 )
 
 type bookingSettings struct {
-	Enabled        bool   `json:"enabled"`
-	MinNoticeHours int    `json:"min_notice_hours"`
-	MaxDaysAhead   int    `json:"max_days_ahead"`
-	CancelMinHours int    `json:"cancel_min_hours"`
-	DepositPercent int    `json:"deposit_percent"`
-	ReminderHours  int    `json:"reminder_hours"` // 0 = sin recordatorios
-	ShowPrices     bool   `json:"show_prices"`
-	WelcomeText    string `json:"welcome_text"`
-	PrivacyEmail   string `json:"privacy_email"` // correo para solicitudes de privacidad (se muestra en el aviso)
+	Enabled           bool   `json:"enabled"`
+	MinNoticeHours    int    `json:"min_notice_hours"`
+	MaxDaysAhead      int    `json:"max_days_ahead"`
+	CancelMinHours    int    `json:"cancel_min_hours"`
+	DepositPercent    int    `json:"deposit_percent"`
+	ReminderHours     int    `json:"reminder_hours"` // 0 = sin recordatorios
+	ShowPrices        bool   `json:"show_prices"`
+	WelcomeText       string `json:"welcome_text"`
+	PrivacyEmail      string `json:"privacy_email"`      // correo para solicitudes de privacidad (se muestra en el aviso)
+	WhatsAppReminders bool   `json:"whatsapp_reminders"` // además del correo, recordar por WhatsApp a quien lo aceptó
 }
 
 func defaultBookingSettings() bookingSettings {
@@ -31,9 +32,9 @@ func defaultBookingSettings() bookingSettings {
 func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSettings, error) {
 	s := defaultBookingSettings()
 	err := q.QueryRow(ctx,
-		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email
+		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders
 		 FROM booking_settings WHERE business_id = $1`, bizID).
-		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail)
+		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil
 	}
@@ -62,7 +63,7 @@ func (a *API) getBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"settings": s, "slug": slug, "public_path": "/reservar/" + slug,
-		"mp_connected": a.mpConnected(ctx, p.BusinessID), "mail_enabled": a.mailEnabled(),
+		"mp_connected": a.mpConnected(ctx, p.BusinessID), "mail_enabled": a.mailEnabled(), "whatsapp_available": a.waEnabled(),
 	})
 }
 
@@ -99,6 +100,10 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
+	if s.WhatsAppReminders && !a.waEnabled() {
+		writeErr(w, http.StatusConflict, "WhatsApp no está configurado en este servidor todavía")
+		return
+	}
 	if s.DepositPercent > 0 && !a.planOf(r.Context(), a.DB, p.BusinessID).Deposits {
 		writeFail(w, errPlanDeposits)
 		return
@@ -110,12 +115,13 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		 ON CONFLICT (business_id) DO UPDATE SET enabled = EXCLUDED.enabled, min_notice_hours = EXCLUDED.min_notice_hours,
 		   max_days_ahead = EXCLUDED.max_days_ahead, cancel_min_hours = EXCLUDED.cancel_min_hours, deposit_percent = EXCLUDED.deposit_percent,
-		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email`,
-		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail); err != nil {
+		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email,
+		   whatsapp_reminders = EXCLUDED.whatsapp_reminders`,
+		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders); err != nil {
 		serverErr(w)
 		return
 	}

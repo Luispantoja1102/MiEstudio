@@ -280,14 +280,14 @@ func (a *API) exportClient(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	var c struct {
-		Name, Phone, Email string
-		Birthday           *time.Time
-		Consent, Promos    bool
-		Created            time.Time
-		Anonymized         *time.Time
+		Name, Phone, Email  string
+		Birthday            *time.Time
+		Consent, Promos, WA bool
+		Created             time.Time
+		Anonymized          *time.Time
 	}
-	err := a.DB.QueryRow(ctx, `SELECT name, phone, email, birthday, reminders_consent, marketing_consent, created_at, anonymized_at FROM clients WHERE id = $1 AND business_id = $2`, id, p.BusinessID).
-		Scan(&c.Name, &c.Phone, &c.Email, &c.Birthday, &c.Consent, &c.Promos, &c.Created, &c.Anonymized)
+	err := a.DB.QueryRow(ctx, `SELECT name, phone, email, birthday, reminders_consent, marketing_consent, whatsapp_consent, created_at, anonymized_at FROM clients WHERE id = $1 AND business_id = $2`, id, p.BusinessID).
+		Scan(&c.Name, &c.Phone, &c.Email, &c.Birthday, &c.Consent, &c.Promos, &c.WA, &c.Created, &c.Anonymized)
 	if errors.Is(err, pgx.ErrNoRows) {
 		notFound(w)
 		return
@@ -319,7 +319,7 @@ func (a *API) exportClient(w http.ResponseWriter, r *http.Request) {
 	}
 	data := map[string]any{
 		"exported_at": a.now(),
-		"client":      map[string]any{"name": c.Name, "phone": c.Phone, "email": c.Email, "birthday": c.Birthday, "accepts_reminders": c.Consent, "accepts_promotions": c.Promos, "created_at": c.Created},
+		"client":      map[string]any{"name": c.Name, "phone": c.Phone, "email": c.Email, "birthday": c.Birthday, "accepts_reminders": c.Consent, "accepts_promotions": c.Promos, "accepts_whatsapp": c.WA, "created_at": c.Created},
 		"notes":       collect(`SELECT n.body AS note, n.created_at FROM client_notes n WHERE n.client_id = $1 ORDER BY n.created_at`, id),
 		"appointments": collect(`SELECT ap.starts_at, ap.status, s.name AS service, u.name AS professional, ap.notes, ap.source, ap.privacy_accepted_at, ap.privacy_version
 		   FROM appointments ap JOIN services s ON s.id = ap.service_id JOIN users u ON u.id = ap.staff_id WHERE ap.client_id = $1 ORDER BY ap.starts_at`, id),
@@ -371,7 +371,7 @@ func (a *API) eraseClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, q := range []string{
-		`UPDATE clients SET name = 'Cliente eliminado', phone = '', email = '', birthday = NULL, reminders_consent = false, marketing_consent = false, unsub_token = NULL, anonymized_at = $2 WHERE id = $1`,
+		`UPDATE clients SET name = 'Cliente eliminado', phone = '', email = '', birthday = NULL, reminders_consent = false, marketing_consent = false, whatsapp_consent = false, unsub_token = NULL, anonymized_at = $2 WHERE id = $1`,
 		`DELETE FROM client_notes WHERE client_id = $1`,
 		`UPDATE appointments SET notes = '', public_token = NULL, reminders_consent = false, privacy_accepted_at = NULL WHERE client_id = $1`,
 		`DELETE FROM notifications WHERE appointment_id IN (SELECT id FROM appointments WHERE client_id = $1)`,

@@ -16,6 +16,7 @@ import (
 	"miestudio/backend-go/internal/auth"
 	"miestudio/backend-go/internal/mail"
 	"miestudio/backend-go/internal/ratelimit"
+	"miestudio/backend-go/internal/whatsapp"
 )
 
 type API struct {
@@ -44,7 +45,11 @@ type API struct {
 	Operator              Operator // datos de quien opera la plataforma (aviso de privacidad)
 
 	Mailer mail.Sender // nil o sin configurar: no se envían correos
-	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
+
+	WhatsApp      whatsapp.Sender // nil o sin configurar: no se envían recordatorios por WhatsApp
+	WAVerifyToken string          // WHATSAPP_VERIFY_TOKEN: reto con el que Meta verifica el webhook
+	WAAppSecret   string          // WHATSAPP_APP_SECRET: firma de los mensajes que llegan; sin él no hay webhook
+	AppURL        string          // base de los enlaces de los correos (https://tu-dominio)
 }
 
 // authed exige sesión válida (negocio o plataforma).
@@ -95,6 +100,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
 	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
 	mux.HandleFunc("POST /api/public/{slug}/waitlist", a.publicWaitlist)
+	mux.HandleFunc("GET /api/webhooks/whatsapp", a.whatsappVerify)
+	mux.HandleFunc("POST /api/webhooks/whatsapp", a.whatsappWebhook)
 	mux.HandleFunc("GET /api/public-survey/{token}", a.publicSurveyInfo)
 	mux.HandleFunc("POST /api/public-survey/{token}", a.publicSurveyAnswer)
 	mux.HandleFunc("GET /api/public-unsub/{token}", a.publicUnsubInfo)

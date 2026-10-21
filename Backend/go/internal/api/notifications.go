@@ -188,7 +188,7 @@ func (a *API) enqueueMail(ctx context.Context, q execQueryer, apptID int64, kind
 	subject, text, htmlBody := renderMail(kind, moved, m, a.AppURL)
 	_, err = q.Exec(ctx,
 		`INSERT INTO notifications (business_id, appointment_id, kind, for_starts_at, to_addr, subject, body_text, body_html, send_after)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (appointment_id, kind, for_starts_at) DO NOTHING`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (appointment_id, kind, for_starts_at, channel) DO NOTHING`,
 		m.BizID, apptID, kind, m.Starts, m.Email, subject, text, htmlBody, a.now())
 	return err
 }
@@ -213,7 +213,7 @@ func (a *API) enqueueReminders(ctx context.Context) error {
 		    AND (ap.reminders_consent OR c.reminders_consent) AND c.email <> ''
 		    AND ap.starts_at > $1 AND ap.starts_at <= $1 + bs.reminder_hours * interval '1 hour'
 		    AND ap.created_at <= ap.starts_at - bs.reminder_hours * interval '1 hour'
-		    AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.appointment_id = ap.id AND n.kind = 'reminder' AND n.for_starts_at = ap.starts_at)
+		    AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.appointment_id = ap.id AND n.kind = 'reminder' AND n.for_starts_at = ap.starts_at AND n.channel = 'email')
 		  ORDER BY ap.starts_at LIMIT 200`, now)
 	if err != nil {
 		return err
@@ -242,6 +242,7 @@ func (a *API) enqueueReminders(ctx context.Context) error {
 type queued struct {
 	ID, ApptID              int64 // ApptID 0: aviso sin cita (lista de espera, cumpleaños…)
 	ClientID, WaitlistID    int64
+	Channel, Payload        string
 	Kind, To, Subject, Text string
 	HTML                    string
 	ForStarts               time.Time
@@ -250,10 +251,13 @@ type queued struct {
 
 // claimNotifications toma los correos vencidos y los aparta unos minutos para que nadie más los envíe a la vez.
 func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, error) {
+	// cada canal solo se toma si está configurado: lo de WhatsApp espera en la bandeja hasta que haya credenciales
 	rows, err := a.DB.Query(ctx,
 		`UPDATE notifications SET attempts = attempts + 1, send_after = $2
-		  WHERE id IN (SELECT id FROM notifications WHERE status = 'pending' AND send_after <= $1 ORDER BY send_after LIMIT $3 FOR UPDATE SKIP LOCKED)
-		  RETURNING id, COALESCE(appointment_id, 0), COALESCE(client_id, 0), COALESCE(waitlist_id, 0), kind, to_addr, subject, body_text, body_html, COALESCE(for_starts_at, 'epoch'), attempts`, now, now.Add(notifClaim), notifBatch)
+		  WHERE id IN (SELECT id FROM notifications WHERE status = 'pending' AND send_after <= $1
+		                  AND ((channel = 'email' AND $4) OR (channel = 'whatsapp' AND $5)) ORDER BY send_after LIMIT $3 FOR UPDATE SKIP LOCKED)
+		  RETURNING id, COALESCE(appointment_id, 0), COALESCE(client_id, 0), COALESCE(waitlist_id, 0), channel, COALESCE(payload::text, ''), kind, to_addr, subject, body_text, body_html,
+		            COALESCE(for_starts_at, 'epoch'), attempts`, now, now.Add(notifClaim), notifBatch, a.mailEnabled(), a.waEnabled())
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +265,7 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 	var out []queued
 	for rows.Next() {
 		var q queued
-		if err := rows.Scan(&q.ID, &q.ApptID, &q.ClientID, &q.WaitlistID, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ForStarts, &q.Attempts); err != nil {
+		if err := rows.Scan(&q.ID, &q.ApptID, &q.ClientID, &q.WaitlistID, &q.Channel, &q.Payload, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ForStarts, &q.Attempts); err != nil {
 			return nil, err
 		}
 		out = append(out, q)
@@ -277,11 +281,18 @@ func (a *API) stillRelevant(ctx context.Context, q queued, now time.Time) (bool,
 	var status string
 	var starts time.Time
 	var consent bool
+	var phone string
+	var waOn bool
 	err := a.DB.QueryRow(ctx,
-		`SELECT ap.status, ap.starts_at, (ap.reminders_consent OR c.reminders_consent)
-		   FROM appointments ap JOIN clients c ON c.id = ap.client_id WHERE ap.id = $1`, q.ApptID).Scan(&status, &starts, &consent)
+		`SELECT ap.status, ap.starts_at, CASE WHEN $2 = 'whatsapp' THEN c.whatsapp_consent ELSE (ap.reminders_consent OR c.reminders_consent) END,
+		        c.phone, COALESCE(bs.whatsapp_reminders, false)
+		   FROM appointments ap JOIN clients c ON c.id = ap.client_id LEFT JOIN booking_settings bs ON bs.business_id = ap.business_id
+		  WHERE ap.id = $1`, q.ApptID, q.Channel).Scan(&status, &starts, &consent, &phone, &waOn)
 	if err != nil {
 		return false, err
+	}
+	if q.Channel == "whatsapp" && (!waOn || !samePhone(phone, q.To)) {
+		return false, nil
 	}
 	switch q.Kind {
 	case "reminder":
@@ -339,14 +350,21 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 	if err := a.waitlistPass(ctx); err != nil {
 		return 0, err
 	}
-	if !a.mailEnabled() {
+	if !a.mailEnabled() && !a.waEnabled() {
 		return 0, nil
 	}
-	if err := a.enqueueReminders(ctx); err != nil {
-		return 0, err
+	if a.mailEnabled() {
+		if err := a.enqueueReminders(ctx); err != nil {
+			return 0, err
+		}
+		if err := a.engagementPass(ctx); err != nil {
+			return 0, err
+		}
 	}
-	if err := a.engagementPass(ctx); err != nil {
-		return 0, err
+	if a.waEnabled() {
+		if err := a.enqueueWhatsAppReminders(ctx); err != nil {
+			return 0, err
+		}
 	}
 	sent := 0
 	for round := 0; round < 25; round++ { // acotado: una acumulación grande se atiende en varias vueltas
@@ -365,7 +383,11 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 				continue
 			}
 			sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-			err = a.Mailer.Send(sctx, mail.Message{To: q.To, Subject: q.Subject, Text: q.Text, HTML: q.HTML})
+			if q.Channel == "whatsapp" {
+				err = a.sendWhatsApp(sctx, q)
+			} else {
+				err = a.Mailer.Send(sctx, mail.Message{To: q.To, Subject: q.Subject, Text: q.Text, HTML: q.HTML})
+			}
 			cancel()
 			switch {
 			case err == nil:

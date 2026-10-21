@@ -25,7 +25,7 @@
   let loadingSlots = $state(false);
   let picked = $state(null);
   let busy = $state(false);
-  let form = $state({ name: '', phone: '', email: '', notes: '', accept_privacy: false, consent_reminders: false, consent_marketing: false });
+  let form = $state({ name: '', phone: '', email: '', notes: '', accept_privacy: false, consent_reminders: false, consent_marketing: false, consent_whatsapp: false });
   let done = $state(null);
   let seq = 0;
   let joined = $state(false);
@@ -272,6 +272,7 @@
         </label>
         <label class="field">Notas (opcional) <input bind:value={form.notes} maxlength="300" /></label>
         <label class="check"><input type="checkbox" bind:checked={form.consent_reminders} /> Quiero recibir un recordatorio por correo antes de mi cita</label>
+        {#if info.whatsapp}<label class="check"><input type="checkbox" bind:checked={form.consent_whatsapp} /> Quiero recibir también el recordatorio por WhatsApp (respondes «BAJA» para dejar de recibirlo)</label>{/if}
         <label class="check"><input type="checkbox" bind:checked={form.consent_marketing} /> Quiero recibir promociones y una felicitación en mi cumpleaños</label>
         {#if (form.consent_reminders || form.consent_marketing) && !form.email.trim()}<p class="meta">Escribe tu correo para recibir los mensajes.</p>{/if}
         <label class="check" style="margin-top: 0.5rem"><input type="checkbox" bind:checked={form.accept_privacy} required /> <span>He leído y acepto el <a href="/aviso/{slug}" target="_blank" rel="noopener">aviso de privacidad</a></span></label>
@@ -279,7 +280,7 @@
           <summary>Aviso de privacidad</summary>
           <p>
             {info.business.name} usará tu nombre, teléfono y correo únicamente para gestionar tu cita: confirmarla, avisarte si cambia y,
-            solo si lo aceptas arriba, enviarte un recordatorio, promociones o una felicitación de cumpleaños. Cada correo trae un enlace para darte de baja. No se comparten con terceros, salvo el procesador de pagos cuando se pide anticipo.
+            solo si lo aceptas arriba, enviarte un recordatorio (por correo o por WhatsApp), promociones o una felicitación de cumpleaños. Cada correo trae un enlace para darte de baja. No se comparten con terceros, salvo el procesador de pagos cuando se pide anticipo.
             Puedes cancelar tu cita y dejar de recibir recordatorios desde el enlace de tu cita, o pedir que borren tus datos al negocio.
           </p>
         </details>

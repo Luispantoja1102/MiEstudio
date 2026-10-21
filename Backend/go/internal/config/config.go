@@ -33,9 +33,13 @@ type Config struct {
 	SMTPHost, SMTPUser, SMTPPass, MailFrom string
 	SMTPPort                               int
 	SMTPSecure                             bool
-	AppURL                                 string // dirección pública de la app: se usa en los enlaces de los correos
-	LegalName, LegalAddress, LegalEmail    string // datos de quien opera la plataforma, para el aviso de privacidad
-	TrustedProxies                         string // TRUSTED_PROXIES: proxies de los que se cree X-Forwarded-For (IP real y https)
+
+	// WhatsApp Business (API en la nube de Meta). Sin WHATSAPP_TOKEN y WHATSAPP_PHONE_ID no se envía nada.
+	WhatsAppToken, WhatsAppPhoneID, WhatsAppTemplate, WhatsAppLang, WhatsAppBase string
+	WhatsAppVerifyToken, WhatsAppAppSecret                                       string
+	AppURL                                                                       string // dirección pública de la app: se usa en los enlaces de los correos
+	LegalName, LegalAddress, LegalEmail                                          string // datos de quien opera la plataforma, para el aviso de privacidad
+	TrustedProxies                                                               string // TRUSTED_PROXIES: proxies de los que se cree X-Forwarded-For (IP real y https)
 
 	// primer administrador de plataforma (opcional; se crea solo si no existe ninguno)
 	PlatformAdminName     string
@@ -93,6 +97,16 @@ func Load() (Config, error) {
 	if c.MailFrom == "" && c.SMTPUser != "" && strings.Contains(c.SMTPUser, "@") {
 		c.MailFrom = "MiEstudio <" + c.SMTPUser + ">"
 	}
+	c.WhatsAppToken, c.WhatsAppPhoneID = strings.TrimSpace(os.Getenv("WHATSAPP_TOKEN")), strings.TrimSpace(os.Getenv("WHATSAPP_PHONE_ID"))
+	c.WhatsAppTemplate, c.WhatsAppLang = strings.TrimSpace(os.Getenv("WHATSAPP_TEMPLATE")), strings.TrimSpace(os.Getenv("WHATSAPP_LANG"))
+	if c.WhatsAppTemplate == "" {
+		c.WhatsAppTemplate = "recordatorio_cita"
+	}
+	if c.WhatsAppLang == "" {
+		c.WhatsAppLang = "es_MX"
+	}
+	c.WhatsAppBase = strings.TrimRight(strings.TrimSpace(os.Getenv("WHATSAPP_API_BASE")), "/")
+	c.WhatsAppVerifyToken, c.WhatsAppAppSecret = strings.TrimSpace(os.Getenv("WHATSAPP_VERIFY_TOKEN")), strings.TrimSpace(os.Getenv("WHATSAPP_APP_SECRET"))
 	c.LegalName, c.LegalAddress, c.LegalEmail = strings.TrimSpace(os.Getenv("LEGAL_NAME")), strings.TrimSpace(os.Getenv("LEGAL_ADDRESS")), strings.TrimSpace(os.Getenv("LEGAL_EMAIL"))
 	c.TrustedProxies = strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
 	c.AppURL = strings.TrimRight(strings.TrimSpace(os.Getenv("APP_URL")), "/")

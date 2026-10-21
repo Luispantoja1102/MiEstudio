@@ -204,6 +204,7 @@ func (a *API) publicInfo(w http.ResponseWriter, r *http.Request) {
 		"cancel_min_hours": b.Settings.CancelMinHours,
 		"deposit_percent":  b.Settings.DepositPercent,
 		"reminders":        b.Settings.ReminderHours > 0 && a.mailEnabled(),
+		"whatsapp":         b.Settings.ReminderHours > 0 && b.Settings.WhatsAppReminders && a.waEnabled(),
 		"waitlist":         a.mailEnabled(), // la lista de espera avisa por correo
 		"today":            a.now().In(b.Loc).Format(dateLayout),
 	})
@@ -294,6 +295,7 @@ type bookingReq struct {
 	AcceptPrivacy    bool   `json:"accept_privacy"`
 	ConsentReminders bool   `json:"consent_reminders"`
 	ConsentMarketing bool   `json:"consent_marketing"` // promociones y felicitación de cumpleaños
+	ConsentWhatsApp  bool   `json:"consent_whatsapp"`  // recordatorio por WhatsApp
 }
 
 // findOrCreateClient identifica a quien reserva por teléfono (o correo) sin revelar nada de lo que ya hay guardado.
@@ -479,6 +481,11 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	clientID, err := findOrCreateClient(ctx, tx, b.ID, req.Name, digits, req.Email, req.ConsentReminders)
 	if err != nil {
 		return nil, err
+	}
+	if req.ConsentWhatsApp {
+		if _, err := tx.Exec(ctx, `UPDATE clients SET whatsapp_consent = true WHERE id = $1`, clientID); err != nil {
+			return nil, err
+		}
 	}
 	if req.ConsentMarketing && req.Email != "" {
 		if _, err := tx.Exec(ctx, `UPDATE clients SET marketing_consent = true WHERE id = $1 AND email <> ''`, clientID); err != nil {
@@ -719,7 +726,7 @@ func (a *API) publicRemindersOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(ctx,
-		`WITH c AS (UPDATE clients SET reminders_consent = false WHERE id = (SELECT client_id FROM appointments WHERE id = $1) RETURNING id)
+		`WITH c AS (UPDATE clients SET reminders_consent = false, whatsapp_consent = false WHERE id = (SELECT client_id FROM appointments WHERE id = $1) RETURNING id)
 		 UPDATE appointments SET reminders_consent = false WHERE client_id IN (SELECT id FROM c) AND starts_at > $2`, m.ID, a.now()); err != nil {
 		serverErr(w)
 		return

@@ -19,6 +19,7 @@ type client struct {
 	Email     string     `json:"email"`
 	Reminders bool       `json:"reminders_consent"`
 	Promos    bool       `json:"marketing_consent"`
+	WhatsApp  bool       `json:"whatsapp_consent"`
 	Birthday  *time.Time `json:"-"`
 	BirthdayS *string    `json:"birthday"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -57,11 +58,11 @@ func parseBirthday(s string) (*time.Time, bool) {
 	return &t, true
 }
 
-const clientCols = `id, name, phone, email, reminders_consent, marketing_consent, birthday, created_at`
+const clientCols = `id, name, phone, email, reminders_consent, marketing_consent, whatsapp_consent, birthday, created_at`
 
 func scanClient(row pgx.Row) (client, error) {
 	var c client
-	err := row.Scan(&c.ID, &c.Name, &c.Phone, &c.Email, &c.Reminders, &c.Promos, &c.Birthday, &c.CreatedAt)
+	err := row.Scan(&c.ID, &c.Name, &c.Phone, &c.Email, &c.Reminders, &c.Promos, &c.WhatsApp, &c.Birthday, &c.CreatedAt)
 	c.finish()
 	return c, err
 }
@@ -97,6 +98,7 @@ func (a *API) createClient(w http.ResponseWriter, r *http.Request) {
 		Name, Phone, Email, Birthday string
 		RemindersConsent             *bool `json:"reminders_consent"`
 		MarketingConsent             *bool `json:"marketing_consent"`
+		WhatsAppConsent              *bool `json:"whatsapp_consent"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -115,14 +117,19 @@ func (a *API) createClient(w http.ResponseWriter, r *http.Request) {
 	}
 	consent := req.RemindersConsent != nil && *req.RemindersConsent
 	promos := req.MarketingConsent != nil && *req.MarketingConsent
+	wa := req.WhatsAppConsent != nil && *req.WhatsAppConsent
+	if wa && waNumber(req.Phone) == "" {
+		writeErr(w, http.StatusBadRequest, "para WhatsApp se necesita un teléfono de 10 dígitos")
+		return
+	}
 	if (consent || promos) && req.Email == "" {
 		writeErr(w, http.StatusBadRequest, "para enviar mensajes se necesita el correo")
 		return
 	}
 	var id int64
 	if err := a.DB.QueryRow(r.Context(),
-		`INSERT INTO clients (business_id, name, phone, email, birthday, reminders_consent, marketing_consent) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-		p.BusinessID, req.Name, req.Phone, req.Email, bday, consent, promos).Scan(&id); err != nil {
+		`INSERT INTO clients (business_id, name, phone, email, birthday, reminders_consent, marketing_consent, whatsapp_consent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+		p.BusinessID, req.Name, req.Phone, req.Email, bday, consent, promos, wa).Scan(&id); err != nil {
 		serverErr(w)
 		return
 	}
@@ -158,6 +165,7 @@ func (a *API) updateClient(w http.ResponseWriter, r *http.Request) {
 		Name, Phone, Email, Birthday string
 		RemindersConsent             *bool `json:"reminders_consent"`
 		MarketingConsent             *bool `json:"marketing_consent"`
+		WhatsAppConsent              *bool `json:"whatsapp_consent"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -178,11 +186,16 @@ func (a *API) updateClient(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "para enviar mensajes se necesita el correo")
 		return
 	}
+	if req.WhatsAppConsent != nil && *req.WhatsAppConsent && waNumber(req.Phone) == "" {
+		writeErr(w, http.StatusBadRequest, "para WhatsApp se necesita un teléfono de 10 dígitos")
+		return
+	}
 	tag, err := a.DB.Exec(r.Context(),
 		`UPDATE clients SET name = $3, phone = $4, email = $5, birthday = $6, reminders_consent = COALESCE($7, reminders_consent) AND $5 <> '',
-		   marketing_consent = COALESCE($8, marketing_consent) AND $5 <> ''
+		   marketing_consent = COALESCE($8, marketing_consent) AND $5 <> '',
+		   whatsapp_consent = COALESCE($9, whatsapp_consent) AND length(regexp_replace($4, '\D', '', 'g')) >= 10
 		 WHERE id = $1 AND business_id = $2`,
-		id, p.BusinessID, req.Name, req.Phone, req.Email, bday, req.RemindersConsent, req.MarketingConsent)
+		id, p.BusinessID, req.Name, req.Phone, req.Email, bday, req.RemindersConsent, req.MarketingConsent, req.WhatsAppConsent)
 	if err != nil {
 		serverErr(w)
 		return

@@ -233,7 +233,7 @@ func (a *API) publicUnsubInfo(w http.ResponseWriter, r *http.Request) {
 	var business string
 	var subscribed bool
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT b.name, (c.marketing_consent OR c.reminders_consent) FROM clients c JOIN businesses b ON b.id = c.business_id WHERE c.unsub_token = $1`, token).Scan(&business, &subscribed)
+		`SELECT b.name, (c.marketing_consent OR c.reminders_consent OR c.whatsapp_consent) FROM clients c JOIN businesses b ON b.id = c.business_id WHERE c.unsub_token = $1`, token).Scan(&business, &subscribed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		notFound(w)
 		return
@@ -255,7 +255,7 @@ func (a *API) publicUnsub(w http.ResponseWriter, r *http.Request) {
 	if !a.allow(w, "pub-unsub:"+clientIP(r), 30, time.Hour) {
 		return
 	}
-	tag, err := a.DB.Exec(r.Context(), `UPDATE clients SET marketing_consent = false, reminders_consent = false WHERE unsub_token = $1`, token)
+	tag, err := a.DB.Exec(r.Context(), `UPDATE clients SET marketing_consent = false, reminders_consent = false, whatsapp_consent = false WHERE unsub_token = $1`, token)
 	if err != nil {
 		serverErr(w)
 		return

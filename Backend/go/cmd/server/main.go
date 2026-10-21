@@ -11,6 +11,7 @@ import (
 	"miestudio/backend-go/internal/db"
 	"miestudio/backend-go/internal/mail"
 	"miestudio/backend-go/internal/ratelimit"
+	"miestudio/backend-go/internal/whatsapp"
 )
 
 func main() {
@@ -47,6 +48,12 @@ func main() {
 		a.Mailer = smtp
 	} else {
 		log.Printf("correo: SMTP no configurado; no se enviarán confirmaciones ni recordatorios")
+	}
+	a.WAVerifyToken, a.WAAppSecret = cfg.WhatsAppVerifyToken, cfg.WhatsAppAppSecret
+	if wa := (&whatsapp.Cloud{Token: cfg.WhatsAppToken, PhoneID: cfg.WhatsAppPhoneID, Template: cfg.WhatsAppTemplate, Lang: cfg.WhatsAppLang, Base: cfg.WhatsAppBase}); wa.Enabled() {
+		a.WhatsApp = wa
+	} else {
+		log.Printf("whatsapp: sin WHATSAPP_TOKEN y WHATSAPP_PHONE_ID; no se enviarán recordatorios por WhatsApp")
 	}
 	go a.RunNotifications(ctx)
 	if err := a.BootstrapPlatformAdmin(ctx, cfg.PlatformAdminName, cfg.PlatformAdminEmail, cfg.PlatformAdminPassword); err != nil {

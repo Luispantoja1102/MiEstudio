@@ -114,7 +114,7 @@ elige servicio, persona y horario sin crear cuenta; recibe un enlace privado par
 Los correos (confirmación, cambio, cancelación y recordatorio) salen de una bandeja con reintentos
 (5 y 20 minutos, 3 intentos); una falla del servidor de correo nunca estropea la reserva. Los recordatorios
 solo se envían a quien los aceptó, y cada uno trae el enlace para darse de baja. Configura `SMTP_*`, `MAIL_FROM`
-y `APP_URL` en `.env` (ver `.env.example`). WhatsApp no está implementado.
+y `APP_URL` en `.env` (ver `.env.example`).
 
 **Anticipos.** Con Mercado Pago conectado, el negocio puede pedir un porcentaje por adelantado (Checkout Pro).
 La cita queda apartada 15 minutos como «pendiente de pago» y se confirma solo con un pago aprobado por el monto
@@ -128,6 +128,20 @@ los horarios libres reales —cancelaciones, bloqueos quitados, horarios nuevos�
 tantas personas como horarios haya (un aviso reciente sigue contando 12 h). El aviso no aparta el horario: el primero que lo reserva
 se lo queda, y su solicitud pasa a «reservada». Cada correo trae el enlace `/espera/<token>` para salir de la lista; las solicitudes
 vencen al pasar el día, y si se borran los datos del cliente se cancelan. Requiere correo configurado.
+
+**Recordatorios por WhatsApp.** Además del correo, el recordatorio puede salir por WhatsApp (API en la nube de Meta), con la misma ventana de tiempo,
+reintentos y comprobaciones. Solo va a quien lo aceptó (casilla en la reserva en línea o en su ficha, con teléfono de 10 dígitos) y solo si el negocio lo encendió en
+*Ajustes → Reservas*. Quien responde «BAJA» o «STOP» al número deja de recibirlos (webhook). Lo operado por la plataforma, no por cada negocio: tú aportas **un**
+número de WhatsApp Business y las credenciales van en `.env`:
+1. En Meta for Developers crea una app con el producto *WhatsApp*, registra tu número de WhatsApp Business y genera un **token permanente** (usuario del sistema).
+2. En el administrador de WhatsApp crea y **envía a aprobar** la plantilla de categoría *Utilidad*, idioma *Español (México)* y nombre `recordatorio_cita`,
+   con este cuerpo (los cuatro parámetros van en este orden: nombre, servicio, fecha y hora, negocio):
+   `Hola {{1}}, te recordamos tu cita de {{2}} el {{3}} en {{4}}. Responde BAJA si ya no quieres recibir recordatorios.`
+3. Pon en `.env`: `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` (identificador del número, no el teléfono), y si cambiaste la plantilla `WHATSAPP_TEMPLATE` / `WHATSAPP_LANG`.
+4. Para las bajas, configura el webhook de la app de Meta en `https://tu-dominio/api/webhooks/whatsapp` (campo *messages*) con `WHATSAPP_VERIFY_TOKEN` (cualquier texto
+   que elijas) y `WHATSAPP_APP_SECRET` (el secreto de la app, que firma cada aviso; sin él el webhook se desactiva).
+Mientras la plantilla no esté aprobada Meta rechaza los envíos: la bandeja los reintenta 3 veces y los marca como fallidos (el motivo queda en `notifications.last_error`).
+Sin credenciales el interruptor no se puede encender y lo que esté en cola espera.
 
 **Mensajes a clientes** (*Ajustes → Mensajes a clientes*, apagados por defecto; requieren correo configurado). Tres correos automáticos:
 - **Cumpleaños:** el día del cumpleaños, a partir de las 9:00 hora del negocio, con un mensaje opcional (por ejemplo una promoción).

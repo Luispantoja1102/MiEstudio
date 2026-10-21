@@ -6,7 +6,7 @@
   import { session } from '$lib/session.svelte.js';
 
   let s = $state(null);
-  let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false });
+  let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false, whatsapp_available: false });
   let services = $state([]);
   let error = $state('');
   let saved = $state(false);
@@ -18,7 +18,7 @@
   async function load() {
     const [r, svc] = await Promise.all([api('/api/booking/settings'), api('/api/services')]);
     s = { ...r.settings };
-    meta = { public_path: r.public_path, mp_connected: r.mp_connected, mail_enabled: r.mail_enabled };
+    meta = { public_path: r.public_path, mp_connected: r.mp_connected, mail_enabled: r.mail_enabled, whatsapp_available: r.whatsapp_available };
     services = svc.filter((x) => x.active);
   }
 
@@ -33,11 +33,11 @@
     saved = false;
     busy = true;
     try {
-      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email } = s;
+      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders } = s;
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
-          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email }
+          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available }
       });
       saved = true;
       await load();
@@ -136,6 +136,20 @@
         {:else}
           El servidor aún no tiene correo configurado (SMTP_HOST y MAIL_FROM en .env), por eso no se envían correos.
         {/if}
+      </span>
+    </label>
+
+    <label class="check" style="margin-top: 0.75rem">
+      <input type="checkbox" bind:checked={s.whatsapp_reminders} disabled={!meta.whatsapp_available || !+s.reminder_hours} />
+      <span>
+        También recordar por WhatsApp
+        <span class="hint" style="display: block">
+          {#if meta.whatsapp_available}
+            Solo a quien lo aceptó al reservar. Sale con la plantilla de recordatorio aprobada por Meta; quien responde «BAJA» deja de recibirlos.
+          {:else}
+            El servidor aún no tiene WhatsApp configurado (WHATSAPP_TOKEN y WHATSAPP_PHONE_ID en .env).
+          {/if}
+        </span>
       </span>
     </label>
 
