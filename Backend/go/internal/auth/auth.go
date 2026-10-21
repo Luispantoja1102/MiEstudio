@@ -20,6 +20,7 @@ type Principal struct {
 	BusinessID     int64 // 0 para usuarios de plataforma
 	Role           string
 	BusinessStatus string // vacío para usuarios de plataforma
+	SessionVersion int    // un token solo vale si lleva esta misma versión
 }
 
 // Roles de plataforma (sin negocio).
@@ -37,6 +38,7 @@ type Lookup func(ctx context.Context, userID int64) (*Principal, error)
 
 type claims struct {
 	UserID int64 `json:"uid"`
+	SV     int   `json:"sv"`
 	jwt.RegisteredClaims
 }
 
@@ -49,22 +51,54 @@ func CheckPassword(hash, p string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(p)) == nil
 }
 
-func Sign(secret string, userID int64) (string, error) {
+// SessionHours es lo que dura una sesión.
+const SessionHours = 12
+
+func Sign(secret string, userID int64, sessionVersion int) (string, error) {
 	c := claims{
 		UserID:           userID,
-		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(12 * time.Hour))},
+		SV:               sessionVersion,
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(SessionHours * time.Hour))},
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString([]byte(secret))
 }
 
-func parseUserID(secret, token string) (int64, error) {
+func parseToken(secret, token string) (uid int64, sv int, err error) {
 	c := &claims{}
 	t, err := jwt.ParseWithClaims(token, c, func(*jwt.Token) (any, error) { return []byte(secret), nil },
 		jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil || !t.Valid || c.UserID == 0 {
-		return 0, errors.New("token inválido")
+		return 0, 0, errors.New("token inválido")
 	}
-	return c.UserID, nil
+	return c.UserID, c.SV, nil
+}
+
+// CookieName es la cookie de sesión: HttpOnly, así ningún script de la página puede leerla.
+const CookieName = "miestudio_session"
+
+// CSRFHeader debe acompañar a toda petición que cambie datos y se autentique con la cookie.
+// Un formulario de otro sitio no puede añadir encabezados propios sin permiso del navegador.
+const CSRFHeader = "X-Requested-With"
+const CSRFValue = "miestudio"
+
+func SetCookie(w http.ResponseWriter, token string, secure bool) {
+	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: token, Path: "/", MaxAge: SessionHours * 3600,
+		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode})
+}
+
+func ClearCookie(w http.ResponseWriter, secure bool) {
+	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode})
+}
+
+// tokenFrom busca el token: encabezado Bearer (herramientas y pruebas) o la cookie (el navegador).
+func tokenFrom(r *http.Request) (token string, fromCookie bool) {
+	if t, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		return t, false
+	}
+	if c, err := r.Cookie(CookieName); err == nil {
+		return c.Value, true
+	}
+	return "", false
 }
 
 type ctxKey struct{}
@@ -85,12 +119,17 @@ func denyCode(w http.ResponseWriter, status int, msg, code string) {
 func Middleware(secret string, lookup Lookup) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if !ok {
+			token, fromCookie := tokenFrom(r)
+			if token == "" {
 				deny(w, http.StatusUnauthorized, "no autenticado")
 				return
 			}
-			uid, err := parseUserID(secret, token)
+			if fromCookie && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions &&
+				r.Header.Get(CSRFHeader) != CSRFValue {
+				denyCode(w, http.StatusForbidden, "solicitud no permitida", "csrf")
+				return
+			}
+			uid, sv, err := parseToken(secret, token)
 			if err != nil {
 				deny(w, http.StatusUnauthorized, "no autenticado")
 				return
@@ -100,7 +139,7 @@ func Middleware(secret string, lookup Lookup) func(http.Handler) http.Handler {
 				deny(w, http.StatusInternalServerError, "error interno")
 				return
 			}
-			if p == nil {
+			if p == nil || p.SessionVersion != sv { // baja, o la sesión se cerró (cambio de clave, de rol…)
 				deny(w, http.StatusUnauthorized, "no autenticado")
 				return
 			}

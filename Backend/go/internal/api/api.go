@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,6 +70,9 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/auth/registration", a.registrationInfo)
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
+	mux.HandleFunc("POST /api/auth/logout", a.logout)
+	mux.HandleFunc("POST /api/auth/forgot", a.forgotPassword)
+	mux.HandleFunc("POST /api/auth/reset", a.resetPassword)
 	mux.HandleFunc("POST /api/webhooks/mercadopago", a.mpWebhook)
 	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
@@ -84,6 +86,7 @@ func (a *API) Routes() http.Handler {
 
 	// cualquier sesión (el estado de la cuenta se informa en /api/me)
 	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
+	mux.Handle("POST /api/auth/logout-all", a.authed()(http.HandlerFunc(a.logoutAll)))
 	mux.Handle("POST /api/auth/password", a.authed()(http.HandlerFunc(a.changePassword)))
 
 	// negocio: configuración de la reserva en línea
@@ -186,9 +189,9 @@ func (a *API) Routes() http.Handler {
 func (a *API) lookup(ctx context.Context, userID int64) (*auth.Principal, error) {
 	p := &auth.Principal{UserID: userID}
 	err := a.DB.QueryRow(ctx,
-		`SELECT COALESCE(u.business_id, 0), u.role, COALESCE(b.status, '')
+		`SELECT COALESCE(u.business_id, 0), u.role, COALESCE(b.status, ''), u.session_version
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id
-		 WHERE u.id = $1 AND u.active`, userID).Scan(&p.BusinessID, &p.Role, &p.BusinessStatus)
+		 WHERE u.id = $1 AND u.active`, userID).Scan(&p.BusinessID, &p.Role, &p.BusinessStatus, &p.SessionVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -240,12 +243,4 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	return json.NewDecoder(r.Body).Decode(v) == nil
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }

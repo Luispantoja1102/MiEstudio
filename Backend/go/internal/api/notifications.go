@@ -293,6 +293,7 @@ func (a *API) stillRelevant(ctx context.Context, q queued, now time.Time) (bool,
 func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 	a.sweepHolds(ctx)
 	a.recheckRecentlyExpired(ctx)
+	a.purgeResets(ctx)
 	if !a.mailEnabled() {
 		return 0, nil
 	}

@@ -19,6 +19,9 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
+	if err := api.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatal(err)
+	}
 	// primera ejecución: si la base no existe se crea sola (como en MiConsultorio)
 	if created, err := db.EnsureDatabase(ctx, cfg.DatabaseURL); err != nil {
 		log.Fatal(err)

@@ -33,6 +33,7 @@ type Config struct {
 	SMTPPort                               int
 	SMTPSecure                             bool
 	AppURL                                 string // dirección pública de la app: se usa en los enlaces de los correos
+	TrustedProxies                         string // TRUSTED_PROXIES: proxies de los que se cree X-Forwarded-For (IP real y https)
 
 	// primer administrador de plataforma (opcional; se crea solo si no existe ninguno)
 	PlatformAdminName     string
@@ -88,6 +89,7 @@ func Load() (Config, error) {
 	if c.MailFrom == "" && c.SMTPUser != "" && strings.Contains(c.SMTPUser, "@") {
 		c.MailFrom = "MiEstudio <" + c.SMTPUser + ">"
 	}
+	c.TrustedProxies = strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
 	c.AppURL = strings.TrimRight(strings.TrimSpace(os.Getenv("APP_URL")), "/")
 	if c.AppURL == "" {
 		c.AppURL = "http://localhost:5173"

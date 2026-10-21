@@ -136,7 +136,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 	default:
 		a.logActivity(r.Context(), 0, bizID, "business_registered", map[string]any{"status": status, "email": req.Email})
-		token, _ := auth.Sign(a.Secret, userID)
+		token, _ := a.startSession(w, r, userID)
 		writeJSON(w, http.StatusCreated, map[string]any{"token": token, "status": status})
 	}
 }
@@ -218,8 +218,40 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "error interno")
 		return
 	}
-	token, _ := auth.Sign(a.Secret, id)
+	token, _ := a.startSession(w, r, id)
 	writeJSON(w, http.StatusOK, map[string]any{"token": token})
+}
+
+// startSession firma el token con la versión de sesión vigente y lo deja en la cookie HttpOnly.
+// El token también se devuelve en el cuerpo para herramientas que no usan cookies; la interfaz web no lo guarda.
+func (a *API) startSession(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
+	var sv int
+	if err := a.DB.QueryRow(r.Context(), `SELECT session_version FROM users WHERE id = $1`, userID).Scan(&sv); err != nil {
+		return "", err
+	}
+	token, err := auth.Sign(a.Secret, userID, sv)
+	if err != nil {
+		return "", err
+	}
+	auth.SetCookie(w, token, a.secureCookie(r))
+	return token, nil
+}
+
+// logout cierra esta sesión en el navegador.
+func (a *API) logout(w http.ResponseWriter, r *http.Request) {
+	auth.ClearCookie(w, a.secureCookie(r))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// logoutAll cierra todas las sesiones de la persona, en todos sus dispositivos.
+func (a *API) logoutAll(w http.ResponseWriter, r *http.Request) {
+	p := auth.FromContext(r.Context())
+	if _, err := a.DB.Exec(r.Context(), `UPDATE users SET session_version = session_version + 1 WHERE id = $1`, p.UserID); err != nil {
+		serverErr(w)
+		return
+	}
+	auth.ClearCookie(w, a.secureCookie(r))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
@@ -271,6 +303,11 @@ func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 		_, err = a.DB.Exec(r.Context(), `UPDATE users SET password_hash = $1 WHERE id = $2`, newHash, p.UserID)
 	}
 	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error interno")
+		return
+	}
+	// la clave cambió: todas las sesiones anteriores quedaron cerradas; esta se renueva para no sacar a quien la cambió
+	if _, err := a.startSession(w, r, p.UserID); err != nil {
 		writeErr(w, http.StatusInternalServerError, "error interno")
 		return
 	}
