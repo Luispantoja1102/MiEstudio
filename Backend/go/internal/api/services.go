@@ -14,6 +14,7 @@ type service struct {
 	BufferMin   int     `json:"buffer_min"`
 	PriceCents  int     `json:"price_cents"`
 	Active      bool    `json:"active"`
+	Online      bool    `json:"online_bookable"`
 	StaffIDs    []int64 `json:"staff_ids"`
 }
 
@@ -36,7 +37,7 @@ func validService(name string, duration, buffer, price int) string {
 func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT s.id, s.name, s.duration_min, s.buffer_min, s.price_cents, s.active,
+		`SELECT s.id, s.name, s.duration_min, s.buffer_min, s.price_cents, s.active, s.online_bookable,
 		        COALESCE(array_agg(ss.user_id ORDER BY ss.user_id) FILTER (WHERE ss.user_id IS NOT NULL), '{}')
 		 FROM services s LEFT JOIN service_staff ss ON ss.service_id = s.id
 		 WHERE s.business_id = $1 GROUP BY s.id ORDER BY s.name`, p.BusinessID)
@@ -48,7 +49,7 @@ func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
 	out := []service{}
 	for rows.Next() {
 		var s service
-		if err := rows.Scan(&s.ID, &s.Name, &s.DurationMin, &s.BufferMin, &s.PriceCents, &s.Active, &s.StaffIDs); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.DurationMin, &s.BufferMin, &s.PriceCents, &s.Active, &s.Online, &s.StaffIDs); err != nil {
 			serverErr(w)
 			return
 		}
@@ -97,6 +98,7 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 		BufferMin   *int    `json:"buffer_min"`
 		PriceCents  *int    `json:"price_cents"`
 		Active      *bool   `json:"active"`
+		Online      *bool   `json:"online_bookable"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -126,9 +128,10 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 	}
 	tag, err := a.DB.Exec(r.Context(),
 		`UPDATE services SET name = COALESCE($3, name), duration_min = COALESCE($4, duration_min),
-		   buffer_min = COALESCE($5, buffer_min), price_cents = COALESCE($6, price_cents), active = COALESCE($7, active)
+		   buffer_min = COALESCE($5, buffer_min), price_cents = COALESCE($6, price_cents), active = COALESCE($7, active),
+		   online_bookable = COALESCE($8, online_bookable)
 		 WHERE id = $1 AND business_id = $2`,
-		id, p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents, req.Active)
+		id, p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents, req.Active, req.Online)
 	if err != nil {
 		serverErr(w)
 		return

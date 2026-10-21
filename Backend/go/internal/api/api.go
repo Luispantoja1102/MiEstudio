@@ -65,9 +65,20 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", a.login)
 	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
+	// reserva en línea (sin sesión)
+	mux.HandleFunc("GET /api/public-appointments/{token}", a.publicAppointment)
+	mux.HandleFunc("POST /api/public-appointments/{token}/cancel", a.publicCancel)
+	mux.HandleFunc("GET /api/public/{slug}", a.publicInfo)
+	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
+	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
+
 	// cualquier sesión (el estado de la cuenta se informa en /api/me)
 	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
 	mux.Handle("POST /api/auth/password", a.authed()(http.HandlerFunc(a.changePassword)))
+
+	// negocio: configuración de la reserva en línea
+	mux.Handle("GET /api/booking/settings", a.tenant(a.getBookingSettings, admin))
+	mux.Handle("PUT /api/booking/settings", a.tenant(a.putBookingSettings, admin))
 
 	// negocio: equipo
 	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))
