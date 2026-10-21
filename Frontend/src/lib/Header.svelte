@@ -1,12 +1,13 @@
 <script>
+  import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
   let { children } = $props();
 </script>
 
 <header>
   <div class="container bar">
-    <a class="logo" href="/">MiEstudio</a>
-    <nav>
+    <Logo />
+    <nav aria-label="Principal">
       <ThemeToggle />
       {@render children?.()}
     </nav>
@@ -14,15 +15,14 @@
 </header>
 
 <style>
-  header { border-bottom: 1px solid var(--border); background: var(--surface); }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; }
-  .logo {
-    font-family: var(--font-heading);
-    font-weight: var(--heading-weight);
-    font-size: 1.35rem;
-    letter-spacing: var(--heading-tracking);
-    color: var(--text);
-    text-decoration: none;
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px);
   }
-  nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; }
+  nav { display: flex; align-items: center; gap: 8px; }
 </style>

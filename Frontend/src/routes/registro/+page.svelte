@@ -1,6 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
-  import Header from '$lib/Header.svelte';
+  import AuthLayout from '$lib/AuthLayout.svelte';
   import { api, setToken } from '$lib/api.js';
 
   const kinds = [
@@ -30,33 +30,30 @@
   }
 </script>
 
-<Header><a class="btn ghost" href="/login">Iniciar sesión</a></Header>
+<AuthLayout title="Crea tu cuenta" subtitle="Configura tu negocio en un par de minutos.">
+  {#snippet nav()}<a class="btn ghost" href="/login">Iniciar sesión</a>{/snippet}
 
-<main class="container wrap">
-  <form class="card" onsubmit={submit}>
-    <h1>Crea tu cuenta</h1>
-    <label>Nombre del negocio <input bind:value={form.business_name} required /></label>
-    <label>
+  <form onsubmit={submit}>
+    <label class="field">Nombre del negocio <input bind:value={form.business_name} required /></label>
+    <label class="field">
       Giro
       <select bind:value={form.kind}>
         {#each kinds as [value, label]}<option {value}>{label}</option>{/each}
       </select>
     </label>
-    <label>Tu nombre <input bind:value={form.name} autocomplete="name" required /></label>
-    <label>Correo <input type="email" bind:value={form.email} autocomplete="email" required /></label>
-    <label>
-      Contraseña (mínimo 8 caracteres)
+    <label class="field">Tu nombre <input bind:value={form.name} autocomplete="name" required /></label>
+    <label class="field">Correo <input type="email" bind:value={form.email} autocomplete="email" required /></label>
+    <label class="field">
+      Contraseña
       <input type="password" bind:value={form.password} minlength="8" maxlength="72" autocomplete="new-password" required />
+      <span class="hint">Mínimo 8 caracteres.</span>
     </label>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button class="btn" disabled={busy}>Crear cuenta</button>
-    <p class="alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+    <button class="btn block lg" disabled={busy}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
   </form>
-</main>
+  <p class="alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+</AuthLayout>
 
 <style>
-  .wrap { max-width: 480px; padding-block: 40px; }
-  h1 { font-size: 1.6rem; }
-  .btn { width: 100%; }
-  .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 0; }
+  .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.5rem 0 0; }
 </style>
