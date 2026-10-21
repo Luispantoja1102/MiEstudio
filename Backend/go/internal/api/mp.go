@@ -726,7 +726,7 @@ func (a *API) pointCharge(w http.ResponseWriter, r *http.Request) {
 	// Mercado Pago solo acepta letras, dígitos, "-" y "_" en la referencia externa
 	ref := "mie_" + strconv.FormatInt(p.BusinessID, 36) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36)
 	body := map[string]any{
-		"type": "point", "external_reference": ref, "description": "Cobro MiEstudio",
+		"type": "point", "external_reference": ref, "description": "Cobro Barbella",
 		"transactions": map[string]any{"payments": []map[string]string{{"amount": cents(req.AmountCents)}}},
 		"config":       map[string]any{"point": map[string]string{"terminal_id": terminal}},
 	}

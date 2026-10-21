@@ -108,7 +108,7 @@ func (a *API) startCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	ref := depSubRef + strconv.FormatInt(id, 10)
 	back := a.AppURL + "/panel/suscripcion?checkout=" + strconv.FormatInt(id, 10)
-	title := fmt.Sprintf("MiEstudio %s · %s", plan.Name, plural(req.Months, "mes", "meses"))
+	title := fmt.Sprintf("Barbella %s · %s", plan.Name, plural(req.Months, "mes", "meses"))
 	pref := map[string]any{
 		"items":              []map[string]any{{"title": title, "quantity": 1, "currency_id": "MXN", "unit_price": float64(amount) / 100}},
 		"external_reference": ref,
@@ -314,9 +314,9 @@ func (a *API) notifyPayment(ctx context.Context, bizID int64, p paymentRow) {
 			Text: fmt.Sprintf("%s pagó %s (plan %s, %s). Vigente hasta %s.\n", name, moneyES(p.AmountCents), plan.Name, plural(p.Months, "mes", "meses"), until)}, "aviso de pago a la plataforma")
 	}
 	for _, to := range a.businessAdmins(ctx, bizID) {
-		a.sendBackground(mail.Message{To: to, Subject: "Recibimos tu pago · MiEstudio",
-			Text: fmt.Sprintf("Gracias. Recibimos tu pago de %s por el plan %s (%s).\nTu suscripción está vigente hasta el %s.\n\n— MiEstudio\n", moneyES(p.AmountCents), plan.Name, plural(p.Months, "mes", "meses"), until),
-			HTML: fmt.Sprintf(`<p>Gracias. Recibimos tu pago de <b>%s</b> por el plan <b>%s</b> (%s).</p><p>Tu suscripción está vigente hasta el <b>%s</b>.</p><p>— MiEstudio</p>`,
+		a.sendBackground(mail.Message{To: to, Subject: "Recibimos tu pago · Barbella",
+			Text: fmt.Sprintf("Gracias. Recibimos tu pago de %s por el plan %s (%s).\nTu suscripción está vigente hasta el %s.\n\n— Barbella\n", moneyES(p.AmountCents), plan.Name, plural(p.Months, "mes", "meses"), until),
+			HTML: fmt.Sprintf(`<p>Gracias. Recibimos tu pago de <b>%s</b> por el plan <b>%s</b> (%s).</p><p>Tu suscripción está vigente hasta el <b>%s</b>.</p><p>— Barbella</p>`,
 				html.EscapeString(moneyES(p.AmountCents)), html.EscapeString(plan.Name), plural(p.Months, "mes", "meses"), until)}, "recibo de pago")
 	}
 }
@@ -352,29 +352,29 @@ func (a *API) billingPass(ctx context.Context) {
 		case "trialing":
 			if b.TrialDaysLeft != nil && *b.TrialDaysLeft <= 3 {
 				kind, key = "trial_ending", b.TrialEndsAt.Format("2006-01-02")
-				subject = "Tu prueba de MiEstudio termina pronto"
-				body = fmt.Sprintf("Tu prueba gratis de %s termina el %s. Elige un plan para seguir usando MiEstudio sin interrupciones:\n%s\n", b.Name, b.TrialEndsAt.Format("2006-01-02"), link)
+				subject = "Tu prueba de Barbella termina pronto"
+				body = fmt.Sprintf("Tu prueba gratis de %s termina el %s. Elige un plan para seguir usando Barbella sin interrupciones:\n%s\n", b.Name, b.TrialEndsAt.Format("2006-01-02"), link)
 			}
 		case "trial_expired":
 			kind, key = "trial_expired", b.TrialEndsAt.Format("2006-01-02")
-			subject = "Tu prueba de MiEstudio terminó"
+			subject = "Tu prueba de Barbella terminó"
 			body = fmt.Sprintf("La prueba de %s terminó y tu cuenta está en pausa (tus datos están a salvo). Elige un plan para reactivarla:\n%s\n", b.Name, link)
 		case "active":
 			if b.CurrentPeriodEnd != nil && b.CurrentPeriodEnd.Sub(now) <= 5*24*time.Hour {
 				kind, key = "renewal_soon", b.CurrentPeriodEnd.Format("2006-01-02")
-				subject = "Tu suscripción de MiEstudio vence pronto"
+				subject = "Tu suscripción de Barbella vence pronto"
 				body = fmt.Sprintf("La suscripción de %s vence el %s. Renuévala para no perder el acceso:\n%s\n", b.Name, b.CurrentPeriodEnd.Format("2006-01-02"), link)
 			}
 		case "past_due":
 			kind, key = "past_due", b.CurrentPeriodEnd.Format("2006-01-02")
-			subject = "Tu suscripción de MiEstudio venció"
+			subject = "Tu suscripción de Barbella venció"
 			body = fmt.Sprintf("La suscripción de %s venció el %s y tu cuenta está en pausa. Renueva para reactivarla:\n%s\n", b.Name, b.CurrentPeriodEnd.Format("2006-01-02"), link)
 		}
 		if kind == "" || !a.claimNotice(ctx, b.ID, kind, key) {
 			continue
 		}
 		for _, to := range a.businessAdmins(ctx, b.ID) {
-			a.sendBackground(mail.Message{To: to, Subject: subject, Text: body + "\n— MiEstudio\n"}, "aviso de cobro")
+			a.sendBackground(mail.Message{To: to, Subject: subject, Text: body + "\n— Barbella\n"}, "aviso de cobro")
 		}
 	}
 }

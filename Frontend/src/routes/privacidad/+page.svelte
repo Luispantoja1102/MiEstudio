@@ -4,7 +4,7 @@
 
 <LegalPage title="Aviso de privacidad">
   {#snippet children({ op })}
-    <p>Este aviso explica cómo MiEstudio trata los datos de <b>las personas que usan la plataforma para administrar su negocio</b> (dueños y su equipo). Los datos de los clientes de cada negocio los trata ese negocio: consulta el aviso que aparece en su página de reservas.</p>
+    <p>Este aviso explica cómo Barbella trata los datos de <b>las personas que usan la plataforma para administrar su negocio</b> (dueños y su equipo). Los datos de los clientes de cada negocio los trata ese negocio: consulta el aviso que aparece en su página de reservas.</p>
 
     <h2>Qué datos recibimos</h2>
     <ul>

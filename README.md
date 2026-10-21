@@ -1,4 +1,4 @@
-# MiEstudio
+# Barbella
 
 Agenda de citas y punto de venta para barberías, estéticas y spas.
 

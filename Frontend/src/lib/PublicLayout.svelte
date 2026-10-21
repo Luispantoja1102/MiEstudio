@@ -11,7 +11,7 @@
   });
 </script>
 
-<svelte:head><title>{title ? `${title} · MiEstudio` : 'MiEstudio'}</title></svelte:head>
+<svelte:head><title>{title ? `${title} · Barbella` : 'Barbella'}</title></svelte:head>
 <Header hideToggle={theme.forced} />
 <main class="wrap">
   {#if title && brand}

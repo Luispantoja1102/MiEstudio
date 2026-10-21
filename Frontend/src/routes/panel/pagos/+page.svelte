@@ -101,7 +101,7 @@
       </div>
     {:else}
       {#if status.oauth_available}
-        <p class="meta">Te llevaremos a Mercado Pago para que autorices a MiEstudio a cobrar con tu terminal. No compartimos tu contraseña.</p>
+        <p class="meta">Te llevaremos a Mercado Pago para que autorices a Barbella a cobrar con tu terminal. No compartimos tu contraseña.</p>
         <button class="btn" onclick={connectOAuth} disabled={busy}>{busy ? 'Redirigiendo…' : 'Conectar con Mercado Pago'}</button>
       {/if}
       <details class="manual" open={!status.oauth_available}>
@@ -118,7 +118,7 @@
   {#if status.connected}
     <section class="card" style="margin-top: 1rem">
       <h2>2. Terminal por sucursal</h2>
-      <p class="meta">Al registrarla, la terminal pasa a modo punto de venta: solo cobra lo que envía MiEstudio.</p>
+      <p class="meta">Al registrarla, la terminal pasa a modo punto de venta: solo cobra lo que envía Barbella.</p>
       {#if terminals.length === 0}<p class="meta">No encontramos terminales en tu cuenta de Mercado Pago.</p>{/if}
       {#each branches.list as b (b.id)}
         <div class="item-row" style="margin-top: 8px">

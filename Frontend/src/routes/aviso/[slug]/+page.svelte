@@ -24,7 +24,7 @@
       <h2>Para qué</h2>
       <p>Para agendar y atenderte, confirmarte tu cita, avisarte si cambia, cobrar lo que corresponda y, solo si lo aceptas, enviarte recordatorios por correo. No vendemos tus datos.</p>
       <h2>Con quién se comparten</h2>
-      <p>La plataforma MiEstudio{#if d.platform} ({d.platform}){/if} los procesa por cuenta del negocio para prestar el servicio, y Mercado Pago cuando pagas un anticipo. No se comparten con nadie más salvo que una autoridad lo exija.</p>
+      <p>La plataforma Barbella{#if d.platform} ({d.platform}){/if} los procesa por cuenta del negocio para prestar el servicio, y Mercado Pago cuando pagas un anticipo. No se comparten con nadie más salvo que una autoridad lo exija.</p>
       <h2>Tus derechos</h2>
       <p>Puedes pedir acceso a tus datos, rectificarlos, cancelarlos (borrarlos) u oponerte a su uso. Responderemos en máximo {d.days} días hábiles.</p>
       <p><a class="btn" href="/arco/{slug}">Ejercer mis derechos</a></p>

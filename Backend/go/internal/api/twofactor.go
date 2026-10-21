@@ -19,7 +19,7 @@ import (
 const (
 	purpose2FA   = "2fa"
 	challengeTTL = 5 * time.Minute
-	issuerName   = "MiEstudio"
+	issuerName   = "Barbella"
 )
 
 func normRecovery(c string) string {

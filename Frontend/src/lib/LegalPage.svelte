@@ -13,7 +13,7 @@
   const op = $derived(info?.operator ?? {});
 </script>
 
-<svelte:head><title>{title} · MiEstudio</title></svelte:head>
+<svelte:head><title>{title} · Barbella</title></svelte:head>
 <Header><a class="btn ghost hide-sm" href="/login">Iniciar sesión</a></Header>
 <main class="legal">
   <h1>{title}</h1>

@@ -56,7 +56,7 @@
 <div class="page-head">
   <div>
     <h1>Equipo de la plataforma</h1>
-    <p>Quién administra MiEstudio. El rol de soporte solo puede consultar.</p>
+    <p>Quién administra Barbella. El rol de soporte solo puede consultar.</p>
   </div>
   {#if write}<button class="btn" onclick={() => (showForm = !showForm)}>{showForm ? 'Cancelar' : 'Agregar persona'}</button>{/if}
 </div>

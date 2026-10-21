@@ -95,7 +95,7 @@ func Load() (Config, error) {
 	}
 	c.MailFrom = strings.TrimSpace(os.Getenv("MAIL_FROM"))
 	if c.MailFrom == "" && c.SMTPUser != "" && strings.Contains(c.SMTPUser, "@") {
-		c.MailFrom = "MiEstudio <" + c.SMTPUser + ">"
+		c.MailFrom = "Barbella <" + c.SMTPUser + ">"
 	}
 	c.WhatsAppToken, c.WhatsAppPhoneID = strings.TrimSpace(os.Getenv("WHATSAPP_TOKEN")), strings.TrimSpace(os.Getenv("WHATSAPP_PHONE_ID"))
 	c.WhatsAppTemplate, c.WhatsAppLang = strings.TrimSpace(os.Getenv("WHATSAPP_TEMPLATE")), strings.TrimSpace(os.Getenv("WHATSAPP_LANG"))

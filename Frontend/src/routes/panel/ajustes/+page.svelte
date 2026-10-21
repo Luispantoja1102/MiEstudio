@@ -36,7 +36,7 @@
     {
       title: 'Dinero',
       items: [
-        { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de MiEstudio y tus pagos', icon: 'wallet', component: Suscripcion, roles: A },
+        { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de Barbella y tus pagos', icon: 'wallet', component: Suscripcion, roles: A },
         { id: 'pagos', label: 'Mercado Pago', desc: 'Cobro con tarjeta y terminal', icon: 'card', component: Pagos, roles: A }
       ]
     },

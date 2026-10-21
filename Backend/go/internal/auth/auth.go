@@ -177,7 +177,7 @@ func RequireTenant(next http.Handler) http.Handler {
 		case p.BusinessStatus == "suspended":
 			denyCode(w, http.StatusForbidden, "tu cuenta está suspendida, contáctanos", "business_suspended")
 		case p.BillingState == "trial_expired" || p.BillingState == "past_due":
-			denyCode(w, http.StatusForbidden, "tu suscripción venció: renueva tu plan para seguir usando MiEstudio", "subscription_required")
+			denyCode(w, http.StatusForbidden, "tu suscripción venció: renueva tu plan para seguir usando Barbella", "subscription_required")
 		default:
 			next.ServeHTTP(w, r)
 		}

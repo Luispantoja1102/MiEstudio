@@ -90,7 +90,7 @@
 
   const copyCodes = () => navigator.clipboard?.writeText(codes.join('\n')).then(() => (notice = 'Códigos copiados.')).catch(() => {});
   const downloadCodes = () => {
-    const url = URL.createObjectURL(new Blob([`MiEstudio: códigos de respaldo (${session.me.email})\n\n${codes.join('\n')}\n`], { type: 'text/plain' }));
+    const url = URL.createObjectURL(new Blob([`Barbella: códigos de respaldo (${session.me.email})\n\n${codes.join('\n')}\n`], { type: 'text/plain' }));
     Object.assign(document.createElement('a'), { href: url, download: 'miestudio-codigos-de-respaldo.txt' }).click();
     URL.revokeObjectURL(url);
   };

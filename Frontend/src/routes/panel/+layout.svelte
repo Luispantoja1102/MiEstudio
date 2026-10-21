@@ -83,7 +83,7 @@
       <div class="card state">
         {#if session.me.business.status === 'pending'}
           <h1>Tu cuenta está en revisión</h1>
-          <p>Recibimos tu registro. Te avisaremos cuando esté aprobada y puedas empezar a usar MiEstudio.</p>
+          <p>Recibimos tu registro. Te avisaremos cuando esté aprobada y puedas empezar a usar Barbella.</p>
         {:else}
           <h1>Tu cuenta está suspendida</h1>
           <p>Por ahora no puedes usar la plataforma. Contáctanos para resolverlo.</p>
@@ -92,7 +92,7 @@
     {:else if lapsed && !lapsedAllowed}
       <div class="card state">
         <h1>{session.me.business.billing_state === 'trial_expired' ? 'Tu prueba terminó' : 'Tu suscripción venció'}</h1>
-        <p>Tus datos están a salvo. {session.me.role === 'admin' ? 'Elige un plan para reactivar tu cuenta al instante.' : 'Pide al administrador que renueve el plan para seguir usando MiEstudio.'}</p>
+        <p>Tus datos están a salvo. {session.me.role === 'admin' ? 'Elige un plan para reactivar tu cuenta al instante.' : 'Pide al administrador que renueve el plan para seguir usando Barbella.'}</p>
         {#if session.me.role === 'admin'}<p style="margin-top: 1rem"><a class="btn" href="/panel/suscripcion">Elegir un plan</a></p>{/if}
       </div>
     {:else}

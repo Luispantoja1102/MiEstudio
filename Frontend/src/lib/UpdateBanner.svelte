@@ -16,7 +16,7 @@
 {#if updated.current && !dismissed}
   <div class="update" role="status" aria-live="polite">
     <p>
-      <strong>Hay una nueva versión de MiEstudio.</strong>
+      <strong>Hay una nueva versión de Barbella.</strong>
       Termina lo que estás haciendo y actualiza cuando quieras; no se cierra nada por sí solo.
     </p>
     <div class="actions">

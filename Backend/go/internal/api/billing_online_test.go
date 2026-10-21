@@ -271,7 +271,7 @@ func TestBillingNoticesAreSentOncePerPeriod(t *testing.T) {
 	set("trial", tp(now.Add(-day)), nil)
 	b.a.billingPass(ctx)
 	b.a.billingPass(ctx)
-	if count("prueba de MiEstudio terminó") != 1 {
+	if count("prueba de Barbella terminó") != 1 {
 		t.Fatalf("prueba vencida: %d", count("terminó"))
 	}
 	set("active", nil, tp(now.Add(4*day)))
