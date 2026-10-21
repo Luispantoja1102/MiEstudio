@@ -8,16 +8,20 @@
   let { children } = $props();
 
   // [icono, etiqueta, ruta (null = próximamente), roles permitidos (vacío = todos)]
+  const SELL = ['admin', 'cashier', 'reception'];
   const nav = [
     ['home', 'Inicio', '/panel', []],
     ['calendar', 'Agenda', '/panel/agenda', []],
-    ['card', 'Ventas', null, []],
+    ['receipt', 'Cobrar', '/panel/ventas', SELL],
+    ['wallet', 'Caja', '/panel/caja', SELL],
     ['users', 'Clientes', '/panel/clientes', []],
     ['scissors', 'Servicios', '/panel/servicios', []],
     ['package', 'Inventario', '/panel/inventario', []],
+    ['percent', 'Comisiones', '/panel/comisiones', ['admin', 'staff']],
+    ['chart', 'Reportes', '/panel/reportes', ['admin']],
     ['users', 'Equipo', '/panel/equipo', ['admin']],
     ['home', 'Sucursales', '/panel/ajustes', ['admin']],
-    ['percent', 'Comisiones', null, []]
+    ['card', 'Pagos', '/panel/pagos', ['admin']]
   ];
   const items = $derived(
     nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h]) => [i, l, h])

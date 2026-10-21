@@ -93,7 +93,7 @@
   .tabs { display: flex; gap: 4px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid var(--border); background: var(--surface); }
   .tabs .item em { display: none; }
 
-  .content { padding: 28px 20px 56px; max-width: 1000px; }
+  .content { padding: 28px 20px 56px; max-width: 1180px; }
 
   @media (min-width: 900px) {
     .shell { grid-template-columns: 250px 1fr; }
