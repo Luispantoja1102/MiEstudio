@@ -688,3 +688,27 @@ func TestSalesListFilters(t *testing.T) {
 		}
 	}
 }
+
+// Solo el efectivo entra al cajón: transferencias, tarjeta y terminal no cuentan en lo esperado,
+// aunque su monto sea distinto y aparezcan después del efectivo en el desglose por método.
+func TestCashExpectedCountsOnlyCash(t *testing.T) {
+	p := newPOS(t)
+	p.openCash(t, p.admin, 10000)
+	// $150 = efectivo $60 + transferencia $50 + tarjeta $40
+	p.mustSale(t, p.admin, map[string]any{"lines": []any{svcLine(p.svc, p.marco)}, "payments": []any{
+		cash(6000),
+		map[string]any{"method": "transfer", "amount_cents": 5000},
+		map[string]any{"method": "card", "amount_cents": 4000},
+	}})
+	c := p.cashSummary(t)
+	if c.CashInCents != 6000 || c.ExpectedCents != 16000 {
+		t.Fatalf("esperaba efectivo $60 y caja $160 (apertura $100 + $60); obtuvo efectivo %d y caja %d", c.CashInCents, c.ExpectedCents)
+	}
+	bm := map[string]int{}
+	for _, m := range c.ByMethod {
+		bm[m.Method] = m.AmountCents
+	}
+	if bm["cash"] != 6000 || bm["transfer"] != 5000 || bm["card"] != 4000 {
+		t.Fatalf("desglose por método: %v", bm)
+	}
+}
