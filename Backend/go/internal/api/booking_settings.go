@@ -21,6 +21,7 @@ type bookingSettings struct {
 	ReminderHours  int    `json:"reminder_hours"` // 0 = sin recordatorios
 	ShowPrices     bool   `json:"show_prices"`
 	WelcomeText    string `json:"welcome_text"`
+	PrivacyEmail   string `json:"privacy_email"` // correo para solicitudes de privacidad (se muestra en el aviso)
 }
 
 func defaultBookingSettings() bookingSettings {
@@ -30,9 +31,9 @@ func defaultBookingSettings() bookingSettings {
 func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSettings, error) {
 	s := defaultBookingSettings()
 	err := q.QueryRow(ctx,
-		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text
+		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email
 		 FROM booking_settings WHERE business_id = $1`, bizID).
-		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText)
+		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil
 	}
@@ -77,6 +78,8 @@ func validBookingSettings(s bookingSettings) string {
 		return "el anticipo debe estar entre 0 % y 100 %"
 	case s.ReminderHours < 0 || s.ReminderHours > 168:
 		return "el recordatorio debe ser de 0 a 168 horas antes (0 = sin recordatorio)"
+	case s.PrivacyEmail != "" && !validEmail(s.PrivacyEmail):
+		return "el correo de privacidad no es válido"
 	case utf8.RuneCountInString(s.WelcomeText) > 500:
 		return "el mensaje de bienvenida es demasiado largo (máximo 500 caracteres)"
 	}
@@ -91,6 +94,7 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
+	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
 	if msg := validBookingSettings(s); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
@@ -102,12 +106,12 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 ON CONFLICT (business_id) DO UPDATE SET enabled = EXCLUDED.enabled, min_notice_hours = EXCLUDED.min_notice_hours,
 		   max_days_ahead = EXCLUDED.max_days_ahead, cancel_min_hours = EXCLUDED.cancel_min_hours, deposit_percent = EXCLUDED.deposit_percent,
-		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text`,
-		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText); err != nil {
+		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email`,
+		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail); err != nil {
 		serverErr(w)
 		return
 	}

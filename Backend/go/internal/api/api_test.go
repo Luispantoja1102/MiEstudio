@@ -83,7 +83,7 @@ func (a *API) do(t *testing.T, method, path, token string, body any) resp {
 func (a *API) mustRegister(t *testing.T, biz, email string) string {
 	t.Helper()
 	r := a.do(t, "POST", "/api/auth/register", "", map[string]any{
-		"business_name": biz, "kind": "barberia", "name": "Dueño", "email": email, "password": "supersecreta1",
+		"business_name": biz, "kind": "barberia", "name": "Dueño", "email": email, "password": "supersecreta1", "accept_terms": true,
 	})
 	if r.Status != http.StatusCreated {
 		t.Fatalf("register %s: %d %v", email, r.Status, r.Body)
@@ -126,9 +126,14 @@ func TestRegisterValidationAndConflicts(t *testing.T) {
 
 	// correo repetido -> 409 con mensaje de correo
 	r := a.do(t, "POST", "/api/auth/register", "", map[string]any{
-		"business_name": "Otro", "kind": "spa", "name": "X", "email": "a@x.com", "password": "supersecreta1"})
+		"business_name": "Otro", "kind": "spa", "name": "X", "email": "a@x.com", "password": "supersecreta1", "accept_terms": true})
 	if r.Status != 409 {
 		t.Fatalf("correo repetido: %d", r.Status)
+	}
+	// sin aceptar los términos no hay cuenta
+	if r := a.do(t, "POST", "/api/auth/register", "", map[string]any{
+		"business_name": "Sin Términos", "kind": "spa", "name": "X", "email": "t@x.com", "password": "supersecreta1"}); r.Status != 400 {
+		t.Fatalf("sin aceptar términos: %d", r.Status)
 	}
 	// mismo nombre de negocio con otro correo -> permitido (slug con sufijo)
 	a.mustRegister(t, "Mismo Nombre", "b@x.com")

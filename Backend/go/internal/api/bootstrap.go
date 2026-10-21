@@ -126,7 +126,7 @@ func (a *API) BootstrapDemoBusiness(ctx context.Context, business, kind, name, e
 	if name == "" {
 		name = "Dueño"
 	}
-	req := registerReq{BusinessName: business, Kind: kind, Name: name, Email: email, Password: password}
+	req := registerReq{BusinessName: business, Kind: kind, Name: name, Email: email, Password: password, AcceptTerms: true}
 	if msg := validateRegister(&req); msg != "" {
 		return errors.New("DEMO_*: " + msg)
 	}

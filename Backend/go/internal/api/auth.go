@@ -64,6 +64,7 @@ type registerReq struct {
 	Name         string `json:"name"`
 	Email        string `json:"email"`
 	Password     string `json:"password"`
+	AcceptTerms  bool   `json:"accept_terms"` // términos y aviso de privacidad de la plataforma
 }
 
 var errEmailTaken = errors.New("correo ya registrado")
@@ -117,6 +118,10 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	}
 	if msg := validateRegister(&req); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	if !req.AcceptTerms { // el alta que hace la plataforma por alguien más no pasa por aquí
+		writeErr(w, http.StatusBadRequest, "debes aceptar los términos y el aviso de privacidad")
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
@@ -185,8 +190,9 @@ func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, s
 		return 0, 0, err
 	}
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO users (business_id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, 'admin') RETURNING id`,
-		bizID, req.Email, hash, req.Name).Scan(&userID); err != nil {
+		`INSERT INTO users (business_id, email, password_hash, name, role, terms_version, terms_accepted_at)
+		 VALUES ($1, $2, $3, $4, 'admin', CASE WHEN $5 THEN $6 END, CASE WHEN $5 THEN now() END) RETURNING id`,
+		bizID, req.Email, hash, req.Name, req.AcceptTerms, NoticeVersion).Scan(&userID); err != nil {
 		return 0, 0, err
 	}
 	return bizID, userID, tx.Commit(ctx)

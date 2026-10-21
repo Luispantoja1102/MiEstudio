@@ -38,6 +38,8 @@ type API struct {
 	PublicURL       string // dirección pública de la API (sin /api): para los avisos automáticos de Mercado Pago
 	MPWebhookSecret string // firma de los avisos; vacío = no se verifica
 
+	Operator Operator // datos de quien opera la plataforma (aviso de privacidad)
+
 	Mailer mail.Sender // nil o sin configurar: no se envían correos
 	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
 }
@@ -82,6 +84,10 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/public-appointments/{token}/cancel", a.publicCancel)
 	mux.HandleFunc("POST /api/public-appointments/{token}/reminders-off", a.publicRemindersOff)
 	mux.HandleFunc("GET /api/public/{slug}", a.publicInfo)
+	mux.HandleFunc("GET /api/public/{slug}/privacy", a.publicPrivacy)
+	mux.HandleFunc("POST /api/public/{slug}/arco", a.publicArco)
+	mux.HandleFunc("GET /api/public-arco/{token}", a.publicArcoStatus)
+	mux.HandleFunc("GET /api/legal", a.legalInfo)
 	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
 	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
 
@@ -98,6 +104,12 @@ func (a *API) Routes() http.Handler {
 	// negocio: configuración de la reserva en línea
 	mux.Handle("GET /api/booking/settings", a.tenant(a.getBookingSettings, admin))
 	mux.Handle("PUT /api/booking/settings", a.tenant(a.putBookingSettings, admin))
+
+	// negocio: privacidad (derechos ARCO y datos de clientes)
+	mux.Handle("GET /api/arco", a.tenant(a.listArco, admin))
+	mux.Handle("PATCH /api/arco/{id}", a.tenant(a.updateArco, admin))
+	mux.Handle("GET /api/clients/{id}/export", a.tenant(a.exportClient, admin))
+	mux.Handle("POST /api/clients/{id}/erase", a.tenant(a.eraseClient, admin))
 
 	// negocio: equipo
 	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))

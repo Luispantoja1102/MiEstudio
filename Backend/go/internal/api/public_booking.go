@@ -495,10 +495,10 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	var apptID int64
 	err = tx.QueryRow(ctx,
 		`INSERT INTO appointments (business_id, branch_id, client_id, staff_id, service_id, starts_at, ends_at, blocked_until, notes,
-		   source, public_token, reminders_consent, privacy_accepted_at, created_at, status, hold_expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12, $12, $13, $14) RETURNING id`,
+		   source, public_token, reminders_consent, privacy_accepted_at, created_at, status, hold_expires_at, privacy_version)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12, $12, $13, $14, $15) RETURNING id`,
 		b.ID, req.BranchID, clientID, staffID, req.ServiceID, start, end, end.Add(svc.Buffer), req.Notes, token, req.ConsentReminders, a.now(),
-		status, holdUntil).Scan(&apptID)
+		status, holdUntil, ClientNoticeVersion).Scan(&apptID)
 	if isExclusionViolation(err) {
 		return nil, fail(http.StatusConflict, "ese horario ya no está disponible")
 	}

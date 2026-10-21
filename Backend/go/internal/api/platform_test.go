@@ -83,7 +83,7 @@ func TestRegistrationModes(t *testing.T) {
 	plat := newPlatform(t, a)
 	reg := func(email string) resp {
 		return a.do(t, "POST", "/api/auth/register", "", map[string]any{
-			"business_name": "N " + email, "kind": "spa", "name": "X", "email": email, "password": "supersecreta1"})
+			"business_name": "N " + email, "kind": "spa", "name": "X", "email": email, "password": "supersecreta1", "accept_terms": true})
 	}
 
 	// abierto (por defecto): prueba inmediata
