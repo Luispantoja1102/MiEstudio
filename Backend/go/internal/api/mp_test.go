@@ -35,6 +35,7 @@ type fakeMP struct {
 	refreshToken string // el de renovación vigente (de un solo uso)
 	refreshCalls int
 	refreshFail  bool
+	refreshDelay time.Duration // hace lenta la renovación para que las peticiones simultáneas se solapen de verdad
 	expiresIn    int
 }
 
@@ -82,6 +83,7 @@ func newFakeMP(t *testing.T) *fakeMP {
 			}
 		case "refresh_token":
 			f.refreshCalls++
+			time.Sleep(f.refreshDelay)
 			if f.refreshFail {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
@@ -821,6 +823,7 @@ func TestMPTokenRefresh(t *testing.T) {
 
 	// varias peticiones a la vez con el token por vencer: se renueva UNA vez (el de renovación es de un solo uso)
 	a.DB.Exec(ctx, `UPDATE mp_accounts SET expires_at = now() + interval '1 hour'`)
+	m.mp.refreshDelay = 300 * time.Millisecond
 	var wg sync.WaitGroup
 	statuses := make([]int, 6)
 	for i := range statuses {
@@ -842,6 +845,7 @@ func TestMPTokenRefresh(t *testing.T) {
 
 	// si renovar falla pero el token aún sirve, se sigue usando
 	a.DB.Exec(ctx, `UPDATE mp_accounts SET expires_at = now() + interval '1 hour'`)
+	m.mp.refreshDelay = 0
 	m.mp.refreshFail = true
 	if r := a.do(t, "GET", "/api/payments/mercadopago/terminals", m.admin, nil); r.Status != 200 {
 		t.Fatalf("renovación fallida con token vigente: %d %v", r.Status, r.Body)
@@ -862,5 +866,26 @@ func TestMPTokenRefresh(t *testing.T) {
 	a.DB.QueryRow(ctx, `SELECT source, refresh_enc FROM mp_accounts`).Scan(&src, &rt)
 	if src != "token" || rt != nil {
 		t.Fatalf("tras pegar el token: %s %v", src, rt)
+	}
+}
+
+func TestMPOAuthStateSecretIsIndependent(t *testing.T) {
+	m := newOAuth(t)
+	a := m.a
+	// con OAUTH_STATE_SECRET propio, el estado se firma con él y no con el de JWT
+	a.OAuthState = bytes.Repeat([]byte{5}, 32)
+	state := m.connectState(t, m.admin)
+	if _, ok := a.verifyState(state); !ok {
+		t.Fatal("el estado firmado con el secreto propio debe verificarse")
+	}
+	a.OAuthState = bytes.Repeat([]byte{6}, 32)
+	if _, ok := a.verifyState(state); ok {
+		t.Fatal("cambiar OAUTH_STATE_SECRET debe invalidar los estados anteriores")
+	}
+	a.OAuthState = nil // sin secreto propio se deriva de JWT_SECRET
+	derived := a.signState(1)
+	a.OAuthState = bytes.Repeat([]byte{5}, 32)
+	if _, ok := a.verifyState(derived); ok {
+		t.Fatal("un estado derivado de JWT no debe valer con un secreto propio")
 	}
 }

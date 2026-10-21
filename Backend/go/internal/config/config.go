@@ -1,7 +1,9 @@
 package config
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -13,7 +15,8 @@ type Config struct {
 	Port        string
 	StaticDir   string
 	Production  bool   // APP_ENV=production
-	EncKey      []byte // TOKEN_ENC_KEY (base64, 32 bytes): cifra los tokens de Mercado Pago
+	EncKey      []byte // TOKEN_ENC_KEY (hex de 64 caracteres o base64 de 32 bytes): cifra los tokens de Mercado Pago
+	OAuthState  []byte // OAUTH_STATE_SECRET (mismo formato): firma el parámetro state del OAuth
 	MPBase      string // MP_API_BASE (opcional)
 
 	// OAuth de Mercado Pago (aplicación de la plataforma). Vacío = solo token manual.
@@ -40,13 +43,6 @@ func Load() (Config, error) {
 		PlatformAdminEmail:    os.Getenv("PLATFORM_ADMIN_EMAIL"),
 		PlatformAdminPassword: os.Getenv("PLATFORM_ADMIN_PASSWORD"),
 	}
-	if raw := os.Getenv("TOKEN_ENC_KEY"); raw != "" {
-		key, err := base64.StdEncoding.DecodeString(raw)
-		if err != nil || len(key) != 32 {
-			return c, fmt.Errorf("TOKEN_ENC_KEY debe ser base64 de 32 bytes (por ejemplo: openssl rand -base64 32)")
-		}
-		c.EncKey = key
-	}
 	c.MPBase = os.Getenv("MP_API_BASE")
 	c.MPClientID, c.MPClientSecret = os.Getenv("MP_CLIENT_ID"), os.Getenv("MP_CLIENT_SECRET")
 	c.MPRedirect = os.Getenv("MP_OAUTH_REDIRECT")
@@ -68,5 +64,31 @@ func Load() (Config, error) {
 	if c.Port == "" {
 		c.Port = "8080"
 	}
+	var err error
+	if c.EncKey, err = secretKey("TOKEN_ENC_KEY", c.JWTSecret, "token-enc"); err != nil {
+		return c, err
+	}
+	if c.OAuthState, err = secretKey("OAUTH_STATE_SECRET", c.JWTSecret, "oauth-state"); err != nil {
+		return c, err
+	}
 	return c, nil
+}
+
+// secretKey lee una clave de 32 bytes del entorno: hexadecimal de 64 caracteres (openssl rand -hex 32)
+// o base64 de 32 bytes (openssl rand -base64 32). Si no está definida, se deriva de JWT_SECRET, de modo
+// que todo funciona sin configurarla. Un valor definido pero inválido es un error: se prefiere fallar
+// al arrancar que cifrar con una clave distinta a la que se esperaba.
+func secretKey(name, jwtSecret, purpose string) ([]byte, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		sum := sha256.Sum256([]byte(purpose + ":" + jwtSecret))
+		return sum[:], nil
+	}
+	if key, err := hex.DecodeString(raw); err == nil && len(key) == 32 {
+		return key, nil
+	}
+	if key, err := base64.StdEncoding.DecodeString(raw); err == nil && len(key) == 32 {
+		return key, nil
+	}
+	return nil, fmt.Errorf("%s debe ser de 32 bytes: 64 caracteres hexadecimales (openssl rand -hex 32) o base64 (openssl rand -base64 32)", name)
 }

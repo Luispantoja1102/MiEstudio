@@ -28,6 +28,7 @@ type API struct {
 	MPBase     string             // URL base de Mercado Pago (para pruebas); vacío usa la oficial
 
 	// OAuth de Mercado Pago (aplicación de la plataforma)
+	OAuthState     []byte // firma del state del OAuth; vacío = se deriva de Secret
 	MPClientID     string
 	MPClientSecret string
 	MPRedirect     string // debe coincidir exactamente con la registrada en la aplicación de Mercado Pago

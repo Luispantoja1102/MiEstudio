@@ -302,6 +302,9 @@ func (a *API) oauthEnabled() bool {
 
 // El estado del OAuth enlaza la autorización con el negocio que la pidió y caduca a los 15 minutos.
 func (a *API) stateKey() []byte {
+	if len(a.OAuthState) == 32 {
+		return a.OAuthState
+	}
 	sum := sha256.Sum256([]byte("mp-oauth-state|" + a.Secret))
 	return sum[:]
 }
