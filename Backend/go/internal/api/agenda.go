@@ -77,6 +77,65 @@ func parseClock(s string) (h, m int, ok bool) {
 
 // ---------- horarios libres ----------
 
+type staffSlots struct {
+	StaffID   int64    `json:"staff_id"`
+	StaffName string   `json:"staff_name"`
+	Starts    []string `json:"starts"`
+}
+
+// computeSlots calcula los horarios libres de un servicio en un día, por persona.
+// earliest es la primera hora que se puede ofrecer (ahora, o ahora más el aviso mínimo de la reserva en línea).
+// onlyPublic limita a los servicios y personas que se ofrecen en línea.
+func (a *API) computeSlots(ctx context.Context, bizID int64, svc *svcInfo, serviceID, branchID, onlyStaff int64, day time.Time, loc *time.Location, earliest time.Time) ([]staffSlots, error) {
+	rows, err := a.DB.Query(ctx,
+		`SELECT u.id, u.name FROM users u
+		 WHERE u.business_id = $1 AND u.active AND u.bookable AND ($3 = 0 OR u.id = $3)
+		   AND (NOT EXISTS (SELECT 1 FROM service_staff WHERE service_id = $2)
+		        OR EXISTS (SELECT 1 FROM service_staff ss WHERE ss.service_id = $2 AND ss.user_id = u.id))
+		 ORDER BY u.name`, bizID, serviceID, onlyStaff)
+	if err != nil {
+		return nil, err
+	}
+	type person struct {
+		id   int64
+		name string
+	}
+	var people []person
+	ids := []int64{}
+	for rows.Next() {
+		var x person
+		if err := rows.Scan(&x.id, &x.name); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		people = append(people, x)
+		ids = append(ids, x.id)
+	}
+	rows.Close()
+
+	hours, err := a.workingRanges(ctx, ids, branchID, int(day.Weekday()))
+	if err != nil {
+		return nil, err
+	}
+	busy, err := a.busyIntervals(ctx, bizID, ids, day, day.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, err
+	}
+	out := []staffSlots{}
+	for _, x := range people {
+		free := freeSlots(loc, day, hours[x.id], svc.Duration, svc.Buffer, busy[x.id], earliest)
+		if len(free) == 0 {
+			continue
+		}
+		s := staffSlots{StaffID: x.id, StaffName: x.name, Starts: make([]string, len(free))}
+		for i, t := range free {
+			s.Starts[i] = t.Format(time.RFC3339)
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 func (a *API) slots(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	ctx := r.Context()
@@ -104,62 +163,10 @@ func (a *API) slots(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "servicio o sucursal no encontrados")
 		return
 	}
-
-	rows, err := a.DB.Query(ctx,
-		`SELECT u.id, u.name FROM users u
-		 WHERE u.business_id = $1 AND u.active AND u.bookable AND ($3 = 0 OR u.id = $3)
-		   AND (NOT EXISTS (SELECT 1 FROM service_staff WHERE service_id = $2)
-		        OR EXISTS (SELECT 1 FROM service_staff ss WHERE ss.service_id = $2 AND ss.user_id = u.id))
-		 ORDER BY u.name`, p.BusinessID, serviceID, onlyStaff)
+	out, err := a.computeSlots(ctx, p.BusinessID, svc, serviceID, branchID, onlyStaff, day, loc, a.now())
 	if err != nil {
 		serverErr(w)
 		return
-	}
-	type person struct {
-		id   int64
-		name string
-	}
-	var people []person
-	ids := []int64{}
-	for rows.Next() {
-		var x person
-		if err := rows.Scan(&x.id, &x.name); err != nil {
-			rows.Close()
-			serverErr(w)
-			return
-		}
-		people = append(people, x)
-		ids = append(ids, x.id)
-	}
-	rows.Close()
-
-	hours, err := a.workingRanges(ctx, ids, branchID, int(day.Weekday()))
-	if err != nil {
-		serverErr(w)
-		return
-	}
-	busy, err := a.busyIntervals(ctx, p.BusinessID, ids, day, day.AddDate(0, 0, 1))
-	if err != nil {
-		serverErr(w)
-		return
-	}
-
-	type staffSlots struct {
-		StaffID   int64    `json:"staff_id"`
-		StaffName string   `json:"staff_name"`
-		Starts    []string `json:"starts"`
-	}
-	out := []staffSlots{}
-	for _, x := range people {
-		free := freeSlots(loc, day, hours[x.id], svc.Duration, svc.Buffer, busy[x.id], a.now())
-		if len(free) == 0 {
-			continue
-		}
-		s := staffSlots{StaffID: x.id, StaffName: x.name, Starts: make([]string, len(free))}
-		for i, t := range free {
-			s.Starts[i] = t.Format(time.RFC3339)
-		}
-		out = append(out, s)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"date": q.Get("date"), "timezone": loc.String(), "staff": out})
 }
@@ -191,7 +198,7 @@ func (a *API) busyIntervals(ctx context.Context, bizID int64, userIDs []int64, f
 	out := map[int64][]interval{}
 	rows, err := a.DB.Query(ctx,
 		`SELECT staff_id, starts_at, blocked_until FROM appointments
-		 WHERE business_id = $1 AND staff_id = ANY($2) AND status IN ('scheduled', 'completed')
+		 WHERE business_id = $1 AND staff_id = ANY($2) AND status IN ('scheduled', 'completed', 'pending_payment')
 		   AND starts_at < $4 AND blocked_until > $3`, bizID, userIDs, from, to)
 	if err != nil {
 		return nil, err
@@ -640,7 +647,7 @@ func (a *API) createBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	var clash bool
 	if err := a.DB.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM appointments WHERE staff_id = $1 AND status = 'scheduled'
+		`SELECT EXISTS (SELECT 1 FROM appointments WHERE staff_id = $1 AND status IN ('scheduled', 'pending_payment')
 		   AND tstzrange(starts_at, blocked_until) && tstzrange($2, $3))`, req.UserID, start, end).Scan(&clash); err != nil {
 		serverErr(w)
 		return

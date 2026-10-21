@@ -246,7 +246,7 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 			return 0, err
 		}
 		if apptStatus != "scheduled" && apptStatus != "completed" {
-			return 0, fail(http.StatusConflict, "no se puede cobrar una cita cancelada o a la que no asistieron")
+			return 0, fail(http.StatusConflict, "no se puede cobrar esta cita: está cancelada, no asistieron o espera su anticipo")
 		}
 		if apptBranch != req.BranchID {
 			return 0, fail(http.StatusBadRequest, "la cita es de otra sucursal")
