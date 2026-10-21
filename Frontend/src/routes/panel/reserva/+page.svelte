@@ -159,4 +159,6 @@
   .linkbox input { flex: 1 1 240px; }
   .meta { color: var(--muted); font-size: 0.88rem; }
   h3 { font-size: 1.1rem; }
+  .grow span { display: block; }
+  .item-row input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--accent); }
 </style>
