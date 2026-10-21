@@ -2,21 +2,20 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Shell from '$lib/Shell.svelte';
+  import { page } from '$app/state';
+  import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { isPlatform, loadSession, session } from '$lib/session.svelte.js';
 
   let { children } = $props();
 
+  const SETTINGS_PATHS = ['/plataforma/planes', '/plataforma/salud', '/plataforma/equipo', '/plataforma/actividad', '/plataforma/cuenta'];
   const items = [
     ['home', 'Resumen', '/plataforma'],
     ['scissors', 'Negocios', '/plataforma/negocios'],
-    ['package', 'Planes', '/plataforma/planes'],
     ['wallet', 'Pagos', '/plataforma/pagos'],
-    ['chart', 'Salud', '/plataforma/salud'],
-    ['users', 'Equipo', '/plataforma/equipo'],
-    ['bell', 'Actividad', '/plataforma/actividad'],
-    ['percent', 'Ajustes', '/plataforma/ajustes'],
-    ['shield', 'Mi cuenta', '/plataforma/cuenta']
+    // lo que se usa de vez en cuando vive en Ajustes
+    ['settings', 'Ajustes', '/plataforma/ajustes', SETTINGS_PATHS]
   ];
 
   onMount(async () => {
@@ -28,6 +27,8 @@
     }
   });
 
+  const inSettings = $derived(SETTINGS_PATHS.concat('/plataforma/ajustes/registro').includes(page.url.pathname));
+
   async function logout() {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
     session.me = null;
@@ -37,6 +38,13 @@
 
 {#if session.me && isPlatform()}
   <Shell {items} tag="Plataforma" title={session.me.name} onlogout={logout}>
+    {#if inSettings}<a class="back" href="/plataforma/ajustes"><Icon name="arrow" size={16} />Ajustes</a>{/if}
     {@render children()}
   </Shell>
 {/if}
+
+<style>
+  .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 1rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .back :global(svg) { transform: rotate(180deg); }
+  .back:hover { color: var(--accent); }
+</style>

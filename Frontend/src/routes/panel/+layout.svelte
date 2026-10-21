@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import Icon from '$lib/Icon.svelte';
   import Shell from '$lib/Shell.svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
@@ -8,7 +9,8 @@
 
   let { children } = $props();
 
-  // [icono, etiqueta, ruta (null = próximamente), roles permitidos (vacío = todos)]
+  const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta'];
+  // [icono, etiqueta, ruta (null = próximamente), roles permitidos (vacío = todos), rutas extra que la marcan activa]
   const SELL = ['admin', 'cashier', 'reception'];
   const nav = [
     ['home', 'Inicio', '/panel', []],
@@ -20,21 +22,18 @@
     ['package', 'Inventario', '/panel/inventario', []],
     ['percent', 'Comisiones', '/panel/comisiones', ['admin', 'staff']],
     ['chart', 'Reportes', '/panel/reportes', ['admin']],
-    ['users', 'Equipo', '/panel/equipo', ['admin']],
-    ['globe', 'Reserva en línea', '/panel/reserva', ['admin']],
-    ['shield', 'Privacidad', '/panel/privacidad', ['admin']],
-    ['home', 'Sucursales', '/panel/ajustes', ['admin']],
-    ['card', 'Pagos', '/panel/pagos', ['admin']],
-    ['wallet', 'Suscripción', '/panel/suscripcion', ['admin']],
-    ['shield', 'Mi cuenta', '/panel/cuenta', []]
+    // lo que no se usa a diario vive dentro de Ajustes; sus páginas marcan «Ajustes» como activo
+    ['settings', 'Ajustes', '/panel/ajustes', [], SETTINGS_PATHS]
   ];
   const items = $derived(
-    nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h]) => [i, l, h])
+    nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h, , extra]) => [i, l, h, extra])
   );
   const blocked = $derived(['pending', 'suspended'].includes(session.me?.business?.status));
   // suscripción vencida: la cuenta entra, pero solo para renovar (y ver su cuenta)
   const lapsed = $derived(['trial_expired', 'past_due'].includes(session.me?.business?.billing_state) && !blocked);
-  const lapsedAllowed = $derived(['/panel/suscripcion', '/panel/cuenta'].includes(page.url.pathname));
+  const lapsedAllowed = $derived(['/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'].includes(page.url.pathname));
+  // dentro de una página de ajustes se ofrece volver al índice
+  const inSettings = $derived(SETTINGS_PATHS.concat('/panel/ajustes/sucursales').includes(page.url.pathname));
   const trialLeft = $derived.by(() => {
     const b = session.me?.business;
     if (b?.billing_state !== 'trialing' || !b.trial_ends_at) return null;
@@ -79,12 +78,16 @@
       {#if trialLeft !== null && session.me.role === 'admin' && trialLeft <= 7}
         <p class="banner" role="status">Tu prueba gratis termina {trialLeft === 0 ? 'hoy' : `en ${trialLeft} ${trialLeft === 1 ? 'día' : 'días'}`}. <a href="/panel/suscripcion">Elegir un plan</a></p>
       {/if}
+      {#if inSettings}<a class="back" href="/panel/ajustes"><Icon name="arrow" size={16} />Ajustes</a>{/if}
       {@render children()}
     {/if}
   </Shell>
 {/if}
 
 <style>
+  .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 1rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .back :global(svg) { transform: rotate(180deg); }
+  .back:hover { color: var(--accent); }
   .state { max-width: 560px; margin-top: 2rem; }
   .state h1 { font-size: 1.8rem; }
   .state p { color: var(--muted); margin: 0; }

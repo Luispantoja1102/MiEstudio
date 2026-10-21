@@ -4,18 +4,20 @@
   import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
 
-  // items: [icono, etiqueta, ruta (null = próximamente)]
+  // items: [icono, etiqueta, ruta (null = próximamente), rutas extra que también la marcan activa]
   let { items, title = '', tag = '', onlogout, children } = $props();
 
   // las rutas raíz (/panel, /plataforma) solo coinciden exactas; las demás, por prefijo
-  const isActive = (href) =>
-    href.split('/').length <= 2 ? page.url.pathname === href : page.url.pathname.startsWith(href);
+  const isActive = (href, extra = []) =>
+    href.split('/').length <= 2
+      ? page.url.pathname === href
+      : [href, ...extra].some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
 </script>
 
 {#snippet links()}
-  {#each items as [icon, label, href]}
+  {#each items as [icon, label, href, extra]}
     {#if href}
-      <a class="item" class:active={isActive(href)} {href} aria-current={isActive(href) ? 'page' : undefined}>
+      <a class="item" class:active={isActive(href, extra)} {href} aria-current={isActive(href, extra) ? 'page' : undefined}>
         <Icon name={icon} size={18} />{label}
       </a>
     {:else}

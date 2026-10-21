@@ -121,6 +121,14 @@ exacto, verificado siempre con Mercado Pago (aviso automático, regreso del clie
 apartado). Un pago tardío o duplicado se devuelve; si el cliente cancela dentro del plazo, o el negocio cancela,
 se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una inasistencia lo conserva.
 
+## Ajustes
+
+El menú del panel solo trae lo del día a día (inicio, agenda, cobrar, caja, clientes, servicios, inventario, comisiones y
+reportes). Lo que se configura de vez en cuando vive en **Ajustes** (`/panel/ajustes`): equipo, sucursales, reserva en línea,
+privacidad, pagos (Mercado Pago), suscripción y mi cuenta; cada sección se ve según el rol. El panel de plataforma funciona igual
+(`/plataforma/ajustes`: planes, registro de negocios, salud, actividad, equipo y mi cuenta). Las sucursales ahora están en
+`/panel/ajustes/sucursales`.
+
 ## Cuenta y seguridad
 
 - **Sesión:** cookie `HttpOnly` + `SameSite=Lax` (ningún script de la página puede leerla); las escrituras con cookie exigen
