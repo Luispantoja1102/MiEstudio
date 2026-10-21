@@ -42,3 +42,5 @@ export const ACTIONS = {
   platform_user_updated: 'Persona de plataforma actualizada',
   settings_changed: 'Ajustes cambiados'
 };
+
+export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;

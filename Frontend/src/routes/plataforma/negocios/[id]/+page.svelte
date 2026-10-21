@@ -3,7 +3,7 @@
   import { page } from '$app/state';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
-  import { KINDS, ROLES, STATUS, ACTIONS, formatDate, formatDay } from '$lib/format.js';
+  import { KINDS, ROLES, STATUS, ACTIONS, formatDate, formatDay, plural } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
 
   const id = page.params.id;
@@ -71,7 +71,7 @@
   <section class="card">
     <h2>Estado de la cuenta</h2>
     <p class="meta">
-      {b.users} personas · {b.clients} clientes · responsable: {b.owner_email || '—'}
+      {plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')} · responsable: {b.owner_email || '—'}
       {#if b.status === 'trial'} · prueba hasta {formatDay(b.trial_ends_at)}{/if}
     </p>
     {#if write}

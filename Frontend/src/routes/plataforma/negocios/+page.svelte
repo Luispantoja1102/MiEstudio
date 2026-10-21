@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
-  import { KINDS, STATUS, formatDay } from '$lib/format.js';
+  import { KINDS, STATUS, formatDay, plural } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
 
   const filters = [['', 'Todos'], ['pending', 'Pendientes'], ['trial', 'En prueba'], ['active', 'Activos'], ['suspended', 'Suspendidos']];
@@ -117,7 +117,7 @@
       <a class="item-row link" href="/plataforma/negocios/{b.id}">
         <div class="grow">
           <div class="title">{b.name}</div>
-          <div class="meta">{KINDS[b.kind]} · {b.owner_email || 'sin responsable'} · {b.users} personas · {b.clients} clientes</div>
+          <div class="meta">{KINDS[b.kind]} · {b.owner_email || 'sin responsable'} · {plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')}</div>
         </div>
         <span class="meta">{b.status === 'trial' ? 'Prueba hasta ' + formatDay(b.trial_ends_at) : 'Alta ' + formatDay(b.created_at)}</span>
         <span class="badge {tone}">{label}</span>

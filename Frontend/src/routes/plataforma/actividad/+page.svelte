@@ -45,7 +45,7 @@
     {#each rows as r (r.id)}
       <div class="item-row">
         <div class="grow">
-          <div class="title">{ACTIONS[r.action] ?? r.action}{#if r.business} · <a href="/plataforma/negocios/{r.business_id}">{r.business}</a>{/if}</div>
+          <div class="title">{ACTIONS[r.action] ?? r.action}{#if r.business}{' · '}<a href="/plataforma/negocios/{r.business_id}">{r.business}</a>{/if}</div>
           {#if extra(r.detail)}<div class="meta">{extra(r.detail)}</div>{/if}
         </div>
         <span class="meta">{r.actor} · {formatDate(r.created_at)}</span>
