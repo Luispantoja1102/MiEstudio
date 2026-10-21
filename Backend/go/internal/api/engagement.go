@@ -353,7 +353,7 @@ func (a *API) sendEngagement(ctx context.Context, row engRow, kind string, m eng
 	}
 	h.WriteString(m.Extra)
 	if m.CTALink != "" {
-		fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#2f6f5e;color:#fff;text-decoration:none">%s</a></p>`, esc(m.CTALink), esc(m.CTA))
+		fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4b2a5e;color:#fff;text-decoration:none">%s</a></p>`, esc(m.CTALink), esc(m.CTA))
 	}
 	if unsub != "" {
 		fmt.Fprintf(&h, `<p style="margin:24px 0 0;font-size:12px;color:#5b6864"><a href="%s" style="color:#5b6864">Dejar de recibir estos mensajes</a></p>`, esc(unsub))
@@ -502,7 +502,7 @@ func (a *API) surveyPass(ctx context.Context, now time.Time) error {
 		extra.WriteString(`<p style="margin:0 0 8px">`)
 		for i := 1; i <= 5; i++ {
 			if link != "" {
-				fmt.Fprintf(&extra, `<a href="%s?s=%d" style="display:inline-block;width:40px;height:40px;line-height:40px;margin:0 4px 4px 0;text-align:center;border-radius:8px;border:1px solid #2f6f5e;color:#2f6f5e;text-decoration:none;font-weight:600">%d</a>`, html.EscapeString(link), i, i)
+				fmt.Fprintf(&extra, `<a href="%s?s=%d" style="display:inline-block;width:40px;height:40px;line-height:40px;margin:0 4px 4px 0;text-align:center;border-radius:8px;border:1px solid #4b2a5e;color:#4b2a5e;text-decoration:none;font-weight:600">%d</a>`, html.EscapeString(link), i, i)
 			}
 		}
 		extra.WriteString(`</p><p style="margin:0;font-size:13px;color:#5b6864">1 = muy mal · 5 = excelente</p>`)

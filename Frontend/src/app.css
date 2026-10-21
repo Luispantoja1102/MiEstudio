@@ -1,36 +1,39 @@
 /* ───────── Tokens ───────── */
-/* Tema claro: marfil cálido, salvia profunda y terracota (la libreta de citas de una barbería de barrio) — predeterminado */
+/* Tema claro: marfil cálido, salvia profunda y terracota  — predeterminado */
+/* Tema claro: marfil cálido, berenjena profunda y cempasúchil (un morado y un dorado de mercado, no de oficina) — predeterminado */
 :root,
 :root[data-theme='light'] {
-  --bg: #f4efe6;
-  --surface: #fffcf7;
-  --surface-2: #ece5d7;
-  --text: #221f1a;
-  --muted: #5d5a51;
-  --border: #ddd3c0;
-  --accent: #24584a;
-  --accent-hover: #1c4a3e;
+  --bg: #f6f1e9;
+  --surface: #fffdfa;
+  --surface-2: #eee5d8;
+  --text: #241a24;
+  --muted: #5f5463;
+  --border: #e0d4c3;
+  --accent: #4b2a5e;
+  --accent-hover: #3b1f4b;
   --accent-contrast: #ffffff;
-  --accent-soft: #dfeae2;
+  --accent-soft: #eee4f2;
+  --marigold: #d98e1f;
+  --marigold-soft: #fbedcf;
   --clay: #a8472d;
   --clay-soft: #f5e1d8;
-  --danger: #a82f27;
+  --danger: #b0302a;
   --danger-soft: #f9e4e0;
-  --warn: #7d5200;
-  --warn-soft: #f7ebd0;
-  /* barra lateral: salvia oscura con texto marfil */
-  --side: #1d4439;
-  --side-text: #f3eee2;
-  --side-muted: #a9c0b4;
-  --side-hover: rgba(255, 252, 247, 0.08);
-  --side-active: rgba(255, 252, 247, 0.16);
-  --side-line: rgba(255, 252, 247, 0.14);
-  --side-mark: #f3eee2;
-  --side-mark-ink: #1d4439;
+  --warn: #7a4f00;
+  --warn-soft: #f8ebcf;
   /* un color por profesional (agenda, Inicio): desaturados, distinguibles entre sí y de los estados */
-  --p1: #3f7d6a; --p2: #b0643c; --p3: #5b6fa6; --p4: #a4486f; --p5: #8a7a2e; --p6: #4f8190;
+  --p1: #4b7f9c; --p2: #b0643c; --p3: #7a5aa6; --p4: #a4486f; --p5: #8a7a2e; --p6: #3f8a78;
+  /* barra lateral: berenjena oscura con texto marfil y el dorado como marca */
+  --side: #2c1738;
+  --side-text: #f7f0e6;
+  --side-muted: #c0abcb;
+  --side-hover: rgba(255, 250, 240, 0.08);
+  --side-active: rgba(255, 250, 240, 0.15);
+  --side-line: rgba(255, 250, 240, 0.14);
+  --side-mark: #f0b445;
+  --side-mark-ink: #2c1738;
   --shadow-sm: none;
-  --shadow: 0 1px 2px rgba(34, 31, 26, 0.06), 0 14px 32px -14px rgba(34, 31, 26, 0.22);
+  --shadow: 0 1px 2px rgba(36, 26, 36, 0.07), 0 14px 32px -14px rgba(36, 26, 36, 0.28);
   color-scheme: light;
 }
 
@@ -46,6 +49,8 @@
   --accent-hover: #d6b370;
   --accent-contrast: #15110a;
   --accent-soft: #231e12;
+  --marigold: #c9a45c;
+  --marigold-soft: #261f10;
   --clay: #e08a6c;
   --clay-soft: #2e1b14;
   --danger: #f08a80;
@@ -254,6 +259,7 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 
 .badge.warn { background: var(--warn-soft); color: var(--warn); }
 .badge.clay { background: var(--clay-soft); color: var(--clay); }
+.badge.gold { background: var(--marigold-soft); color: var(--warn); }
 .badge.bad { background: var(--danger-soft); color: var(--danger); }
 .banner { padding: 0.8rem 1rem; margin-bottom: 1.25rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 0.9rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }

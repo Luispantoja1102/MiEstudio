@@ -115,7 +115,7 @@
                 <b>{a.client_name}</b>
                 <span class="meta">{a.service_name} · <i class="dot" style:background={colorOf(a.staff_id)}></i>{a.staff_name}</span>
                 <span class="tags">
-                  {#if next?.id === a.id}<span class="badge">Siguiente</span>{/if}
+                  {#if next?.id === a.id}<span class="badge gold">Siguiente</span>{/if}
                   {#if a.status === 'pending_payment'}<span class="badge clay">Espera anticipo</span>
                   {:else if a.status === 'completed'}<span class="badge muted">Cobrada</span>
                   {:else if a.status === 'no_show'}<span class="badge muted">No asistió</span>
@@ -188,7 +188,7 @@
   .slots li:nth-child(2) { animation-delay: 40ms; }
   .slots li:nth-child(3) { animation-delay: 80ms; }
   .slots li:nth-child(n + 4) { animation-delay: 120ms; }
-  .slots li.next { background: var(--accent-soft); border-color: var(--accent); }
+  .slots li.next { background: var(--marigold-soft); border-color: var(--marigold); }
   .slots li.done { opacity: 0.7; }
   @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

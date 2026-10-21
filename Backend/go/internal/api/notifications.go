@@ -149,7 +149,7 @@ func renderMail(kind string, moved bool, m *mailCtx, appURL string) (subject, te
 		}
 		h.WriteString(`</table>`)
 		if link != "" {
-			fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#2f6f5e;color:#fff;text-decoration:none">Ver o cancelar mi cita</a></p>`, esc(link))
+			fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4b2a5e;color:#fff;text-decoration:none">Ver o cancelar mi cita</a></p>`, esc(link))
 			fmt.Fprintf(&h, `<p style="margin:8px 0 0;font-size:13px;color:#5b6864">Puedes cancelar hasta %d h antes.</p>`, m.CancelMinHours)
 		}
 		if kind == "reminder" && link != "" {
