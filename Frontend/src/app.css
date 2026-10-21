@@ -31,6 +31,7 @@
   --side-line: rgba(244, 241, 234, 0.14);
   --side-mark: #e58a5c;
   --side-mark-ink: #13203b;
+  --side-active-ink: var(--side-text);
   --shadow-sm: none;
   --shadow: 0 1px 2px rgba(27, 34, 51, 0.07), 0 14px 32px -14px rgba(27, 34, 51, 0.28);
   color-scheme: light;
@@ -66,6 +67,7 @@
   --side-line: #2a2a2e;
   --side-mark: #c9a45c;
   --side-mark-ink: #15110a;
+  --side-active-ink: var(--side-text);
   --shadow-sm: none;
   --shadow: 0 1px 2px rgba(22, 22, 24, 0.08), 0 16px 36px -16px rgba(22, 22, 24, 0.34);
   color-scheme: light;
@@ -102,18 +104,11 @@
   --side-line: #e6e1da;
   --side-mark: #1f1e1c;
   --side-mark-ink: #f8f6f2;
-  --radius: 18px;
-  --radius-sm: 12px;
+  --side-active-ink: #8a4a38;
   --shadow-sm: none;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 28px -14px rgba(0, 0, 0, 0.08);
   color-scheme: light;
 }
-:root[data-theme='lino'] .btn { border-radius: 999px; }
-:root[data-theme='lino'] .card, :root[data-theme='lino'] .item-row { box-shadow: var(--shadow); }
-:root[data-theme='lino'] .btn.ghost { background: transparent; }
-:root[data-theme='lino'] h1 { font-weight: 500; }
-:root[data-theme='lino'] .page-head h1 { font-size: 2.4rem; }
-:root[data-theme='lino'] .item-row { padding: 1.15rem 1.4rem; }
 
 /* Tema oscuro: carbón con dorado champán (barbería de noche) */
 :root[data-theme='dark'] {
@@ -143,6 +138,7 @@
   --side-line: #26262b;
   --side-mark: #c9a45c;
   --side-mark-ink: #15110a;
+  --side-active-ink: var(--side-text);
   --p1: #6fb59f; --p2: #e0956a; --p3: #8ea2d6; --p4: #d77fa5; --p5: #c9b95a; --p6: #7fb3c4;
   --shadow-sm: none;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
@@ -150,8 +146,10 @@
 }
 
 :root {
-  --radius: 12px;
-  --radius-sm: 8px;
+  /* forma común a todos los temas: tarjetas amplias, controles redondeados, botones en píldora */
+  --radius: 18px;
+  --radius-sm: 12px;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 28px -14px rgba(0, 0, 0, 0.08);
   --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
   /* movimiento: salida rápida y firme; lo que el usuario toca responde en menos de 200 ms */
@@ -183,7 +181,7 @@ body {
 
 h1, h2, h3 {
   font-family: var(--font-heading);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.01em;
   margin: 0 0 0.5em;
@@ -220,7 +218,7 @@ a { color: var(--accent); text-underline-offset: 3px; }
   gap: 0.5rem;
   min-height: 44px;
   padding: 0 1.25rem;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-contrast);
@@ -245,6 +243,7 @@ a { color: var(--accent); text-underline-offset: 3px; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.5rem;
+  box-shadow: var(--card-shadow);
 }
 
 .field { display: block; margin-bottom: 1.1rem; font-size: 0.9rem; font-weight: 500; }
@@ -291,7 +290,7 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ───────── Páginas de trabajo ───────── */
 .page-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 1.5rem; }
-.page-head h1 { font-size: 1.75rem; margin: 0; }
+.page-head h1 { font-size: 2.4rem; font-weight: 500; margin: 0; }
 .page-head p { margin: 0.25rem 0 0; color: var(--muted); }
 
 .list { display: grid; gap: 10px; }
@@ -300,10 +299,11 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  padding: 1rem 1.25rem;
+  padding: 1.15rem 1.4rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
 }
 .item-row .grow { flex: 1 1 200px; min-width: 0; }
 .item-row .title { font-weight: 600; }

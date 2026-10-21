@@ -188,10 +188,10 @@
   .slots li:nth-child(2) { animation-delay: 40ms; }
   .slots li:nth-child(3) { animation-delay: 80ms; }
   .slots li:nth-child(n + 4) { animation-delay: 120ms; }
-  :global(:root[data-theme='lino']) .slots { gap: 14px; }
-  :global(:root[data-theme='lino']) .slots li { padding: 1.35rem 1.6rem; gap: 6px 22px; }
-  :global(:root[data-theme='lino']) aside { padding: 1.75rem 1.75rem 0.75rem; }
-  :global(:root[data-theme='lino']) .when { font-size: 1.6rem; }
+  .slots { gap: 14px; }
+  .slots li { padding: 1.35rem 1.6rem; gap: 6px 22px; }
+  aside { padding: 1.75rem 1.75rem 0.75rem; }
+  .when { font-size: 1.6rem; }
   .slots li.next { background: var(--marigold-soft); border-color: var(--marigold); }
   .slots li.done { opacity: 0.7; }
   @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

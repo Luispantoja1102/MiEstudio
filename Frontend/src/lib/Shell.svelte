@@ -93,69 +93,90 @@
   .shell { display: grid; min-height: 100vh; }
   .main { min-width: 0; } /* evita que el contenido ancho ensanche la página */
 
-  /* barra lateral: salvia oscura (o carbón en el tema oscuro); aquí el logo y los textos se leen sobre fondo oscuro */
+  /* Riel de íconos: la estructura es la misma en todos los temas; el tema solo pone los colores (--side-*) */
   .side {
     --text: var(--side-text);
     --accent: var(--side-mark);
     --accent-contrast: var(--side-mark-ink);
     display: none;
     flex-direction: column;
-    gap: 28px;
-    padding: 24px 14px;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 0 28px;
     background: var(--side);
     color: var(--side-text);
+    border-right: 1px solid var(--side-line);
     position: sticky;
     top: 0;
     height: 100vh;
-    overflow-y: auto;
   }
-  .brand { display: grid; gap: 8px; justify-items: start; padding: 0 6px; }
-  .tag { font-size: 0.75rem; font-weight: 600; color: var(--side-text); background: var(--side-active); padding: 2px 10px; border-radius: 999px; }
-  .side nav { display: grid; gap: 2px; }
+  .brand { display: grid; gap: 8px; justify-items: center; padding: 0 0 20px; }
+  .brand :global(.word), .tag { display: none; }
+  .side nav { display: grid; justify-items: center; gap: 8px; }
   .side nav:not(.foot) { flex: 1; align-content: start; }
-  .side .foot { padding-top: 12px; border-top: 1px solid var(--side-line); }
-  .group { margin: 18px 12px 6px; font-size: 0.78rem; font-weight: 500; color: var(--side-muted); }
-  .group:first-child { margin-top: 0; }
+  .group { display: none; }
   .item {
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: var(--radius-sm);
-    color: var(--side-text);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    color: var(--side-muted);
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 500;
     white-space: nowrap;
-    transition: background-color var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease);
+    transition: background-color var(--dur-ui) var(--ease), color var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease);
   }
-  .item:active { transform: scale(0.98); }
-  .item:hover { background: var(--side-hover); }
-  .item.active { background: var(--side-active); font-weight: 600; }
-  .item.off { color: var(--side-muted); cursor: default; }
-  .item.off:hover { background: transparent; }
-  .item em { margin-left: auto; font-style: normal; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--side-hover); }
+  .item:active { transform: scale(0.95); }
+  .item:hover { color: var(--side-text); background: var(--side-hover); }
+  .item.active { color: var(--side-active-ink); background: var(--side-active); }
+  .item.off { cursor: default; opacity: 0.6; }
+  .item.off:hover { background: transparent; color: var(--side-muted); }
+  .item :global(svg) { width: 22px; height: 22px; stroke-width: 1.4; }
+  .item em { display: none; }
+  .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .side :global(:focus-visible) { outline-color: var(--side-text); }
+  /* el nombre aparece al pasar el cursor o enfocar con el teclado */
+  .side .item::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--bg);
+    background: var(--text);
+    border-radius: 8px;
+    opacity: 0;
+    transform: translate(-4px, -50%);
+    pointer-events: none;
+    transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+    z-index: 30;
+  }
+  .side .item:hover::after, .side .item:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
 
   .top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    min-height: 64px;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    position: sticky;
-    top: 0;
-    z-index: 20;
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: 20px 20px 0;
+    background: transparent;
   }
   .biz { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools { display: flex; gap: 8px; flex: none; }
   .exit { display: none; }
 
-  .content { padding: 24px 20px calc(96px + env(safe-area-inset-bottom)); max-width: 1180px; }
+  .content { width: 100%; max-width: 1200px; margin-inline: auto; padding: 24px 20px calc(96px + env(safe-area-inset-bottom)); }
 
   /* celular: barra inferior */
   .bottom {
@@ -208,80 +229,24 @@
   }
   .sheet.open { transform: translateY(0); visibility: visible; transition: transform 240ms var(--ease); }
   .sheet .grab { width: 36px; height: 4px; margin: 0 auto 8px; border-radius: 2px; background: var(--border); }
-  .sheet .item { color: var(--text); min-height: 52px; }
-  .sheet .item:hover { background: var(--surface-2); }
+  .sheet .item { width: auto; height: 52px; justify-content: flex-start; padding: 0 12px; color: var(--text); font-size: 0.95rem; }
+  .sheet .item .lbl { position: static; width: auto; height: auto; clip: auto; overflow: visible; }
+  .sheet .item::after { display: none; }
+  .sheet .item:hover { background: var(--surface-2); color: var(--text); }
   .sheet .item.active { background: var(--accent-soft); color: var(--accent); }
   .sheet .out { font: inherit; font-weight: 500; background: transparent; border: 0; cursor: pointer; text-align: left; width: 100%; border-top: 1px solid var(--border); border-radius: 0; margin-top: 6px; }
 
   @media (min-width: 900px) {
-    .shell { grid-template-columns: 248px 1fr; }
+    .shell { grid-template-columns: 96px 1fr; }
+    /* el riel ocupa 96 px a la izquierda; se reserva lo mismo a la derecha para que el contenido quede centrado en la ventana */
+    .main { padding-right: 96px; }
     .side { display: flex; }
     .bottom, .scrim, .sheet { display: none; }
     .exit { display: inline-flex; }
-    .content { padding: 40px 40px 64px; }
-    .top { padding: 0 40px; }
+    .top { padding: 28px 48px 0; }
+    .content { padding: 24px 48px 72px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .sheet, .sheet.open { transition: none; }
   }
-
-  /* Tema Lino: navegación en un riel de íconos sobre porcelana y contenido centrado en la ventana */
-  @media (min-width: 900px) {
-    :global(:root[data-theme='lino']) .shell { grid-template-columns: 96px 1fr; }
-    /* el riel ocupa 96 px a la izquierda; se reserva lo mismo a la derecha para que el contenido quede centrado en la ventana, no en lo que sobra */
-    :global(:root[data-theme='lino']) .main { padding-right: 96px; }
-    :global(:root[data-theme='lino']) .side {
-      align-items: center;
-      gap: 12px;
-      padding: 32px 0 28px;
-      overflow: visible;
-      border-right: 1px solid var(--side-line);
-    }
-    :global(:root[data-theme='lino']) .brand { padding: 0 0 20px; justify-items: center; }
-    :global(:root[data-theme='lino']) .brand :global(.word), :global(:root[data-theme='lino']) .tag { display: none; }
-    :global(:root[data-theme='lino']) .side nav { justify-items: center; gap: 8px; }
-    :global(:root[data-theme='lino']) .group { display: none; }
-    :global(:root[data-theme='lino']) .side .foot { border-top: 0; padding-top: 0; }
-    :global(:root[data-theme='lino']) .item {
-      position: relative;
-      justify-content: center;
-      width: 48px;
-      height: 48px;
-      min-height: 0;
-      padding: 0;
-      border-radius: 14px;
-      color: var(--side-muted);
-      font-weight: 500;
-    }
-    :global(:root[data-theme='lino']) .item:hover { color: var(--side-text); }
-    :global(:root[data-theme='lino']) .item.active { color: var(--clay); font-weight: 500; }
-    :global(:root[data-theme='lino']) .item :global(svg) { width: 22px; height: 22px; stroke-width: 1.4; }
-    :global(:root[data-theme='lino']) .item .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    :global(:root[data-theme='lino']) .item em { display: none; }
-    /* nombre al pasar el cursor o enfocar con el teclado */
-    :global(:root[data-theme='lino']) .item::after {
-      content: attr(data-label);
-      position: absolute;
-      left: calc(100% + 12px);
-      top: 50%;
-      padding: 6px 12px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      white-space: nowrap;
-      color: var(--bg);
-      background: var(--text);
-      border-radius: 8px;
-      opacity: 0;
-      transform: translate(-4px, -50%);
-      pointer-events: none;
-      transition: opacity 120ms var(--ease), transform 120ms var(--ease);
-      z-index: 30;
-    }
-    :global(:root[data-theme='lino']) .item:hover::after, :global(:root[data-theme='lino']) .item:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
-    :global(:root[data-theme='lino']) .top { background: transparent; border-bottom: 0; padding: 0; position: static; }
-    :global(:root[data-theme='lino']) .top, :global(:root[data-theme='lino']) .content { width: 100%; max-width: 1200px; margin-inline: auto; }
-    :global(:root[data-theme='lino']) .top { padding: 28px 48px 0; min-height: 0; }
-    :global(:root[data-theme='lino']) .content { padding: 24px 48px 72px; }
-  }
-  :global(:root[data-theme='lino']) .sheet .item::after { display: none; }
 </style>
