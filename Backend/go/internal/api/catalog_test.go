@@ -314,3 +314,10 @@ func TestWorkingHours(t *testing.T) {
 		t.Fatal("no se pudo vaciar el horario")
 	}
 }
+
+func mustJSON(t *testing.T, raw []byte, v any) {
+	t.Helper()
+	if err := json.Unmarshal(raw, v); err != nil {
+		t.Fatal(err)
+	}
+}

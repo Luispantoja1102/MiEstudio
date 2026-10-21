@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,6 +22,7 @@ type API struct {
 	Secret    string
 	Limiter   *ratelimit.Limiter // nil desactiva el límite de intentos
 	StaticDir string             // si se define, sirve el frontend compilado
+	Now       func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
 }
 
 // authed exige sesión válida (negocio o plataforma).
@@ -82,6 +84,16 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("PATCH /api/clients/{id}", a.tenant(a.updateClient))
 	mux.Handle("GET /api/clients/{id}/notes", a.tenant(a.listNotes, admin, "staff"))
 	mux.Handle("POST /api/clients/{id}/notes", a.tenant(a.createNote, admin, "staff"))
+
+	// negocio: agenda (todos leen; agendar y bloquear: administrador, recepción y profesionales)
+	book := []string{admin, "reception", "staff"}
+	mux.Handle("GET /api/agenda", a.tenant(a.agendaDay))
+	mux.Handle("GET /api/agenda/slots", a.tenant(a.slots))
+	mux.Handle("POST /api/appointments", a.tenant(a.createAppointment, book...))
+	mux.Handle("PATCH /api/appointments/{id}", a.tenant(a.updateAppointment, book...))
+	mux.Handle("POST /api/appointments/{id}/move", a.tenant(a.moveAppointment, book...))
+	mux.Handle("POST /api/blocks", a.tenant(a.createBlock, book...))
+	mux.Handle("DELETE /api/blocks/{id}", a.tenant(a.deleteBlock, book...))
 
 	// plataforma
 	mux.Handle("GET /api/platform/stats", a.platform(a.platformStats, both...))
