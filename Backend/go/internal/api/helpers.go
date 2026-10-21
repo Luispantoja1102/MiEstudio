@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -16,3 +17,12 @@ func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 }
 
 func serverErr(w http.ResponseWriter) { writeErr(w, http.StatusInternalServerError, "error interno") }
+
+// cents da formato de pesos a una cantidad en centavos: 15050 -> "150.50".
+func cents(n int) string {
+	sign := ""
+	if n < 0 {
+		sign, n = "-", -n
+	}
+	return fmt.Sprintf("%s%d.%02d", sign, n/100, n%100)
+}

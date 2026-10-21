@@ -32,9 +32,11 @@ func (a *API) businessLoc(ctx context.Context, bizID int64) *time.Location {
 }
 
 // activeBranch comprueba que la sucursal sea del negocio y esté activa.
-func (a *API) activeBranch(ctx context.Context, bizID, branchID int64) (bool, error) {
+// Recibe el ejecutor (pool o transacción): dentro de una transacción debe usar la misma conexión,
+// pedir otra al pool puede agotarlo y bloquear el servidor cuando hay muchas peticiones a la vez.
+func activeBranch(ctx context.Context, q queryer, bizID, branchID int64) (bool, error) {
 	var ok bool
-	err := a.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM branches WHERE id = $1 AND business_id = $2 AND active)`, branchID, bizID).Scan(&ok)
+	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM branches WHERE id = $1 AND business_id = $2 AND active)`, branchID, bizID).Scan(&ok)
 	return ok, err
 }
 
@@ -93,7 +95,7 @@ func (a *API) slots(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
-	okBranch, err := a.activeBranch(ctx, p.BusinessID, branchID)
+	okBranch, err := activeBranch(ctx, a.DB, p.BusinessID, branchID)
 	if err != nil {
 		serverErr(w)
 		return
@@ -260,7 +262,7 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "indica branch_id y date (AAAA-MM-DD)")
 		return
 	}
-	ok, err := a.activeBranch(ctx, p.BusinessID, branchID)
+	ok, err := activeBranch(ctx, a.DB, p.BusinessID, branchID)
 	if err != nil {
 		serverErr(w)
 		return
@@ -439,7 +441,7 @@ func (a *API) createAppointment(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
-	branchOK, err := a.activeBranch(ctx, p.BusinessID, req.BranchID)
+	branchOK, err := activeBranch(ctx, a.DB, p.BusinessID, req.BranchID)
 	if err != nil {
 		serverErr(w)
 		return

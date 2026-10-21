@@ -145,13 +145,15 @@ func TestProductsValidation(t *testing.T) {
 			t.Errorf("inválido %d: esperaba 400, obtuvo %d", i, r.Status)
 		}
 	}
-	pid := id(a.do(t, "POST", "/api/products", admin, map[string]any{"name": "Cera", "price_cents": 100, "stock": 5}))
-	if r := a.do(t, "PATCH", path("/api/products/", pid), admin, map[string]any{"stock": -3}); r.Status != 400 {
-		t.Fatalf("stock negativo: %d", r.Status)
-	}
-	a.do(t, "PATCH", path("/api/products/", pid), admin, map[string]any{"stock": 9})
-	if got := list[product](t, a, "/api/products", admin)[0]; got.Stock != 9 || got.Name != "Cera" || got.PriceCents != 100 {
+	pid := id(a.do(t, "POST", "/api/products", admin, map[string]any{"name": "Cera", "price_cents": 100, "cost_cents": 40, "stock": 5}))
+	// la existencia solo cambia por el libro de inventario: el PATCH la ignora
+	a.do(t, "PATCH", path("/api/products/", pid), admin, map[string]any{"stock": 99, "price_cents": 120})
+	got := list[product](t, a, "/api/products", admin)[0]
+	if got.Stock != 5 || got.PriceCents != 120 || got.Name != "Cera" || got.CostCents == nil || *got.CostCents != 40 {
 		t.Fatalf("%+v", got)
+	}
+	if r := a.do(t, "PATCH", path("/api/products/", pid), admin, map[string]any{"cost_cents": -1}); r.Status != 400 {
+		t.Fatalf("costo negativo: %d", r.Status)
 	}
 }
 

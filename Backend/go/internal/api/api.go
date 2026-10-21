@@ -24,6 +24,8 @@ type API struct {
 	StaticDir  string             // si se define, sirve el frontend compilado
 	Now        func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
 	Production bool               // rechaza claves de ejemplo en el alta del administrador
+	EncKey     []byte             // 32 bytes: cifra los tokens de Mercado Pago (vacío = integración deshabilitada)
+	MPBase     string             // URL base de Mercado Pago (para pruebas); vacío usa la oficial
 }
 
 // authed exige sesión válida (negocio o plataforma).
@@ -95,6 +97,34 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/appointments/{id}/move", a.tenant(a.moveAppointment, book...))
 	mux.Handle("POST /api/blocks", a.tenant(a.createBlock, book...))
 	mux.Handle("DELETE /api/blocks/{id}", a.tenant(a.deleteBlock, book...))
+
+	// negocio: punto de venta. Cobran administrador, caja y recepción; los profesionales no.
+	sell := []string{admin, "cashier", "reception"}
+	mux.Handle("GET /api/cash/current", a.tenant(a.currentCash, sell...))
+	mux.Handle("POST /api/cash/open", a.tenant(a.openCash, sell...))
+	mux.Handle("POST /api/cash/movements", a.tenant(a.cashMovement, sell...))
+	mux.Handle("POST /api/cash/close", a.tenant(a.closeCash, sell...))
+	mux.Handle("GET /api/cash/sessions", a.tenant(a.listCashSessions, sell...))
+	mux.Handle("POST /api/sales", a.tenant(a.createSale, sell...))
+	mux.Handle("GET /api/sales", a.tenant(a.listSales, sell...))
+	mux.Handle("GET /api/sales/{id}", a.tenant(a.getSale, sell...))
+	mux.Handle("POST /api/sales/{id}/void", a.tenant(a.voidSale, admin))
+	mux.Handle("POST /api/products/{id}/stock", a.tenant(a.adjustStock, admin))
+	mux.Handle("GET /api/products/{id}/movements", a.tenant(a.listStockMovements, admin))
+	mux.Handle("GET /api/commission-rules", a.tenant(a.listRules, admin))
+	mux.Handle("POST /api/commission-rules", a.tenant(a.createRule, admin))
+	mux.Handle("PATCH /api/commission-rules/{id}", a.tenant(a.updateRule, admin))
+
+	// negocio: terminal Mercado Pago
+	mux.Handle("GET /api/payments/mercadopago", a.tenant(a.mpStatus, admin))
+	mux.Handle("PUT /api/payments/mercadopago/token", a.tenant(a.mpConnect, admin))
+	mux.Handle("DELETE /api/payments/mercadopago", a.tenant(a.mpDisconnect, admin))
+	mux.Handle("GET /api/payments/mercadopago/terminals", a.tenant(a.mpTerminals, admin))
+	mux.Handle("PUT /api/payments/mercadopago/terminals", a.tenant(a.mpRegisterTerminal, admin))
+	mux.Handle("GET /api/payments/point/status", a.tenant(a.pointStatus, sell...))
+	mux.Handle("POST /api/payments/point/charges", a.tenant(a.pointCharge, sell...))
+	mux.Handle("GET /api/payments/point/charges/{id}", a.tenant(a.pointChargeStatus, sell...))
+	mux.Handle("POST /api/payments/point/charges/{id}/cancel", a.tenant(a.pointChargeCancel, sell...))
 
 	// plataforma
 	mux.Handle("GET /api/platform/stats", a.platform(a.platformStats, both...))
