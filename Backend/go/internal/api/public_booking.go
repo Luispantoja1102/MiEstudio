@@ -486,15 +486,19 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	if active >= maxActiveBookingsPerPhone {
 		return nil, fail(http.StatusConflict, "ya tienes varias citas pendientes; cancela alguna o contáctanos")
 	}
-	_, err = tx.Exec(ctx,
+	var apptID int64
+	err = tx.QueryRow(ctx,
 		`INSERT INTO appointments (business_id, branch_id, client_id, staff_id, service_id, starts_at, ends_at, blocked_until, notes,
-		   source, public_token, reminders_consent, privacy_accepted_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12)`,
-		b.ID, req.BranchID, clientID, staffID, req.ServiceID, start, end, end.Add(svc.Buffer), req.Notes, token, req.ConsentReminders, a.now())
+		   source, public_token, reminders_consent, privacy_accepted_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12, $12) RETURNING id`,
+		b.ID, req.BranchID, clientID, staffID, req.ServiceID, start, end, end.Add(svc.Buffer), req.Notes, token, req.ConsentReminders, a.now()).Scan(&apptID)
 	if isExclusionViolation(err) {
 		return nil, fail(http.StatusConflict, "ese horario ya no está disponible")
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := a.enqueueMail(ctx, tx, apptID, "booking", false); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -629,5 +633,30 @@ func (a *API) publicCancel(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "la cita ya cambió; recarga la página")
 		return
 	}
+	a.notify(ctx, m.ID, "cancellation", false)
 	writeJSON(w, http.StatusOK, map[string]any{"status": "cancelled"})
+}
+
+// publicRemindersOff retira el consentimiento de recordatorios de quien tenga este enlace (en todas sus citas futuras).
+func (a *API) publicRemindersOff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !a.allow(w, "pub-token:"+clientIP(r), 60, time.Minute) {
+		return
+	}
+	m, err := a.byToken(ctx, r.PathValue("token"))
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if m == nil {
+		notFound(w)
+		return
+	}
+	if _, err := a.DB.Exec(ctx,
+		`WITH c AS (UPDATE clients SET reminders_consent = false WHERE id = (SELECT client_id FROM appointments WHERE id = $1) RETURNING id)
+		 UPDATE appointments SET reminders_consent = false WHERE client_id IN (SELECT id FROM c) AND starts_at > $2`, m.ID, a.now()); err != nil {
+		serverErr(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"reminders": false})
 }

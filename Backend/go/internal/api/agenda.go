@@ -533,6 +533,9 @@ func (a *API) updateAppointment(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
+	if req.Status != nil && *req.Status == "cancelled" {
+		a.notify(ctx, id, "cancellation", false)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -607,6 +610,7 @@ func (a *API) moveAppointment(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
+	a.notify(ctx, id, "booking", true)
 	w.WriteHeader(http.StatusNoContent)
 }
 

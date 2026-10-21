@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"miestudio/backend-go/internal/auth"
+	"miestudio/backend-go/internal/mail"
 	"miestudio/backend-go/internal/ratelimit"
 )
 
@@ -34,6 +35,9 @@ type API struct {
 	MPClientSecret string
 	MPRedirect     string // debe coincidir exactamente con la registrada en la aplicación de Mercado Pago
 	MPAuthBase     string
+
+	Mailer mail.Sender // nil o sin configurar: no se envían correos
+	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
 }
 
 // authed exige sesión válida (negocio o plataforma).
@@ -69,6 +73,7 @@ func (a *API) Routes() http.Handler {
 	// reserva en línea (sin sesión)
 	mux.HandleFunc("GET /api/public-appointments/{token}", a.publicAppointment)
 	mux.HandleFunc("POST /api/public-appointments/{token}/cancel", a.publicCancel)
+	mux.HandleFunc("POST /api/public-appointments/{token}/reminders-off", a.publicRemindersOff)
 	mux.HandleFunc("GET /api/public/{slug}", a.publicInfo)
 	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
 	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
