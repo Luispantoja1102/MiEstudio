@@ -329,8 +329,3 @@ func ternary(c bool, a, b string) string {
 	}
 	return b
 }
-
-// notifyPayment avisa al equipo de plataforma de un pago acreditado (no se avisa de cortesías).
-func (a *API) notifyPayment(ctx context.Context, bizID int64, p paymentRow) {
-	// se completa con los avisos de cobro (ver billing_notices.go)
-}

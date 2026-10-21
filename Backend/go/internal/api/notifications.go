@@ -294,6 +294,7 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 	a.sweepHolds(ctx)
 	a.recheckRecentlyExpired(ctx)
 	a.purgeResets(ctx)
+	a.billingPass(ctx)
 	if !a.mailEnabled() {
 		return 0, nil
 	}

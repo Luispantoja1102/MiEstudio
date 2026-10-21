@@ -21,12 +21,13 @@ type Config struct {
 	MPBase      string // MP_API_BASE (opcional)
 
 	// OAuth de Mercado Pago (aplicación de la plataforma). Vacío = solo token manual.
-	MPClientID      string // MP_CLIENT_ID
-	MPClientSecret  string // MP_CLIENT_SECRET
-	MPRedirect      string // MP_OAUTH_REDIRECT o API_PUBLIC_URL + /api/point/oauth/callback
-	MPAuthBase      string // MP_AUTH_BASE (por defecto México)
-	PublicURL       string // API_PUBLIC_URL sin /api: destino de los avisos automáticos de Mercado Pago
-	MPWebhookSecret string // MP_WEBHOOK_SECRET (opcional): firma de los avisos
+	MPClientID                                               string // MP_CLIENT_ID
+	MPClientSecret                                           string // MP_CLIENT_SECRET
+	MPRedirect                                               string // MP_OAUTH_REDIRECT o API_PUBLIC_URL + /api/point/oauth/callback
+	MPAuthBase                                               string // MP_AUTH_BASE (por defecto México)
+	PlatformMPToken, PlatformWebhookSecret, PlatformNoticeTo string // MPP_ACCESS_TOKEN, MPP_WEBHOOK_SECRET, PLATFORM_NOTICE_EMAIL
+	PublicURL                                                string // API_PUBLIC_URL sin /api: destino de los avisos automáticos de Mercado Pago
+	MPWebhookSecret                                          string // MP_WEBHOOK_SECRET (opcional): firma de los avisos
 
 	// Correo saliente (confirmaciones y recordatorios). Sin SMTP_HOST y MAIL_FROM no se envía nada.
 	SMTPHost, SMTPUser, SMTPPass, MailFrom string
@@ -67,6 +68,8 @@ func Load() (Config, error) {
 			c.MPRedirect = base + "/api/point/oauth/callback"
 		}
 	}
+	c.PlatformMPToken, c.PlatformWebhookSecret = strings.TrimSpace(os.Getenv("MPP_ACCESS_TOKEN")), strings.TrimSpace(os.Getenv("MPP_WEBHOOK_SECRET"))
+	c.PlatformNoticeTo = strings.TrimSpace(os.Getenv("PLATFORM_NOTICE_EMAIL"))
 	c.PublicURL = strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(os.Getenv("API_PUBLIC_URL")), "/"), "/api")
 	c.MPWebhookSecret = strings.TrimSpace(os.Getenv("MP_WEBHOOK_SECRET"))
 	c.MPAuthBase = strings.TrimRight(os.Getenv("MP_AUTH_BASE"), "/")

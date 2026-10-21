@@ -38,8 +38,10 @@ type API struct {
 	PublicURL       string // dirección pública de la API (sin /api): para los avisos automáticos de Mercado Pago
 	MPWebhookSecret string // firma de los avisos; vacío = no se verifica
 
-	PlatformMPToken string   // MPP_ACCESS_TOKEN: cuenta de Mercado Pago de la plataforma, para cobrar suscripciones
-	Operator        Operator // datos de quien opera la plataforma (aviso de privacidad)
+	PlatformWebhookSecret string   // MPP_WEBHOOK_SECRET: firma de los avisos de pagos de suscripción
+	PlatformNoticeTo      string   // PLATFORM_NOTICE_EMAIL: a quién avisan los pagos recibidos
+	PlatformMPToken       string   // MPP_ACCESS_TOKEN: cuenta de Mercado Pago de la plataforma, para cobrar suscripciones
+	Operator              Operator // datos de quien opera la plataforma (aviso de privacidad)
 
 	Mailer mail.Sender // nil o sin configurar: no se envían correos
 	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
@@ -78,6 +80,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/forgot", a.forgotPassword)
 	mux.HandleFunc("POST /api/auth/reset", a.resetPassword)
 	mux.HandleFunc("POST /api/webhooks/mercadopago", a.mpWebhook)
+	mux.HandleFunc("POST /api/webhooks/mercadopago-platform", a.platformMPWebhook)
 	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
 	// reserva en línea (sin sesión)
@@ -105,6 +108,11 @@ func (a *API) Routes() http.Handler {
 	// negocio: configuración de la reserva en línea
 	mux.Handle("GET /api/booking/settings", a.tenant(a.getBookingSettings, admin))
 	mux.Handle("PUT /api/booking/settings", a.tenant(a.putBookingSettings, admin))
+
+	// negocio: suscripción (disponible aun con la suscripción vencida)
+	mux.Handle("GET /api/billing", a.billingAdmin(a.getBilling))
+	mux.Handle("POST /api/billing/checkout", a.billingAdmin(a.startCheckout))
+	mux.Handle("GET /api/billing/checkouts/{id}", a.billingAdmin(a.getCheckout))
 
 	// negocio: privacidad (derechos ARCO y datos de clientes)
 	mux.Handle("GET /api/arco", a.tenant(a.listArco, admin))

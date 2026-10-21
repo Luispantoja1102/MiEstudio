@@ -343,11 +343,9 @@ func verifyWebhookSignature(secret, header, requestID, dataID string) bool {
 	return hmac.Equal([]byte(want), []byte(strings.ToLower(v1)))
 }
 
-func (a *API) mpWebhook(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if !a.allow(w, "mp-webhook:"+clientIP(r), 300, time.Minute) {
-		return
-	}
+// parseWebhook lee el aviso de Mercado Pago (cuerpo o parámetros) y, si hay clave, verifica su firma.
+// Devuelve ok=false cuando ya respondió (firma inválida).
+func (a *API) parseWebhook(w http.ResponseWriter, r *http.Request, secret string) (topic, payID string, ok bool) {
 	body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<16))
 	var payload struct {
 		Type string `json:"type"`
@@ -357,17 +355,30 @@ func (a *API) mpWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	json.Unmarshal(body, &payload)
 	q := r.URL.Query()
-	topic := firstNonEmpty(payload.Type, q.Get("type"), q.Get("topic"))
-	payID := string(payload.Data.ID)
+	topic = firstNonEmpty(payload.Type, q.Get("type"), q.Get("topic"))
+	payID = string(payload.Data.ID)
 	if v := q.Get("data.id"); v != "" {
 		payID = v
 	} else if payID == "" {
 		payID = q.Get("id")
 	}
-	if a.MPWebhookSecret != "" && !verifyWebhookSignature(a.MPWebhookSecret, r.Header.Get("x-signature"), r.Header.Get("x-request-id"), payID) {
+	if secret != "" && !verifyWebhookSignature(secret, r.Header.Get("x-signature"), r.Header.Get("x-request-id"), payID) {
 		writeErr(w, http.StatusUnauthorized, "firma inválida")
+		return "", "", false
+	}
+	return topic, payID, true
+}
+
+func (a *API) mpWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !a.allow(w, "mp-webhook:"+clientIP(r), 300, time.Minute) {
 		return
 	}
+	topic, payID, ok := a.parseWebhook(w, r, a.MPWebhookSecret)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
 	bizID, _ := strconv.ParseInt(q.Get("biz"), 10, 64)
 	if topic != "payment" || payID == "" || bizID <= 0 {
 		w.WriteHeader(http.StatusOK) // otros avisos no nos interesan
