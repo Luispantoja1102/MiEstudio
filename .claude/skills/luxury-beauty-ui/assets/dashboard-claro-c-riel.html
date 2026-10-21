@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MiEstudio · Dashboard (mockup de lujo, tema claro)</title>
+<style>
+  /* Fuentes locales del proyecto; si se mueve este archivo, cambia la ruta o usa Google Fonts (Inter + Playfair Display). */
+  @font-face { font-family: 'Inter'; src: url('../../../../Frontend/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Playfair Display'; src: url('../../../../Frontend/node_modules/@fontsource/playfair-display/files/playfair-display-latin-500-normal.woff2') format('woff2'); font-weight: 500; }
+  @font-face { font-family: 'Playfair Display'; src: url('../../../../Frontend/node_modules/@fontsource/playfair-display/files/playfair-display-latin-600-normal.woff2') format('woff2'); font-weight: 600; }
+
+  :root {
+    --linen: #F8F6F2; --charcoal: #1F1E1C; --surface: #FFFFFF; --line: #E6E1DA;
+    --shadow: 0 1px 2px rgba(0,0,0,.03), 0 8px 24px -12px rgba(0,0,0,.05);
+    --terracotta: #C07A65; --terracotta-deep: #A8614C; --terracotta-ink: #8A4A38; --terracotta-tint: #F4E4DE;
+    --olive: #9A9E8B; --olive-tint: #ECEDE6; --olive-ink: #5F634F;
+    --rose: #D2A08B; --rose-tint: #F6E8E1;
+    --ink: #1F1E1C; --muted: #6B665F;
+    --side-text: #F1ECE4; --side-muted: #A39C91; --side-line: rgba(241,236,228,.10);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--linen); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .app { display: grid; grid-template-columns: 272px 1fr; min-height: 100vh; }
+
+
+  svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .word { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 26px; letter-spacing: .005em; }
+  .word small { display: block; margin-top: 2px; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--terracotta-tint); color: var(--terracotta-ink); display: grid; place-items: center; font-family: 'Playfair Display', serif; font-weight: 600; }
+  .stats { padding: 36px 32px 20px; }
+  .stats h2 { margin-bottom: 8px; }
+  .stat { padding: 24px 0; border-top: 1px solid var(--line); }
+  .stat:first-of-type { border-top: 0; }
+  .stat dt { color: var(--muted); font-size: 13.5px; margin-bottom: 6px; }
+  .stat dd { margin: 0; font-size: 17px; }
+  .big { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 500; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+  .sub { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+  .bar { height: 4px; border-radius: 4px; background: var(--olive-tint); margin-top: 14px; overflow: hidden; } .bar i { display:block; height:100%; width:72%; background: var(--olive); border-radius: 4px; }
+  .up { color: var(--olive-ink); font-weight: 600; }
+  body { margin: 0; background: var(--linen); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  .hd { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 48px; }
+  .hd p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+  .hd h1 { margin: 0; font-family: 'Playfair Display', serif; font-weight: 500; font-size: 48px; line-height: 1.1; letter-spacing: -.01em; }
+  .actions { display: flex; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 26px; border-radius: 999px; font: inherit; font-weight: 550; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  .btn.primary { background: var(--terracotta-deep); border-color: var(--terracotta-deep); color: #fff; }
+  .btn.sm { height: 40px; padding: 0 20px; font-size: 14px; }
+  .layout { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 56px; align-items: start; }
+  h2 { margin: 0 0 24px; font-family: 'Playfair Display', serif; font-weight: 500; font-size: 26px; }
+  .list { display: grid; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); }
+  .appt { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 28px; padding: 28px 32px; }
+  .appt.active { border-color: rgba(192,122,101,.55); }
+  .when { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+  .who b { display: block; font-size: 17px; font-weight: 600; }
+  .who span { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--muted); font-size: 14.5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .state { display: flex; align-items: center; gap: 16px; }
+  .pill { display: inline-flex; align-items: center; height: 28px; padding: 0 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+  .pill.terra { background: var(--terracotta-tint); color: var(--terracotta-ink); } .pill.olive { background: var(--olive-tint); color: var(--olive-ink); } .pill.rose { background: var(--rose-tint); color: #8A5B49; }
+
+ .c .app { display:grid; grid-template-columns: 96px 1fr; min-height:100vh; }
+ .c .app > aside { background: #FBF9F5; border-right: 1px solid var(--line); padding: 36px 0 28px; display:flex; flex-direction:column; align-items:center; gap: 12px; position: sticky; top:0; height:100vh; }
+ .c .mark { width:44px; height:44px; border-radius: 14px; background: var(--ink); color: var(--linen); display:grid; place-items:center; font-family:'Playfair Display',serif; font-size: 22px; margin-bottom: 28px; }
+ .c nav { display:grid; gap: 8px; }
+ .c nav a { width:48px; height:48px; border-radius: 14px; display:grid; place-items:center; color: var(--muted); text-decoration:none; position:relative; }
+ .c nav a span { display:none; }
+ .c nav a.on { background: var(--terracotta-tint); color: var(--terracotta-ink); }
+ .c .spacer { flex:1; }
+ .c main { padding: 56px 72px 72px; max-width:1480px; }
+</style></head><body class="c"><div class="app"><aside><div class="mark">M</div><nav><a href="#" class="on"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Inicio</span></a><a href="#"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Agenda</span></a><a href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 5.2a3.5 3.5 0 0 1 0 6.6M18 14.9c1.9.7 3.1 2.4 3.5 5.1"/></svg><span>Clientes</span></a><a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M7 15h3"/></svg><span>Cobrar</span></a><a href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></a></nav><div class="spacer"></div><nav><a href="#" title="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></a></nav><span class="avatar">G</span></aside><main>
+    <header class="hd">
+      <div><p>Miércoles, 21 de octubre</p><h1>Buenos días, Guillermo</h1></div>
+      <div class="actions"><button class="btn">Nueva cita</button><button class="btn primary">Cobrar</button></div>
+    </header>
+    <div class="layout">
+      <section aria-labelledby="ag"><h2 id="ag">Agenda de hoy</h2><div class="list">
+        <article class="card appt active"><div class="when">09:00</div><div class="who"><b>Carlos Ruiz</b><span>Corte clásico <i class="dot" style="background:var(--terracotta)"></i> con Marco</span></div><div class="state"><span class="pill terra">Siguiente · en 15 min</span><button class="btn primary sm">Cobrar</button></div></article>
+        <article class="card appt"><div class="when">09:45</div><div class="who"><b>Luis Hernández</b><span>Corte y barba <i class="dot" style="background:var(--olive)"></i> con Ana</span></div><div class="state"><span class="pill olive">Anticipo pagado</span><button class="btn sm">Cobrar</button></div></article>
+        <article class="card appt"><div class="when">10:30</div><div class="who"><b>Ana Torres</b><span>Facial hidratante <i class="dot" style="background:var(--rose)"></i> con Lalo</span></div><div class="state"><span class="pill rose">Espera anticipo</span><button class="btn sm">Cobrar</button></div></article>
+        <article class="card appt"><div class="when">11:30</div><div class="who"><b>María Gómez</b><span>Manicure <i class="dot" style="background:var(--olive)"></i> con Ana</span></div><div class="state"><button class="btn sm">Cobrar</button></div></article>
+      </div></section>
+      <aside class="card stats" aria-label="Resumen del día"><h2>Hoy en números</h2><dl style="margin:0">
+        <div class="stat"><dt>Citas</dt><dd><span class="big">6</span><span class="sub">4 por atender · 2 ya cobradas</span></dd></div>
+        <div class="stat"><dt>Ventas del día</dt><dd><span class="big">$2,450</span><span class="sub"><span class="up">+12 %</span> contra ayer</span></dd></div>
+        <div class="stat"><dt>Ocupación</dt><dd><span class="big">72 %</span><span class="sub">de las horas de hoy</span><div class="bar"><i></i></div></dd></div>
+        <div class="stat"><dt>Caja</dt><dd>Abierta · efectivo esperado <b>$1,200.00</b></dd></div></dl></aside>
+    </div></main></div></body></html>

@@ -19,6 +19,13 @@ Valores exactos (úsalos tal cual; ver `references/tokens.md` para CSS y Tailwin
 
 Contraste: `#C07A65` con texto blanco queda en ~3.2:1 (no pasa AA para texto normal). Mantén `#C07A65` para rellenos, puntos, bordes y fondos de insignia; para botones con texto blanco o texto de insignia usa su versión profunda `#A8614C` (≈5:1) y para texto sobre fondo tinte `#8A4A38`. Así se conserva el color de marca y el texto sigue legible.
 
+## Navegación en tema claro
+Un bloque de color sólido como barra lateral (verde, azul, morado o incluso carbón) en un tema claro se lee como paquetería de oficina: el color pesa más que el contenido. En tema claro la navegación debe pertenecer al lienzo, no competir con él. Tres variantes probadas (ver `assets/dashboard-claro-*.html`):
+- **Lino** (`a-lino`): barra del mismo color del lienzo, separada solo por un filete; ítems en texto con ícono fino y un punto terracota para el activo.
+- **Superior** (`b-superior`): sin barra lateral; marca en serif a la izquierda, enlaces centrados con subrayado terracota y contenido centrado y amplio. Es la más editorial.
+- **Riel** (`c-riel`): columna de 96 px con íconos finos sobre porcelana; el activo con un tinte terracota. Es la más compacta.
+La barra oscura de `assets/dashboard-mock.html` queda para el tema oscuro o para quien la pida explícitamente.
+
 ## Layout y componentes
 - **Espacio**: generoso. Filas de 88–104 px, padding de tarjeta 24–32 px, separación entre bloques 32–48 px. Si se siente apretado, está mal.
 - **Insignias**: píldora mínima, fondo tintado suave, texto de alto contraste (nunca texto del mismo tono que el fondo).
