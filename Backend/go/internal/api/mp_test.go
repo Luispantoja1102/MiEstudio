@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const mpToken = "APP_USR-1234567890-valid-token-abcdef"
@@ -26,6 +28,14 @@ type fakeMP struct {
 	busy       bool // la terminal ya tiene una orden en espera
 	refundFail string
 	cancelFail bool
+
+	// OAuth simulado
+	valid        map[string]bool // tokens de acceso vigentes
+	accessN      int
+	refreshToken string // el de renovación vigente (de un solo uso)
+	refreshCalls int
+	refreshFail  bool
+	expiresIn    int
 }
 
 type fakeOrder struct {
@@ -34,14 +44,14 @@ type fakeOrder struct {
 }
 
 func newFakeMP(t *testing.T) *fakeMP {
-	f := &fakeMP{orders: map[string]*fakeOrder{}, terminals: []mpTerminal{{ID: "NEWLAND_N950__N950NCB000001", ExternalPosID: "CAJA1", OperatingMode: "STANDALONE"}}}
+	f := &fakeMP{valid: map[string]bool{mpToken: true}, expiresIn: 15552000, orders: map[string]*fakeOrder{}, terminals: []mpTerminal{{ID: "NEWLAND_N950__N950NCB000001", ExternalPosID: "CAJA1", OperatingMode: "STANDALONE"}}}
 	mux := http.NewServeMux()
 	guard := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			f.mu.Lock()
 			defer f.mu.Unlock()
 			f.calls = append(f.calls, r.Method+" "+r.URL.Path)
-			if r.Header.Get("Authorization") != "Bearer "+mpToken {
+			if !f.valid[strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")] {
 				w.WriteHeader(http.StatusUnauthorized)
 				w.Write([]byte(`{"message":"invalid access token","status":401}`))
 				return
@@ -49,6 +59,52 @@ func newFakeMP(t *testing.T) *fakeMP {
 			h(w, r)
 		}
 	}
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.calls = append(f.calls, "POST /oauth/token")
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		bad := func(msg string) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{"message": msg, "error": "invalid_grant"})
+		}
+		if body["client_id"] != "CID" || body["client_secret"] != "CSECRET" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message":"invalid client"}`))
+			return
+		}
+		switch body["grant_type"] {
+		case "authorization_code":
+			if body["code"] != "CODE123" || body["redirect_uri"] != "https://app.example.mx/api/point/oauth/callback" {
+				bad("invalid code or redirect_uri")
+				return
+			}
+		case "refresh_token":
+			f.refreshCalls++
+			if f.refreshFail {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if body["refresh_token"] != f.refreshToken { // de un solo uso
+				bad("invalid refresh token")
+				return
+			}
+			for tok := range f.valid { // el token anterior deja de servir
+				if strings.HasPrefix(tok, "OAUTH-AT-") {
+					delete(f.valid, tok)
+				}
+			}
+		default:
+			bad("unsupported grant_type")
+			return
+		}
+		f.accessN++
+		access := fmt.Sprintf("OAUTH-AT-%d", f.accessN)
+		f.refreshToken = fmt.Sprintf("OAUTH-RT-%d", f.accessN)
+		f.valid[access] = true
+		json.NewEncoder(w).Encode(map[string]any{"access_token": access, "refresh_token": f.refreshToken, "expires_in": f.expiresIn, "user_id": 777})
+	})
 	mux.HandleFunc("GET /terminals/v1/list", guard(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"terminals": f.terminals}})
 	}))
@@ -575,5 +631,236 @@ func TestVoidSkipsAlreadyRefundedCharge(t *testing.T) {
 	m.mp.refundFail = "the order was already refunded"
 	if r := a.do(t, "POST", path("/api/sales/", s2.ID, "/void"), m.admin, map[string]any{"reason": "Ya reembolsado en MP"}); r.Status != 200 {
 		t.Fatalf("ya reembolsado en MP: %d %v", r.Status, r.Body)
+	}
+}
+
+// ---------- OAuth ----------
+
+const testRedirect = "https://app.example.mx/api/point/oauth/callback"
+
+func newOAuth(t *testing.T) *mpFx {
+	t.Helper()
+	m := newMP(t, false)
+	m.a.MPClientID, m.a.MPClientSecret, m.a.MPRedirect = "CID", "CSECRET", testRedirect
+	m.a.MPAuthBase = "https://auth.mercadopago.com.mx"
+	return m
+}
+
+// callback simula al navegador volviendo de Mercado Pago (sin sesión: la ruta es pública).
+func (m *mpFx) callback(query string) (int, string) {
+	req := httptest.NewRequest("GET", "/api/point/oauth/callback?"+query, nil)
+	rec := httptest.NewRecorder()
+	m.a.Routes().ServeHTTP(rec, req)
+	return rec.Code, rec.Header().Get("Location")
+}
+
+func (m *mpFx) connectState(t *testing.T, token string) string {
+	t.Helper()
+	r := m.a.do(t, "GET", "/api/payments/mercadopago/connect", token, nil)
+	if r.Status != 200 {
+		t.Fatalf("connect: %d %v", r.Status, r.Body)
+	}
+	u, err := url.Parse(r.Body["url"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u.Query().Get("state")
+}
+
+func TestMPOAuthConnectURL(t *testing.T) {
+	m := newMP(t, false)
+	a := m.a
+	if r := a.do(t, "GET", "/api/payments/mercadopago/connect", m.admin, nil); r.Status != 503 || r.Body["code"] != "mp_oauth_disabled" {
+		t.Fatalf("sin configurar: %d %v", r.Status, r.Body)
+	}
+	if r := a.do(t, "GET", "/api/payments/mercadopago", m.admin, nil); r.Body["oauth_available"] != false {
+		t.Fatalf("estado sin OAuth: %v", r.Body)
+	}
+	a.MPClientID, a.MPClientSecret, a.MPRedirect, a.MPAuthBase = "CID", "CSECRET", testRedirect, "https://auth.mercadopago.com.mx"
+
+	r := a.do(t, "GET", "/api/payments/mercadopago/connect", m.admin, nil)
+	if r.Status != 200 {
+		t.Fatalf("connect: %d %v", r.Status, r.Body)
+	}
+	u, _ := url.Parse(r.Body["url"].(string))
+	q := u.Query()
+	if u.Host != "auth.mercadopago.com.mx" || u.Path != "/authorization" || q.Get("client_id") != "CID" || q.Get("response_type") != "code" ||
+		q.Get("platform_id") != "mp" || q.Get("redirect_uri") != testRedirect || q.Get("state") == "" {
+		t.Fatalf("dirección de autorización: %s", u)
+	}
+	var biz int64
+	a.DB.QueryRow(context.Background(), `SELECT business_id FROM users WHERE email = 'admin@x.com'`).Scan(&biz)
+	if got, ok := a.verifyState(q.Get("state")); !ok || got != biz {
+		t.Fatalf("el estado debe identificar al negocio: %d %v", got, ok)
+	}
+	if r := a.do(t, "GET", "/api/payments/mercadopago", m.admin, nil); r.Body["oauth_available"] != true {
+		t.Fatalf("estado con OAuth: %v", r.Body)
+	}
+	for name, tok := range map[string]string{"cajero": m.cashier, "profesional": m.staff} {
+		if r := a.do(t, "GET", "/api/payments/mercadopago/connect", tok, nil); r.Status != 403 {
+			t.Errorf("%s: %d", name, r.Status)
+		}
+	}
+	if r := a.do(t, "GET", "/api/payments/mercadopago/connect", "", nil); r.Status != 401 {
+		t.Errorf("sin sesión: %d", r.Status)
+	}
+	a.EncKey = nil // sin clave de cifrado tampoco se puede conectar
+	if r := a.do(t, "GET", "/api/payments/mercadopago/connect", m.admin, nil); r.Status != 503 {
+		t.Errorf("sin TOKEN_ENC_KEY: %d", r.Status)
+	}
+}
+
+func TestMPOAuthCallback(t *testing.T) {
+	m := newOAuth(t)
+	a := m.a
+	ctx := context.Background()
+	state := m.connectState(t, m.admin)
+
+	// el navegador vuelve con el código: conecta y regresa a Pagos
+	code, loc := m.callback("code=CODE123&state=" + url.QueryEscape(state))
+	if code != http.StatusFound || loc != "/panel/pagos?mp=ok" {
+		t.Fatalf("callback: %d %s", code, loc)
+	}
+	var access, refresh []byte
+	var src, user string
+	var exp *time.Time
+	if err := a.DB.QueryRow(ctx, `SELECT token_enc, refresh_enc, source, mp_user_id, expires_at FROM mp_accounts`).Scan(&access, &refresh, &src, &user, &exp); err != nil {
+		t.Fatal(err)
+	}
+	if src != "oauth" || user != "777" || exp == nil || exp.Before(time.Now().Add(100*24*time.Hour)) {
+		t.Fatalf("cuenta: %s %s %v", src, user, exp)
+	}
+	for _, blob := range [][]byte{access, refresh} {
+		if bytes.Contains(blob, []byte("OAUTH-")) {
+			t.Fatal("un token de OAuth quedó guardado en claro")
+		}
+	}
+	if plain, _ := a.open(access); plain != "OAUTH-AT-1" {
+		t.Fatalf("descifrado: %q", plain)
+	}
+	if r := a.do(t, "GET", "/api/payments/mercadopago", m.admin, nil); r.Body["connected"] != true || r.Body["source"] != "oauth" {
+		t.Fatalf("estado: %v", r.Body)
+	}
+	if got := list[mpTerminal](t, a, "/api/payments/mercadopago/terminals", m.admin); len(got) != 1 {
+		t.Fatalf("el token de OAuth debe servir para usar la terminal: %+v", got)
+	}
+
+	// errores: siempre regresan a Pagos explicando qué pasó, y no guardan nada nuevo
+	other := a.mustRegister(t, "Otro", "otro@x.com")
+	otherState := m.connectState(t, other)
+	expired := func() string {
+		saved := a.Now
+		a.Now = func() time.Time { return time.Now().Add(-time.Hour) } // estado firmado hace una hora
+		defer func() { a.Now = saved }()
+		return a.signState(1)
+	}()
+	for name, c := range map[string]struct{ query, reason string }{
+		"código incorrecto":  {"code=MAL&state=" + url.QueryEscape(otherState), "oauth_failed"},
+		"estado alterado":    {"code=CODE123&state=" + url.QueryEscape(otherState+"x"), "state"},
+		"estado vencido":     {"code=CODE123&state=" + url.QueryEscape(expired), "state"},
+		"estado inventado":   {"code=CODE123&state=abc.def", "state"},
+		"sin estado":         {"code=CODE123", "state"},
+		"sin código":         {"state=" + url.QueryEscape(otherState), "cancelled"},
+		"el usuario canceló": {"error=access_denied&state=" + url.QueryEscape(otherState), "cancelled"},
+	} {
+		code, loc := m.callback(c.query)
+		if code != http.StatusFound || loc != "/panel/pagos?mp=error&reason="+c.reason {
+			t.Errorf("%s: %d %s (esperaba reason=%s)", name, code, loc, c.reason)
+		}
+	}
+	var n int
+	a.DB.QueryRow(ctx, `SELECT count(*) FROM mp_accounts`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("los intentos fallidos no deben crear cuentas (hay %d)", n)
+	}
+	// un estado firmado con otro secreto no sirve
+	a.Secret = "otro-secreto-distinto-de-al-menos-32-caracteres"
+	forged := a.signState(1)
+	a.Secret = testSecret
+	if _, loc := m.callback("code=CODE123&state=" + url.QueryEscape(forged)); !strings.Contains(loc, "reason=state") {
+		t.Errorf("estado con otro secreto: %s", loc)
+	}
+	// el estado conecta SOLO al negocio que lo pidió
+	if code, loc := m.callback("code=CODE123&state=" + url.QueryEscape(otherState)); loc != "/panel/pagos?mp=ok" || code != 302 {
+		t.Fatalf("el otro negocio debe poder conectar con su propio estado: %s", loc)
+	}
+	a.DB.QueryRow(ctx, `SELECT count(*) FROM mp_accounts`).Scan(&n)
+	if n != 2 {
+		t.Fatalf("cada negocio con su cuenta: %d", n)
+	}
+}
+
+func TestMPTokenRefresh(t *testing.T) {
+	m := newOAuth(t)
+	a := m.a
+	ctx := context.Background()
+	m.mp.expiresIn = 3600 // vence en 1 hora: hay que renovarlo
+	state := m.connectState(t, m.admin)
+	if _, loc := m.callback("code=CODE123&state=" + url.QueryEscape(state)); loc != "/panel/pagos?mp=ok" {
+		t.Fatal(loc)
+	}
+	m.mp.expiresIn = 15552000 // los tokens renovados duran 180 días
+
+	// el primer uso renueva; el segundo ya no
+	if got := list[mpTerminal](t, a, "/api/payments/mercadopago/terminals", m.admin); len(got) != 1 {
+		t.Fatalf("terminales tras renovar: %+v", got)
+	}
+	if m.mp.refreshCalls != 1 {
+		t.Fatalf("renovaciones: %d", m.mp.refreshCalls)
+	}
+	var blob []byte
+	var exp time.Time
+	a.DB.QueryRow(ctx, `SELECT token_enc, expires_at FROM mp_accounts`).Scan(&blob, &exp)
+	if plain, _ := a.open(blob); plain != "OAUTH-AT-2" || time.Until(exp) < 100*24*time.Hour {
+		t.Fatalf("token renovado: %q vence %v", plain, exp)
+	}
+	list[mpTerminal](t, a, "/api/payments/mercadopago/terminals", m.admin)
+	if m.mp.refreshCalls != 1 {
+		t.Fatalf("no debe renovar de nuevo: %d", m.mp.refreshCalls)
+	}
+
+	// varias peticiones a la vez con el token por vencer: se renueva UNA vez (el de renovación es de un solo uso)
+	a.DB.Exec(ctx, `UPDATE mp_accounts SET expires_at = now() + interval '1 hour'`)
+	var wg sync.WaitGroup
+	statuses := make([]int, 6)
+	for i := range statuses {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			statuses[i] = a.do(t, "GET", "/api/payments/mercadopago/terminals", m.admin, nil).Status
+		}(i)
+	}
+	wg.Wait()
+	for i, st := range statuses {
+		if st != 200 {
+			t.Errorf("petición simultánea %d: %d", i, st)
+		}
+	}
+	if m.mp.refreshCalls != 2 {
+		t.Fatalf("la renovación simultánea debe ocurrir una sola vez (renovaciones totales %d, esperaba 2)", m.mp.refreshCalls)
+	}
+
+	// si renovar falla pero el token aún sirve, se sigue usando
+	a.DB.Exec(ctx, `UPDATE mp_accounts SET expires_at = now() + interval '1 hour'`)
+	m.mp.refreshFail = true
+	if r := a.do(t, "GET", "/api/payments/mercadopago/terminals", m.admin, nil); r.Status != 200 {
+		t.Fatalf("renovación fallida con token vigente: %d %v", r.Status, r.Body)
+	}
+	// si además ya venció, hay que reconectar
+	a.DB.Exec(ctx, `UPDATE mp_accounts SET expires_at = now() - interval '1 hour'`)
+	if r := a.do(t, "GET", "/api/payments/mercadopago/terminals", m.admin, nil); r.Status != 502 || r.Body["code"] != "mp_token_revoked" {
+		t.Fatalf("token vencido y renovación fallida: %d %v", r.Status, r.Body)
+	}
+	m.mp.refreshFail = false
+
+	// pegar un token a mano reemplaza la conexión por OAuth y borra sus datos
+	if r := a.do(t, "PUT", "/api/payments/mercadopago/token", m.admin, map[string]any{"access_token": mpToken}); r.Status != 204 {
+		t.Fatalf("token manual: %d %v", r.Status, r.Body)
+	}
+	var src string
+	var rt []byte
+	a.DB.QueryRow(ctx, `SELECT source, refresh_enc FROM mp_accounts`).Scan(&src, &rt)
+	if src != "token" || rt != nil {
+		t.Fatalf("tras pegar el token: %s %v", src, rt)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -14,6 +15,12 @@ type Config struct {
 	Production  bool   // APP_ENV=production
 	EncKey      []byte // TOKEN_ENC_KEY (base64, 32 bytes): cifra los tokens de Mercado Pago
 	MPBase      string // MP_API_BASE (opcional)
+
+	// OAuth de Mercado Pago (aplicación de la plataforma). Vacío = solo token manual.
+	MPClientID     string // MP_CLIENT_ID
+	MPClientSecret string // MP_CLIENT_SECRET
+	MPRedirect     string // MP_OAUTH_REDIRECT o API_PUBLIC_URL + /api/point/oauth/callback
+	MPAuthBase     string // MP_AUTH_BASE (por defecto México)
 
 	// primer administrador de plataforma (opcional; se crea solo si no existe ninguno)
 	PlatformAdminName     string
@@ -41,6 +48,17 @@ func Load() (Config, error) {
 		c.EncKey = key
 	}
 	c.MPBase = os.Getenv("MP_API_BASE")
+	c.MPClientID, c.MPClientSecret = os.Getenv("MP_CLIENT_ID"), os.Getenv("MP_CLIENT_SECRET")
+	c.MPRedirect = os.Getenv("MP_OAUTH_REDIRECT")
+	if c.MPRedirect == "" { // API_PUBLIC_URL se acepta con o sin el sufijo /api
+		if base := strings.TrimSuffix(strings.TrimRight(os.Getenv("API_PUBLIC_URL"), "/"), "/api"); base != "" {
+			c.MPRedirect = base + "/api/point/oauth/callback"
+		}
+	}
+	c.MPAuthBase = strings.TrimRight(os.Getenv("MP_AUTH_BASE"), "/")
+	if c.MPAuthBase == "" {
+		c.MPAuthBase = "https://auth.mercadopago.com.mx"
+	}
 	if c.DatabaseURL == "" {
 		return c, fmt.Errorf("DATABASE_URL es obligatorio")
 	}

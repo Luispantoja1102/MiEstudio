@@ -26,6 +26,12 @@ type API struct {
 	Production bool               // rechaza claves de ejemplo en el alta del administrador
 	EncKey     []byte             // 32 bytes: cifra los tokens de Mercado Pago (vacío = integración deshabilitada)
 	MPBase     string             // URL base de Mercado Pago (para pruebas); vacío usa la oficial
+
+	// OAuth de Mercado Pago (aplicación de la plataforma)
+	MPClientID     string
+	MPClientSecret string
+	MPRedirect     string // debe coincidir exactamente con la registrada en la aplicación de Mercado Pago
+	MPAuthBase     string
 }
 
 // authed exige sesión válida (negocio o plataforma).
@@ -56,6 +62,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/auth/registration", a.registrationInfo)
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
+	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
 	// cualquier sesión (el estado de la cuenta se informa en /api/me)
 	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
@@ -121,6 +128,7 @@ func (a *API) Routes() http.Handler {
 
 	// negocio: terminal Mercado Pago
 	mux.Handle("GET /api/payments/mercadopago", a.tenant(a.mpStatus, admin))
+	mux.Handle("GET /api/payments/mercadopago/connect", a.tenant(a.mpConnectURL, admin))
 	mux.Handle("PUT /api/payments/mercadopago/token", a.tenant(a.mpConnect, admin))
 	mux.Handle("DELETE /api/payments/mercadopago", a.tenant(a.mpDisconnect, admin))
 	mux.Handle("GET /api/payments/mercadopago/terminals", a.tenant(a.mpTerminals, admin))

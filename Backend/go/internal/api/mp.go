@@ -5,7 +5,10 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -149,7 +152,9 @@ func (a *API) mpCall(ctx context.Context, token, method, path string, headers ma
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -187,9 +192,15 @@ func providerFail(err error) error {
 	return &httpFail{http.StatusBadGateway, "No pudimos comunicarnos con Mercado Pago. Intenta de nuevo.", "mp_unreachable"}
 }
 
+// mpToken devuelve un token de acceso válido del negocio. Si la cuenta se conectó por OAuth y el token
+// está por vencer, lo renueva (con la fila bloqueada: el token de renovación es de un solo uso, así que
+// dos peticiones simultáneas no deben renovar a la vez).
 func (a *API) mpToken(ctx context.Context, bizID int64) (string, error) {
-	var blob []byte
-	err := a.DB.QueryRow(ctx, `SELECT token_enc FROM mp_accounts WHERE business_id = $1`, bizID).Scan(&blob)
+	var blob, refresh []byte
+	var expires *time.Time
+	var source string
+	err := a.DB.QueryRow(ctx, `SELECT token_enc, refresh_enc, expires_at, source FROM mp_accounts WHERE business_id = $1`, bizID).
+		Scan(&blob, &refresh, &expires, &source)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", &httpFail{http.StatusConflict, "conecta tu cuenta de Mercado Pago para cobrar con terminal", "mp_not_connected"}
 	}
@@ -200,7 +211,194 @@ func (a *API) mpToken(ctx context.Context, bizID int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return token, nil
+	if source != "oauth" || expires == nil || time.Until(*expires) > 24*time.Hour || a.MPClientID == "" {
+		return token, nil
+	}
+	return a.refreshMPToken(ctx, bizID, token)
+}
+
+func (a *API) refreshMPToken(ctx context.Context, bizID int64, fallback string) (string, error) {
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		return fallback, nil
+	}
+	defer tx.Rollback(ctx)
+	var blob, refreshBlob []byte
+	var expires *time.Time
+	if err := tx.QueryRow(ctx, `SELECT token_enc, refresh_enc, expires_at FROM mp_accounts WHERE business_id = $1 FOR UPDATE`, bizID).
+		Scan(&blob, &refreshBlob, &expires); err != nil {
+		return fallback, nil
+	}
+	current, err := a.open(blob)
+	if err != nil {
+		return "", err
+	}
+	if expires != nil && time.Until(*expires) > 24*time.Hour {
+		return current, nil // otra petición ya lo renovó mientras esperábamos
+	}
+	refresh, err := a.open(refreshBlob)
+	if err != nil || refresh == "" {
+		return current, nil
+	}
+	tok, err := a.mpTokenRequest(ctx, map[string]string{"grant_type": "refresh_token", "refresh_token": refresh})
+	if err != nil {
+		// si el token actual aún sirve, se usa; si ya venció, hay que reconectar
+		if expires != nil && time.Now().After(*expires) {
+			return "", &httpFail{http.StatusBadGateway, "la conexión con Mercado Pago venció. Vuelve a conectar la cuenta.", "mp_token_revoked"}
+		}
+		log.Printf("renovar token de Mercado Pago (negocio %d): %v", bizID, err)
+		return current, nil
+	}
+	at, e1 := a.seal(tok.AccessToken)
+	rt, e2 := a.seal(tok.RefreshToken)
+	if e1 != nil || e2 != nil {
+		return current, nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE mp_accounts SET token_enc = $2, refresh_enc = $3, expires_at = $4 WHERE business_id = $1`,
+		bizID, at, rt, tok.expiry()); err != nil {
+		return current, nil
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return current, nil
+	}
+	return tok.AccessToken, nil
+}
+
+type oauthToken struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	UserID       int64  `json:"user_id"`
+}
+
+func (t oauthToken) expiry() time.Time {
+	if t.ExpiresIn <= 0 {
+		return time.Now().Add(180 * 24 * time.Hour)
+	}
+	return time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
+}
+
+// mpTokenRequest pide un token a Mercado Pago (código de autorización o renovación).
+func (a *API) mpTokenRequest(ctx context.Context, extra map[string]string) (oauthToken, error) {
+	form := map[string]string{"client_id": a.MPClientID, "client_secret": a.MPClientSecret}
+	for k, v := range extra {
+		form[k] = v
+	}
+	var tok oauthToken
+	if err := a.mpCall(ctx, "", http.MethodPost, "/oauth/token", nil, form, &tok); err != nil {
+		return tok, err
+	}
+	if tok.AccessToken == "" {
+		return tok, errors.New("Mercado Pago no devolvió un token")
+	}
+	return tok, nil
+}
+
+// ---------- conexión por OAuth ----------
+
+func (a *API) oauthEnabled() bool {
+	return a.MPClientID != "" && a.MPClientSecret != "" && a.MPRedirect != "" && len(a.EncKey) == 32
+}
+
+// El estado del OAuth enlaza la autorización con el negocio que la pidió y caduca a los 15 minutos.
+func (a *API) stateKey() []byte {
+	sum := sha256.Sum256([]byte("mp-oauth-state|" + a.Secret))
+	return sum[:]
+}
+
+func (a *API) signState(bizID int64) string {
+	payload := strconv.FormatInt(bizID, 10) + "." + strconv.FormatInt(a.now().Add(15*time.Minute).Unix(), 10)
+	mac := hmac.New(sha256.New, a.stateKey())
+	mac.Write([]byte(payload))
+	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + hex.EncodeToString(mac.Sum(nil))
+}
+
+func (a *API) verifyState(state string) (int64, bool) {
+	parts := strings.SplitN(state, ".", 2)
+	if len(parts) != 2 {
+		return 0, false
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return 0, false
+	}
+	mac := hmac.New(sha256.New, a.stateKey())
+	mac.Write(raw)
+	if !hmac.Equal([]byte(hex.EncodeToString(mac.Sum(nil))), []byte(parts[1])) {
+		return 0, false
+	}
+	f := strings.SplitN(string(raw), ".", 2)
+	if len(f) != 2 {
+		return 0, false
+	}
+	id, err1 := strconv.ParseInt(f[0], 10, 64)
+	exp, err2 := strconv.ParseInt(f[1], 10, 64)
+	if err1 != nil || err2 != nil || id <= 0 || a.now().Unix() > exp {
+		return 0, false
+	}
+	return id, true
+}
+
+// mpConnectURL devuelve la dirección de Mercado Pago donde el dueño autoriza la conexión.
+func (a *API) mpConnectURL(w http.ResponseWriter, r *http.Request) {
+	p := auth.FromContext(r.Context())
+	if !a.oauthEnabled() {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "la conexión con Mercado Pago no está configurada en el servidor (MP_CLIENT_ID, MP_CLIENT_SECRET, MP_OAUTH_REDIRECT y TOKEN_ENC_KEY)",
+			"code":  "mp_oauth_disabled"})
+		return
+	}
+	q := url.Values{
+		"client_id": {a.MPClientID}, "response_type": {"code"}, "platform_id": {"mp"},
+		"state": {a.signState(p.BusinessID)}, "redirect_uri": {a.MPRedirect},
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"url": a.MPAuthBase + "/authorization?" + q.Encode()})
+}
+
+// mpCallback termina el OAuth: el navegador llega aquí desde Mercado Pago con un código.
+// Siempre regresa a la pantalla de Pagos diciendo qué pasó.
+func (a *API) mpCallback(w http.ResponseWriter, r *http.Request) {
+	back := func(result, reason string) {
+		q := url.Values{"mp": {result}}
+		if reason != "" {
+			q.Set("reason", reason)
+		}
+		http.Redirect(w, r, "/panel/pagos?"+q.Encode(), http.StatusFound)
+	}
+	query := r.URL.Query()
+	if query.Get("error") != "" || query.Get("code") == "" {
+		back("error", "cancelled")
+		return
+	}
+	bizID, ok := a.verifyState(query.Get("state"))
+	if !ok || !a.oauthEnabled() {
+		back("error", "state")
+		return
+	}
+	tok, err := a.mpTokenRequest(r.Context(), map[string]string{
+		"grant_type": "authorization_code", "code": query.Get("code"), "redirect_uri": a.MPRedirect})
+	if err != nil {
+		log.Printf("OAuth de Mercado Pago (negocio %d): %v", bizID, err)
+		back("error", "oauth_failed")
+		return
+	}
+	at, e1 := a.seal(tok.AccessToken)
+	rt, e2 := a.seal(tok.RefreshToken)
+	if e1 != nil || e2 != nil {
+		back("error", "unknown")
+		return
+	}
+	if _, err := a.DB.Exec(r.Context(),
+		`INSERT INTO mp_accounts (business_id, token_enc, refresh_enc, expires_at, mp_user_id, source) VALUES ($1, $2, $3, $4, $5, 'oauth')
+		 ON CONFLICT (business_id) DO UPDATE SET token_enc = EXCLUDED.token_enc, refresh_enc = EXCLUDED.refresh_enc,
+		   expires_at = EXCLUDED.expires_at, mp_user_id = EXCLUDED.mp_user_id, source = 'oauth', connected_at = now()`,
+		bizID, at, rt, tok.expiry(), strconv.FormatInt(tok.UserID, 10)); err != nil {
+		log.Printf("guardar cuenta de Mercado Pago: %v", err)
+		back("error", "unknown")
+		return
+	}
+	a.logActivity(r.Context(), 0, bizID, "mp_connected", map[string]any{"via": "oauth"})
+	back("ok", "")
 }
 
 type mpTerminal struct {
@@ -263,7 +461,10 @@ func (a *API) mpStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		terms = append(terms, t)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"enabled": len(a.EncKey) == 32, "connected": connected, "terminals": terms})
+	var source string
+	a.DB.QueryRow(r.Context(), `SELECT source FROM mp_accounts WHERE business_id = $1`, p.BusinessID).Scan(&source)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"enabled": len(a.EncKey) == 32, "oauth_available": a.oauthEnabled(), "connected": connected, "source": source, "terminals": terms})
 }
 
 // mpConnect guarda el token de acceso del negocio (cifrado) tras comprobar que Mercado Pago lo acepta.
@@ -298,8 +499,9 @@ func (a *API) mpConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO mp_accounts (business_id, token_enc) VALUES ($1, $2)
-		 ON CONFLICT (business_id) DO UPDATE SET token_enc = EXCLUDED.token_enc, connected_at = now()`, p.BusinessID, enc); err != nil {
+		`INSERT INTO mp_accounts (business_id, token_enc, source) VALUES ($1, $2, 'token')
+		 ON CONFLICT (business_id) DO UPDATE SET token_enc = EXCLUDED.token_enc, refresh_enc = NULL, expires_at = NULL,
+		   mp_user_id = NULL, source = 'token', connected_at = now()`, p.BusinessID, enc); err != nil {
 		serverErr(w)
 		return
 	}

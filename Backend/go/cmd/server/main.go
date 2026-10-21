@@ -27,7 +27,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	a := &api.API{DB: pool, Secret: cfg.JWTSecret, Limiter: ratelimit.New(), StaticDir: cfg.StaticDir, Production: cfg.Production, EncKey: cfg.EncKey, MPBase: cfg.MPBase}
+	a := &api.API{DB: pool, Secret: cfg.JWTSecret, Limiter: ratelimit.New(), StaticDir: cfg.StaticDir, Production: cfg.Production, EncKey: cfg.EncKey, MPBase: cfg.MPBase,
+		MPClientID: cfg.MPClientID, MPClientSecret: cfg.MPClientSecret, MPRedirect: cfg.MPRedirect, MPAuthBase: cfg.MPAuthBase}
 	if err := a.BootstrapPlatformAdmin(ctx, cfg.PlatformAdminName, cfg.PlatformAdminEmail, cfg.PlatformAdminPassword); err != nil {
 		log.Fatal(err)
 	}
