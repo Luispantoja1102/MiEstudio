@@ -62,7 +62,7 @@ func TestSaleAppliesDepositAndCountsOnlyCashInDrawer(t *testing.T) {
 		t.Fatalf("caja: %v", cs.Body)
 	}
 	// el reporte lo muestra como forma de pago propia
-	rep := d.a.do(t, "GET", "/api/reports/sales?from=2000-01-01&to=2100-01-01&branch_id="+itoa(d.branch), d.admin, nil)
+	rep := d.a.do(t, "GET", "/api/reports/sales?from=2026-11-01&to=2026-11-30&branch_id="+itoa(d.branch), d.admin, nil)
 	found := false
 	for _, m := range rep.Body["by_method"].([]any) {
 		if m.(map[string]any)["method"] == "deposit" && m.(map[string]any)["amount_cents"] == float64(4500) {
@@ -73,7 +73,6 @@ func TestSaleAppliesDepositAndCountsOnlyCashInDrawer(t *testing.T) {
 		t.Fatalf("reporte por método: %v", rep.Body["by_method"])
 	}
 }
-
 
 func TestSaleDepositValidation(t *testing.T) {
 	d := newDeposit(t)
