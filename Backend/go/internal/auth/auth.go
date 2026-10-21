@@ -16,9 +16,20 @@ import (
 // Principal es la persona autenticada. El rol y el negocio se leen de la base
 // en cada petición, así un cambio de rol o una baja surten efecto de inmediato.
 type Principal struct {
-	UserID     int64
-	BusinessID int64
-	Role       string
+	UserID         int64
+	BusinessID     int64 // 0 para usuarios de plataforma
+	Role           string
+	BusinessStatus string // vacío para usuarios de plataforma
+}
+
+// Roles de plataforma (sin negocio).
+const (
+	RolePlatformAdmin   = "platform_admin"
+	RolePlatformSupport = "platform_support"
+)
+
+func (p *Principal) IsPlatform() bool {
+	return p.Role == RolePlatformAdmin || p.Role == RolePlatformSupport
 }
 
 // Lookup devuelve nil, nil si el usuario no existe o está inactivo.
@@ -58,10 +69,16 @@ func parseUserID(secret, token string) (int64, error) {
 
 type ctxKey struct{}
 
-func deny(w http.ResponseWriter, status int, msg string) {
+func deny(w http.ResponseWriter, status int, msg string) { denyCode(w, status, msg, "") }
+
+func denyCode(w http.ResponseWriter, status int, msg, code string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	body := map[string]string{"error": msg}
+	if code != "" {
+		body["code"] = code
+	}
+	json.NewEncoder(w).Encode(body)
 }
 
 // Middleware exige un token Bearer válido y un usuario activo.
@@ -103,6 +120,24 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// RequireTenant deja pasar solo a usuarios de un negocio cuya cuenta esté en uso
+// (en prueba o activa). Debe ir después de Middleware.
+func RequireTenant(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := FromContext(r.Context())
+		switch {
+		case p == nil || p.IsPlatform() || p.BusinessID == 0:
+			deny(w, http.StatusForbidden, "esta sección es solo para negocios")
+		case p.BusinessStatus == "pending":
+			denyCode(w, http.StatusForbidden, "tu cuenta está pendiente de aprobación", "business_pending")
+		case p.BusinessStatus == "suspended":
+			denyCode(w, http.StatusForbidden, "tu cuenta está suspendida, contáctanos", "business_suspended")
+		default:
+			next.ServeHTTP(w, r)
+		}
+	})
 }
 
 func FromContext(ctx context.Context) *Principal {

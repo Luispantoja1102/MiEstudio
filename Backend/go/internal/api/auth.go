@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -65,9 +66,48 @@ type registerReq struct {
 	Password     string `json:"password"`
 }
 
+var errEmailTaken = errors.New("correo ya registrado")
+
+// registrationMode devuelve "open", "approval" o "closed" (por defecto, abierto).
+func (a *API) registrationMode(ctx context.Context) string {
+	var v string
+	if err := a.DB.QueryRow(ctx, `SELECT value FROM platform_settings WHERE key = 'registration_mode'`).Scan(&v); err != nil {
+		return "open"
+	}
+	return v
+}
+
+func (a *API) registrationInfo(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"mode": a.registrationMode(r.Context())})
+}
+
+// validateRegister limpia y valida los datos de alta de un negocio.
+func validateRegister(req *registerReq) string {
+	req.BusinessName = strings.TrimSpace(req.BusinessName)
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	switch {
+	case !validName(req.BusinessName) || !validName(req.Name):
+		return "el nombre del negocio y el nombre de la persona son obligatorios"
+	case !kinds[req.Kind]:
+		return "giro inválido"
+	case !validEmail(req.Email):
+		return "correo inválido"
+	case !validPassword(req.Password):
+		return "la contraseña debe tener de 8 a 72 caracteres"
+	}
+	return ""
+}
+
 // register crea el negocio, su primera sucursal y el usuario administrador.
+// El estado inicial depende del modo de registro que fije la plataforma.
 func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	if !a.allow(w, "register:"+clientIP(r), 10, time.Hour) {
+		return
+	}
+	mode := a.registrationMode(r.Context())
+	if mode == "closed" {
+		writeErr(w, http.StatusForbidden, "el registro está cerrado por ahora")
 		return
 	}
 	var req registerReq
@@ -75,29 +115,34 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
-	req.BusinessName = strings.TrimSpace(req.BusinessName)
-	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	switch {
-	case !validName(req.BusinessName) || !validName(req.Name):
-		writeErr(w, http.StatusBadRequest, "el nombre del negocio y tu nombre son obligatorios")
-		return
-	case !kinds[req.Kind]:
-		writeErr(w, http.StatusBadRequest, "giro inválido")
-		return
-	case !validEmail(req.Email):
-		writeErr(w, http.StatusBadRequest, "correo inválido")
-		return
-	case !validPassword(req.Password):
-		writeErr(w, http.StatusBadRequest, "la contraseña debe tener de 8 a 72 caracteres")
+	if msg := validateRegister(&req); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "error interno")
+		serverErr(w)
 		return
 	}
+	status := "trial"
+	if mode == "approval" {
+		status = "pending"
+	}
+	bizID, userID, err := a.registerBusiness(r.Context(), req, hash, status)
+	switch {
+	case errors.Is(err, errEmailTaken):
+		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	case err != nil:
+		serverErr(w)
+	default:
+		a.logActivity(r.Context(), 0, bizID, "business_registered", map[string]any{"status": status, "email": req.Email})
+		token, _ := auth.Sign(a.Secret, userID)
+		writeJSON(w, http.StatusCreated, map[string]any{"token": token, "status": status})
+	}
+}
 
+// registerBusiness inserta el negocio con un identificador único, reintentando con sufijo si ya existe.
+func (a *API) registerBusiness(ctx context.Context, req registerReq, hash, status string) (bizID, userID int64, err error) {
 	base := slugify(req.BusinessName)
 	for attempt := 0; attempt < 5; attempt++ {
 		slug := base
@@ -106,50 +151,45 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 			rand.Read(b)
 			slug = base + "-" + hex.EncodeToString(b)
 		}
-		userID, err := a.createBusiness(r, req, slug, hash)
+		bizID, userID, err = a.createBusiness(ctx, req, slug, hash, status)
 		if err == nil {
-			token, _ := auth.Sign(a.Secret, userID)
-			writeJSON(w, http.StatusCreated, map[string]any{"token": token})
-			return
+			return bizID, userID, nil
 		}
 		code, constraint := pgConstraint(err)
 		switch {
 		case code == "23505" && constraint == "users_email_key":
-			writeErr(w, http.StatusConflict, "ese correo ya está registrado")
-			return
+			return 0, 0, errEmailTaken
 		case code == "23505" && constraint == "businesses_slug_key":
 			continue
 		default:
-			writeErr(w, http.StatusInternalServerError, "error interno")
-			return
+			return 0, 0, err
 		}
 	}
-	writeErr(w, http.StatusConflict, "no se pudo asignar un nombre único al negocio, intenta con otro")
+	return 0, 0, errors.New("no se pudo asignar un identificador único al negocio")
 }
 
-func (a *API) createBusiness(r *http.Request, req registerReq, slug, hash string) (int64, error) {
-	ctx := r.Context()
+func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, status string) (bizID, userID int64, err error) {
 	tx, err := a.DB.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	defer tx.Rollback(ctx)
 
-	var bizID, userID int64
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO businesses (name, slug, kind) VALUES ($1, $2, $3) RETURNING id`,
-		req.BusinessName, slug, req.Kind).Scan(&bizID); err != nil {
-		return 0, err
+		`INSERT INTO businesses (name, slug, kind, status, trial_ends_at)
+		 VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'trial' THEN now() + interval '14 days' END) RETURNING id`,
+		req.BusinessName, slug, req.Kind, status).Scan(&bizID); err != nil {
+		return 0, 0, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO branches (business_id, name) VALUES ($1, 'Principal')`, bizID); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO users (business_id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, 'admin') RETURNING id`,
 		bizID, req.Email, hash, req.Name).Scan(&userID); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return userID, tx.Commit(ctx)
+	return bizID, userID, tx.Commit(ctx)
 }
 
 func (a *API) login(w http.ResponseWriter, r *http.Request) {
@@ -184,18 +224,24 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
-	var name, email, biz, kind string
+	var name, email string
+	var bizName, kind, status *string
+	var trialEnds *time.Time
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT u.name, u.email, b.name, b.kind FROM users u JOIN businesses b ON b.id = u.business_id
-		 WHERE u.id = $1`, p.UserID).Scan(&name, &email, &biz, &kind)
+		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at
+		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id WHERE u.id = $1`, p.UserID).
+		Scan(&name, &email, &bizName, &kind, &status, &trialEnds)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "error interno")
+		serverErr(w)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id": p.UserID, "name": name, "email": email, "role": p.Role,
-		"business": map[string]any{"id": p.BusinessID, "name": biz, "kind": kind},
-	})
+	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil}
+	if p.BusinessID != 0 {
+		out["business"] = map[string]any{
+			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds,
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {

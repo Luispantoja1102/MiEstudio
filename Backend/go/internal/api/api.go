@@ -23,45 +23,80 @@ type API struct {
 	StaticDir string             // si se define, sirve el frontend compilado
 }
 
+// authed exige sesión válida (negocio o plataforma).
+func (a *API) authed() func(http.Handler) http.Handler { return auth.Middleware(a.Secret, a.lookup) }
+
+// tenant exige un usuario de negocio con cuenta en uso y, si se indican, uno de los roles.
+func (a *API) tenant(h http.HandlerFunc, roles ...string) http.Handler {
+	var next http.Handler = h
+	if len(roles) > 0 {
+		next = auth.RequireRole(roles...)(next)
+	}
+	return a.authed()(auth.RequireTenant(next))
+}
+
+// platform exige un usuario de plataforma con uno de los roles indicados.
+func (a *API) platform(h http.HandlerFunc, roles ...string) http.Handler {
+	return a.authed()(auth.RequireRole(roles...)(h))
+}
+
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
-	authed := auth.Middleware(a.Secret, a.lookup)
-	admin := func(h http.HandlerFunc) http.Handler {
-		return authed(auth.RequireRole("admin")(h))
-	}
+	const admin = "admin"
+	both := []string{auth.RolePlatformAdmin, auth.RolePlatformSupport}
+	write := auth.RolePlatformAdmin
 
+	// públicas
 	mux.HandleFunc("GET /health", a.health)
+	mux.HandleFunc("GET /api/auth/registration", a.registrationInfo)
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
-	mux.Handle("POST /api/auth/password", authed(http.HandlerFunc(a.changePassword)))
-	mux.Handle("GET /api/me", authed(http.HandlerFunc(a.me)))
 
-	mux.Handle("GET /api/team", admin(a.listTeam))
-	mux.Handle("POST /api/team", admin(a.createTeamMember))
-	mux.Handle("PATCH /api/team/{id}", admin(a.updateTeamMember))
+	// cualquier sesión (el estado de la cuenta se informa en /api/me)
+	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
+	mux.Handle("POST /api/auth/password", a.authed()(http.HandlerFunc(a.changePassword)))
 
-	// catálogo: lectura para todo el equipo, cambios solo del administrador
-	mux.Handle("GET /api/services", authed(http.HandlerFunc(a.listServices)))
-	mux.Handle("POST /api/services", admin(a.createService))
-	mux.Handle("PATCH /api/services/{id}", admin(a.updateService))
-	mux.Handle("PUT /api/services/{id}/staff", admin(a.setServiceStaff))
-	mux.Handle("GET /api/products", authed(http.HandlerFunc(a.listProducts)))
-	mux.Handle("POST /api/products", admin(a.createProduct))
-	mux.Handle("PATCH /api/products/{id}", admin(a.updateProduct))
-	mux.Handle("GET /api/branches", authed(http.HandlerFunc(a.listBranches)))
-	mux.Handle("POST /api/branches", admin(a.createBranch))
-	mux.Handle("PATCH /api/branches/{id}", admin(a.updateBranch))
-	mux.Handle("GET /api/team/{id}/hours", admin(a.getHours))
-	mux.Handle("PUT /api/team/{id}/hours", admin(a.setHours))
+	// negocio: equipo
+	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))
+	mux.Handle("POST /api/team", a.tenant(a.createTeamMember, admin))
+	mux.Handle("PATCH /api/team/{id}", a.tenant(a.updateTeamMember, admin))
+	mux.Handle("GET /api/team/{id}/hours", a.tenant(a.getHours, admin))
+	mux.Handle("PUT /api/team/{id}/hours", a.tenant(a.setHours, admin))
 
-	// clientes: todo el equipo; las notas de seguimiento solo administrador y profesionales
-	mux.Handle("GET /api/clients", authed(http.HandlerFunc(a.listClients)))
-	mux.Handle("POST /api/clients", authed(http.HandlerFunc(a.createClient)))
-	mux.Handle("GET /api/clients/{id}", authed(http.HandlerFunc(a.getClient)))
-	mux.Handle("PATCH /api/clients/{id}", authed(http.HandlerFunc(a.updateClient)))
-	notes := func(h http.HandlerFunc) http.Handler { return authed(auth.RequireRole("admin", "staff")(h)) }
-	mux.Handle("GET /api/clients/{id}/notes", notes(a.listNotes))
-	mux.Handle("POST /api/clients/{id}/notes", notes(a.createNote))
+	// negocio: catálogo (lectura para todo el equipo, cambios solo del administrador)
+	mux.Handle("GET /api/services", a.tenant(a.listServices))
+	mux.Handle("POST /api/services", a.tenant(a.createService, admin))
+	mux.Handle("PATCH /api/services/{id}", a.tenant(a.updateService, admin))
+	mux.Handle("PUT /api/services/{id}/staff", a.tenant(a.setServiceStaff, admin))
+	mux.Handle("GET /api/products", a.tenant(a.listProducts))
+	mux.Handle("POST /api/products", a.tenant(a.createProduct, admin))
+	mux.Handle("PATCH /api/products/{id}", a.tenant(a.updateProduct, admin))
+	mux.Handle("GET /api/branches", a.tenant(a.listBranches))
+	mux.Handle("POST /api/branches", a.tenant(a.createBranch, admin))
+	mux.Handle("PATCH /api/branches/{id}", a.tenant(a.updateBranch, admin))
+
+	// negocio: clientes (notas de seguimiento solo administrador y profesionales)
+	mux.Handle("GET /api/clients", a.tenant(a.listClients))
+	mux.Handle("POST /api/clients", a.tenant(a.createClient))
+	mux.Handle("GET /api/clients/{id}", a.tenant(a.getClient))
+	mux.Handle("PATCH /api/clients/{id}", a.tenant(a.updateClient))
+	mux.Handle("GET /api/clients/{id}/notes", a.tenant(a.listNotes, admin, "staff"))
+	mux.Handle("POST /api/clients/{id}/notes", a.tenant(a.createNote, admin, "staff"))
+
+	// plataforma
+	mux.Handle("GET /api/platform/stats", a.platform(a.platformStats, both...))
+	mux.Handle("GET /api/platform/businesses", a.platform(a.platformListBusinesses, both...))
+	mux.Handle("POST /api/platform/businesses", a.platform(a.platformCreateBusiness, write))
+	mux.Handle("GET /api/platform/businesses/{id}", a.platform(a.platformGetBusiness, both...))
+	mux.Handle("PATCH /api/platform/businesses/{id}", a.platform(a.platformUpdateBusiness, write))
+	mux.Handle("POST /api/platform/users/{id}/password", a.platform(a.platformResetPassword, write))
+	mux.Handle("PATCH /api/platform/users/{id}", a.platform(a.platformUpdateUser, write))
+	mux.Handle("GET /api/platform/team", a.platform(a.platformListTeam, both...))
+	mux.Handle("POST /api/platform/team", a.platform(a.platformCreateTeam, write))
+	mux.Handle("PATCH /api/platform/team/{id}", a.platform(a.platformUpdateTeam, write))
+	mux.Handle("GET /api/platform/settings", a.platform(a.platformGetSettings, both...))
+	mux.Handle("PUT /api/platform/settings", a.platform(a.platformPutSettings, write))
+	mux.Handle("GET /api/platform/activity", a.platform(a.platformActivity, both...))
 
 	mux.Handle("/api/", http.NotFoundHandler())
 	if a.StaticDir != "" {
@@ -70,11 +105,13 @@ func (a *API) Routes() http.Handler {
 	return mux
 }
 
-// lookup lee de la base el rol y el negocio actuales del usuario.
+// lookup lee de la base el rol, el negocio y el estado de la cuenta actuales del usuario.
 func (a *API) lookup(ctx context.Context, userID int64) (*auth.Principal, error) {
 	p := &auth.Principal{UserID: userID}
-	err := a.DB.QueryRow(ctx, `SELECT business_id, role FROM users WHERE id = $1 AND active`, userID).
-		Scan(&p.BusinessID, &p.Role)
+	err := a.DB.QueryRow(ctx,
+		`SELECT COALESCE(u.business_id, 0), u.role, COALESCE(b.status, '')
+		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id
+		 WHERE u.id = $1 AND u.active`, userID).Scan(&p.BusinessID, &p.Role, &p.BusinessStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

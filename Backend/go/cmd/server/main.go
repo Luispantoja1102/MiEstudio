@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	_ "time/tzdata" // zonas horarias dentro del binario (imágenes mínimas no las traen)
 
 	"miestudio/backend-go/internal/api"
 	"miestudio/backend-go/internal/config"
@@ -27,6 +28,9 @@ func main() {
 	}
 
 	a := &api.API{DB: pool, Secret: cfg.JWTSecret, Limiter: ratelimit.New(), StaticDir: cfg.StaticDir}
+	if err := a.BootstrapPlatformAdmin(ctx, cfg.PlatformAdminName, cfg.PlatformAdminEmail, cfg.PlatformAdminPassword); err != nil {
+		log.Fatal(err)
+	}
 	log.Printf("go api on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, a.Routes()))
 }
