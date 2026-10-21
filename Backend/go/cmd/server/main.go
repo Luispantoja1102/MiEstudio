@@ -8,6 +8,7 @@ import (
 	"miestudio/backend-go/internal/api"
 	"miestudio/backend-go/internal/config"
 	"miestudio/backend-go/internal/db"
+	"miestudio/backend-go/internal/ratelimit"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	a := &api.API{DB: pool, Secret: cfg.JWTSecret}
+	a := &api.API{DB: pool, Secret: cfg.JWTSecret, Limiter: ratelimit.New(), StaticDir: cfg.StaticDir}
 	log.Printf("go api on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, a.Routes()))
 }

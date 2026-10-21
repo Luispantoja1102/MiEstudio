@@ -9,6 +9,7 @@ type Config struct {
 	DatabaseURL string
 	JWTSecret   string
 	Port        string
+	StaticDir   string
 }
 
 func Load() (Config, error) {
@@ -16,6 +17,7 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
 		Port:        os.Getenv("GO_API_PORT"),
+		StaticDir:   os.Getenv("STATIC_DIR"),
 	}
 	if c.DatabaseURL == "" {
 		return c, fmt.Errorf("DATABASE_URL es obligatorio")
