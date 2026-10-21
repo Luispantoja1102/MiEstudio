@@ -17,6 +17,8 @@
   let opening = $state('');
   let services = $state([]);
   let products = $state([]);
+  let packages = $state([]); // catálogo de paquetes
+  let clientPkgs = $state([]); // paquetes vigentes del cliente del ticket
   let staff = $state([]);
   let appts = $state([]);
   let point = $state({ ok: false, message: '', code: '' });
@@ -60,13 +62,15 @@
     ready = false;
     const branchId = branches.id;
     if (!branchId) return (ready = true);
-    const [c, s, p, a, st] = await Promise.all([
+    const [c, s, p, a, st, pk] = await Promise.all([
       api(`/api/cash/current?branch_id=${branchId}`),
       api('/api/services'),
       api('/api/products'),
       api('/api/agenda?' + new URLSearchParams({ branch_id: branchId, date: todayIn(tz) })),
-      api(`/api/payments/point/status?branch_id=${branchId}`)
+      api(`/api/payments/point/status?branch_id=${branchId}`),
+      api('/api/packages')
     ]);
+    packages = pk;
     cash = c.session;
     services = s.filter((x) => x.active);
     products = p.filter((x) => x.active);
@@ -118,6 +122,11 @@
     if (p.stock < 1) return;
     lines.push({ key: crypto.randomUUID?.() ?? Math.random(), kind: 'product', id: p.id, name: p.name, unit: p.price_cents, qty: 1, staffId: '', stock: p.stock });
   }
+  function addPackage(k) {
+    if (!client) return (error = 'Para vender un paquete elige primero al cliente.');
+    if (lines.some((l) => l.kind === 'package' && l.id === k.id)) return;
+    lines.push({ key: crypto.randomUUID?.() ?? Math.random(), kind: 'package', id: k.id, name: k.name, unit: k.price_cents, qty: 1, staffId: '' });
+  }
   function addAppointment(a) {
     if (appointmentId && appointmentId !== a.id && !confirm('Ya hay una cita en el ticket. ¿Cambiarla por esta?')) return;
     lines = lines.filter((l) => !l.fromAppt);
@@ -137,13 +146,46 @@
       payments = payments.filter((p) => p.method !== 'deposit');
     }
   }
-  const maxQty = (l) => (l.kind === 'service' ? 20 : (l.stock ?? 1000));
+  const maxQty = (l) => (l.kind === 'service' ? 20 : l.kind === 'package' ? 1 : (l.stock ?? 1000));
 
   function searchClient() {
     clearTimeout(clientTimer);
     clientTimer = setTimeout(async () => {
       clientResults = clientQuery.trim() ? (await api('/api/clients?q=' + encodeURIComponent(clientQuery.trim()))).slice(0, 5) : [];
     }, 250);
+  }
+
+  // ── paquetes del cliente: cada sesión paga una unidad de un servicio del ticket
+  $effect(() => {
+    const cid = client?.id;
+    if (!cid) {
+      clientPkgs = [];
+      return;
+    }
+    api(`/api/clients/${cid}/packages`)
+      .then((r) => client?.id === cid && (clientPkgs = r.filter((k) => k.status === 'active')))
+      .catch(() => (clientPkgs = []));
+  });
+  const unitOf = (serviceId) => lines.find((l) => l.kind === 'service' && l.id === serviceId)?.unit ?? 0;
+  const serviceQty = (serviceId) => lines.filter((l) => l.kind === 'service' && l.id === serviceId).reduce((n, l) => n + l.qty, 0);
+  const pkgUsed = (k) => payments.filter((p) => p.method === 'package' && p.cpId === k.id).length;
+  const pkgUsable = (k) => pkgUsed(k) < k.remaining && payments.filter((p) => p.method === 'package' && p.serviceId === k.service_id).length < serviceQty(k.service_id);
+  // si se quita el servicio o al cliente, los canjes sobrantes salen del ticket
+  $effect(() => {
+    const seen = {};
+    const keep = payments.filter((p) => {
+      if (p.method !== 'package') return true;
+      seen[p.serviceId] = (seen[p.serviceId] ?? 0) + 1;
+      return client && seen[p.serviceId] <= serviceQty(p.serviceId);
+    });
+    if (keep.length !== payments.length) payments = keep;
+  });
+  $effect(() => {
+    if (!client && lines.some((l) => l.kind === 'package')) lines = lines.filter((l) => l.kind !== 'package');
+  });
+  function addPackagePayment(k) {
+    error = '';
+    payments.push({ key: crypto.randomUUID?.() ?? Math.random(), method: 'package', cpId: k.id, serviceId: k.service_id, name: k.name, amount: toPesos(unitOf(k.service_id)), received: '', reference: '', charge: null, locked: false, fixed: true });
   }
 
   // ── pagos
@@ -209,7 +251,7 @@
         tip_cents: tipCents,
         tip_staff_id: tipCents && tipStaffId ? Number(tipStaffId) : null,
         lines: lines.map((l) => ({
-          [l.kind === 'service' ? 'service_id' : 'product_id']: l.id,
+          [l.kind + '_id']: l.id,
           qty: l.qty,
           staff_id: l.staffId ? Number(l.staffId) : null
         })),
@@ -218,7 +260,8 @@
           amount_cents: toCents(p.amount),
           received_cents: p.method === 'cash' && p.received ? toCents(p.received) : null,
           reference: p.reference,
-          mp_charge_id: p.method === 'mp_point' ? p.charge?.id : undefined
+          mp_charge_id: p.method === 'mp_point' ? p.charge?.id : undefined,
+          client_package_id: p.method === 'package' ? p.cpId : undefined
         }))
       };
       receipt = await api('/api/sales', { method: 'POST', body });
@@ -291,11 +334,24 @@
     <!-- catálogo -->
     <section class="catalog">
       <div class="tabs" role="tablist">
-        {#each [['services', 'Servicios'], ['products', 'Productos'], ['appts', `Citas de hoy (${appts.length})`]] as [value, label]}
+        {#each [['services', 'Servicios'], ['products', 'Productos'], ['packages', 'Paquetes'], ['appts', `Citas de hoy (${appts.length})`]] as [value, label]}
           <button class="chip" role="tab" aria-selected={tab === value} aria-pressed={tab === value} onclick={() => (tab = value)}>{label}</button>
         {/each}
       </div>
-      {#if tab !== 'appts'}
+      {#if tab === 'packages'}
+        {#if !client}<p class="meta">Elige primero al cliente en el ticket para venderle un paquete.</p>{/if}
+        <div class="grid">
+          {#each packages as k (k.id)}
+            <button class="item" disabled={!client} onclick={() => addPackage(k)}>
+              <b>{k.name}</b>
+              <span>{money(k.price_cents)}</span>
+              <small>{k.sessions} sesiones de {k.service_name}{k.valid_days ? ` · ${k.valid_days} días` : ''}</small>
+            </button>
+          {:else}
+            <p class="meta">No hay paquetes. El administrador los crea en Servicios.</p>
+          {/each}
+        </div>
+      {:else if tab !== 'appts'}
         <input type="search" placeholder="Buscar…" aria-label="Buscar en el catálogo" bind:value={q} style="margin-bottom: 0.75rem" />
         <div class="grid">
           {#each shown as it (it.id)}
@@ -348,12 +404,14 @@
                 <span class="amt">{money(l.qty * l.unit)}</span>
               </div>
               <div class="l-bot">
-                <div class="qty" aria-label="Cantidad">
+                <div class="qty" aria-label="Cantidad" hidden={l.kind === 'package'}>
                   <button aria-label="Menos" onclick={() => (l.qty > 1 ? l.qty-- : removeLine(l))}>−</button>
                   <span>{l.qty}</span>
                   <button aria-label="Más" disabled={l.qty >= maxQty(l)} onclick={() => l.qty++}>+</button>
                 </div>
-                {#if l.kind === 'service'}
+                {#if l.kind === 'package'}
+                  <small class="meta">Se le abona al cliente al cobrar</small>
+                {:else if l.kind === 'service'}
                   <select bind:value={l.staffId} aria-label="Quién lo realizó" style="width: auto; margin: 0; min-height: 36px">
                     <option value="">Sin asignar</option>
                     {#each staff as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
@@ -396,6 +454,9 @@
           <h3>Pagos</h3>
           <div class="chips">
             {#each ['cash', 'card', 'transfer'] as m}<button class="chip" onclick={() => addPayment(m)}>+ {METHODS[m]}</button>{/each}
+            {#each clientPkgs as k (k.id)}
+              <button class="chip" disabled={!pkgUsable(k)} title={`Quedan ${k.remaining} sesiones`} onclick={() => addPackagePayment(k)}>+ {k.name} ({k.remaining})</button>
+            {/each}
             <button class="chip" disabled={!point.ok} title={point.ok ? 'Cobrar con la terminal' : point.message} onclick={() => addPayment('mp_point')}>+ Terminal MP</button>
           </div>
           {#if !point.ok && point.message}<p class="meta" style="margin: -0.4rem 0 0.6rem">Terminal no disponible: {point.message}</p>{/if}
@@ -407,9 +468,11 @@
                 {#if !p.locked}<button class="btn ghost sm" onclick={() => removePayment(p)}>Quitar</button>{/if}
               </div>
               <label class="field mini">Monto
-                <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null || p.locked} />
+                <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null || p.locked || p.fixed} />
               </label>
-              {#if p.method === 'deposit'}
+              {#if p.method === 'package'}
+                <p class="ok" role="status">✓ Una sesión de «{p.name}»</p>
+              {:else if p.method === 'deposit'}
                 <p class="ok" role="status">✓ Anticipo pagado en línea. Quita la cita del ticket para no descontarlo.</p>
               {:else if p.method === 'cash'}
                 <label class="field mini">Recibido

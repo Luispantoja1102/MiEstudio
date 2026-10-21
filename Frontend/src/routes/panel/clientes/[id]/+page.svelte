@@ -15,6 +15,9 @@
   let error = $state('');
   let saved = $state(false);
   let busy = $state(false);
+  let packages = $state([]);
+  const STATUS = { active: 'Vigente', exhausted: 'Agotado', expired: 'Vencido', void: 'Cancelado' };
+  const sells = ['admin', 'cashier', 'reception'].includes(session.me.role);
 
   async function loadNotes() {
     if (canSeeNotes()) notes = await api(`/api/clients/${id}/notes`);
@@ -25,6 +28,7 @@
       const c = await api(`/api/clients/${id}`);
       form = { name: c.name, phone: c.phone, email: c.email, birthday: c.birthday ?? '', reminders_consent: !!c.reminders_consent };
       await loadNotes();
+      if (sells) packages = await api(`/api/clients/${id}/packages`);
     } catch (e) {
       error = e.status === 404 ? 'No encontramos a este cliente.' : e.message;
     }
@@ -92,6 +96,20 @@
       {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}
     </div>
   </form>
+
+  {#if packages.length}
+    <section class="card" style="margin-top: 1.25rem">
+      <h2 style="font-size: 1.15rem">Paquetes</h2>
+      <div class="list">
+        {#each packages as k (k.id)}
+          <div class="item-row">
+            <span class="grow"><b>{k.name}</b><small class="meta" style="display: block">{k.status === 'active' ? `Quedan ${k.remaining} de ${k.sessions_total}` : `${k.sessions_used} de ${k.sessions_total} usadas`}{k.expires_at ? ` · vence ${formatDate(k.expires_at)}` : ''}</small></span>
+            <span class="badge" class:muted={k.status !== 'active'}>{STATUS[k.status]}</span>
+          </div>
+        {/each}
+      </div>
+    </section>
+  {/if}
 
   {#if session.me.role === 'admin'}
     <section class="card" style="margin-top: 1.25rem">

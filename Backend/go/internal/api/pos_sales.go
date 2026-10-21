@@ -19,6 +19,7 @@ import (
 type saleLineIn struct {
 	ServiceID      *int64 `json:"service_id"`
 	ProductID      *int64 `json:"product_id"`
+	PackageID      *int64 `json:"package_id"` // vender un paquete: requiere cliente, cantidad 1
 	Qty            int    `json:"qty"`
 	StaffID        *int64 `json:"staff_id"`
 	UnitPriceCents *int   `json:"unit_price_cents"` // cambiar el precio: solo administrador
@@ -26,11 +27,12 @@ type saleLineIn struct {
 }
 
 type paymentIn struct {
-	Method        string `json:"method"` // cash, card, transfer, mp_point o deposit (anticipo de la cita)
+	Method        string `json:"method"` // cash, card, transfer, mp_point, deposit (anticipo de la cita) o package (sesión de un paquete)
 	AmountCents   int    `json:"amount_cents"`
 	ReceivedCents *int   `json:"received_cents"` // efectivo entregado; el cambio se calcula
 	Reference     string `json:"reference"`
-	MPChargeID    string `json:"mp_charge_id"` // cobro aprobado en la terminal
+	MPChargeID    string `json:"mp_charge_id"`      // cobro aprobado en la terminal
+	ClientPackage int64  `json:"client_package_id"` // method package: una sesión del paquete del cliente
 }
 
 type saleIn struct {
@@ -300,13 +302,22 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 
 	subtotal := 0
 	for _, in := range req.Lines {
-		if (in.ServiceID == nil) == (in.ProductID == nil) {
-			return 0, fail(http.StatusBadRequest, "cada partida debe ser un servicio o un producto")
+		kinds := 0
+		for _, set := range []bool{in.ServiceID != nil, in.ProductID != nil, in.PackageID != nil} {
+			if set {
+				kinds++
+			}
+		}
+		if kinds != 1 {
+			return 0, fail(http.StatusBadRequest, "cada partida debe ser un servicio, un producto o un paquete")
 		}
 		l := pricedLine{in: in, qty: in.Qty, staffID: in.StaffID}
 		maxQty := 1000
 		if in.ServiceID != nil {
 			maxQty = 20
+		}
+		if in.PackageID != nil {
+			maxQty = 1
 		}
 		if l.qty < 1 || l.qty > maxQty || in.DiscountCents < 0 {
 			return 0, fail(http.StatusBadRequest, "cantidad o descuento inválidos")
@@ -330,6 +341,21 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 			}
 			if l.staffID == nil {
 				l.staffID = apptStaff
+			}
+		} else if in.PackageID != nil {
+			l.kind = "package"
+			if clientID == nil {
+				return 0, fail(http.StatusBadRequest, "para vender un paquete elige al cliente")
+			}
+			if in.StaffID != nil {
+				return 0, fail(http.StatusBadRequest, "un paquete no lleva comisión por persona")
+			}
+			err := tx.QueryRow(ctx, `SELECT name, price_cents FROM packages WHERE id = $1 AND business_id = $2 AND active`, *in.PackageID, bizID).Scan(&l.name, &l.unit)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return 0, fail(http.StatusBadRequest, "paquete inválido o inactivo")
+			}
+			if err != nil {
+				return 0, err
 			}
 		} else {
 			l.kind = "product"
@@ -372,6 +398,9 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 	for i := range lines {
 		l := &lines[i]
 		l.base = l.total - shares[i]
+		if l.kind == "package" {
+			continue // el paquete es un anticipo de sesiones: la comisión se paga al canjearlas
+		}
 		l.pct = pickPercent(rules, l.staffID, l.in.ServiceID, l.in.ProductID, staffDefaults[derefID(l.staffID)])
 		l.commission = commissionOf(l.base, l.pct)
 	}
@@ -401,6 +430,16 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 	}
 	seenCharges := map[string]bool{}
 	var depositID int64
+	// cada canje paga una unidad de un servicio de la venta que el paquete cubre
+	redeemUses := map[int64]int{}
+	capacity := map[int64]int{} // servicio -> unidades aún sin pagar con paquete
+	covered := map[int64]int{}  // servicio -> importe por unidad
+	for _, l := range lines {
+		if l.kind == "service" && l.total%l.qty == 0 {
+			capacity[*l.in.ServiceID] += l.qty
+			covered[*l.in.ServiceID] = l.total / l.qty
+		}
+	}
 	for i := range req.Payments {
 		pay := &req.Payments[i]
 		switch pay.Method {
@@ -438,6 +477,21 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 			}
 			if depAmount > total {
 				return 0, fail(http.StatusConflict, fmt.Sprintf("el anticipo ($%s) es mayor que la cuenta ($%s); cancela la cita para devolverlo o ajusta la cuenta", cents(depAmount), cents(total)))
+			}
+		case "package":
+			if pay.ReceivedCents != nil || pay.MPChargeID != "" || pay.ClientPackage == 0 {
+				return 0, fail(http.StatusBadRequest, "el canje de paquete lleva solo el paquete elegido")
+			}
+			svc, err := redeemPackage(ctx, tx, bizID, clientID, pay.ClientPackage, redeemUses, a.now())
+			if err != nil {
+				return 0, err
+			}
+			if capacity[svc] < 1 {
+				return 0, fail(http.StatusBadRequest, "el paquete no cubre ningún servicio de esta venta")
+			}
+			capacity[svc]--
+			if pay.AmountCents != covered[svc] {
+				return 0, fail(http.StatusBadRequest, fmt.Sprintf("la sesión del paquete cubre $%s", cents(covered[svc])))
 			}
 		default:
 			return 0, fail(http.StatusBadRequest, "método de pago inválido")
@@ -480,11 +534,16 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 	}
 	for _, l := range lines {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO sale_items (sale_id, service_id, product_id, staff_id, qty, unit_price_cents, unit_cost_cents, discount_cents,
+			`INSERT INTO sale_items (sale_id, service_id, product_id, package_id, staff_id, qty, unit_price_cents, unit_cost_cents, discount_cents,
 			   total_cents, name, commission_pct, commission_base_cents, commission_cents)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-			saleID, l.in.ServiceID, l.in.ProductID, l.staffID, l.qty, l.unit, l.cost, l.discount, l.total, l.name, l.pct, l.base, l.commission); err != nil {
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			saleID, l.in.ServiceID, l.in.ProductID, l.in.PackageID, l.staffID, l.qty, l.unit, l.cost, l.discount, l.total, l.name, l.pct, l.base, l.commission); err != nil {
 			return 0, err
+		}
+		if l.in.PackageID != nil {
+			if err := grantPackage(ctx, tx, bizID, *clientID, saleID, *l.in.PackageID, a.now()); err != nil {
+				return 0, err
+			}
 		}
 	}
 	for _, pay := range req.Payments {
@@ -510,10 +569,17 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 				return 0, err
 			}
 		}
+		var cpID *int64
+		if pay.Method == "package" {
+			cpID = &pay.ClientPackage
+			if _, err := tx.Exec(ctx, `UPDATE client_packages SET sessions_used = sessions_used + 1 WHERE id = $1`, pay.ClientPackage); err != nil {
+				return 0, err
+			}
+		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO sale_payments (sale_id, method, amount_cents, received_cents, change_cents, reference, cash_session_id, mp_charge_id, deposit_id)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			saleID, pay.Method, pay.AmountCents, received, change, strings.TrimSpace(pay.Reference), sessionID, chargeID, depID); err != nil {
+			`INSERT INTO sale_payments (sale_id, method, amount_cents, received_cents, change_cents, reference, cash_session_id, mp_charge_id, deposit_id, client_package_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			saleID, pay.Method, pay.AmountCents, received, change, strings.TrimSpace(pay.Reference), sessionID, chargeID, depID, cpID); err != nil {
 			return 0, err
 		}
 	}
@@ -598,7 +664,7 @@ func loadSale(ctx context.Context, q queryer, bizID, id int64) (*saleOut, error)
 	s.PaidCents = s.TotalCents + s.TipCents
 
 	rows, err := q.Query(ctx,
-		`SELECT i.id, CASE WHEN i.service_id IS NOT NULL THEN 'service' ELSE 'product' END, i.name, i.qty, i.unit_price_cents,
+		`SELECT i.id, CASE WHEN i.service_id IS NOT NULL THEN 'service' WHEN i.package_id IS NOT NULL THEN 'package' ELSE 'product' END, i.name, i.qty, i.unit_price_cents,
 		        i.discount_cents, i.total_cents, i.staff_id, COALESCE(u.name, ''), i.commission_pct::float8, i.commission_cents
 		 FROM sale_items i LEFT JOIN users u ON u.id = i.staff_id WHERE i.sale_id = $1 ORDER BY i.id`, id)
 	if err != nil {
@@ -773,6 +839,16 @@ func (a *API) voidSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// y el anticipo que se había descontado en esta venta
+	// un paquete vendido en esta venta con sesiones ya canjeadas impide cancelarla: se avisa antes de devolver dinero
+	var spent int
+	if err := a.DB.QueryRow(ctx, `SELECT COALESCE(sum(sessions_used), 0) FROM client_packages WHERE sale_id = $1 AND voided_at IS NULL`, id).Scan(&spent); err != nil {
+		serverErr(w)
+		return
+	}
+	if spent > 0 {
+		writeErr(w, http.StatusConflict, fmt.Sprintf("el paquete de esta venta ya tiene %d sesión(es) canjeada(s); cancela primero esas ventas", spent))
+		return
+	}
 	if err := a.refundAppliedDeposit(ctx, p.BusinessID, id); err != nil {
 		if !writeFail(w, err) {
 			serverErr(w)
@@ -792,6 +868,13 @@ func (a *API) voidSale(w http.ResponseWriter, r *http.Request) {
 	}
 	if status != "paid" {
 		writeErr(w, http.StatusConflict, "la venta ya estaba cancelada")
+		return
+	}
+
+	if err := undoPackagesOfSale(ctx, tx, id); err != nil {
+		if !writeFail(w, err) {
+			serverErr(w)
+		}
 		return
 	}
 

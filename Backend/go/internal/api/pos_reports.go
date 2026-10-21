@@ -71,6 +71,15 @@ func (a *API) salesReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out.CollectedCents = out.TotalCents + out.TipCents
+	// las sesiones de paquete se cobraron al venderlo: canjearlas no es dinero nuevo
+	var redeemed int
+	if err := a.DB.QueryRow(ctx,
+		`SELECT COALESCE(sum(sp.amount_cents), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'package' AND `+where,
+		p.BusinessID, from, to, branchID).Scan(&redeemed); err != nil {
+		serverErr(w)
+		return
+	}
+	out.CollectedCents -= redeemed
 	if err := a.DB.QueryRow(ctx,
 		`SELECT COALESCE(sum(i.unit_cost_cents * i.qty), 0) FROM sale_items i JOIN sales s ON s.id = i.sale_id
 		 WHERE i.product_id IS NOT NULL AND `+where, p.BusinessID, from, to, branchID).Scan(&out.CostCents); err != nil {
@@ -154,7 +163,7 @@ func (a *API) salesReport(w http.ResponseWriter, r *http.Request) {
 	})
 
 	irows, err := a.DB.Query(ctx,
-		`SELECT i.name, CASE WHEN i.service_id IS NOT NULL THEN 'service' ELSE 'product' END, sum(i.qty), sum(i.total_cents)
+		`SELECT i.name, CASE WHEN i.service_id IS NOT NULL THEN 'service' WHEN i.package_id IS NOT NULL THEN 'package' ELSE 'product' END, sum(i.qty), sum(i.total_cents)
 		 FROM sale_items i JOIN sales s ON s.id = i.sale_id WHERE `+where+`
 		 GROUP BY i.name, 2 ORDER BY sum(i.total_cents) DESC, i.name LIMIT 10`, p.BusinessID, from, to, branchID)
 	if err != nil {

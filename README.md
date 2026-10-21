@@ -94,6 +94,7 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 - **Comisiones:** se calculan al vender sobre lo realmente cobrado (después del descuento) y **se guardan en la venta**: cambiar las reglas después no altera el historial. Prioridad: persona + artículo, luego el artículo, luego la comisión general de la persona (solo servicios).
 - **Inventario:** cada cambio de existencia deja un movimiento. Vender no puede dejar la existencia en negativo, ni siquiera con ventas simultáneas.
 - **Cancelar una venta** (solo administrador): devuelve la existencia, reembolsa los cobros con terminal y, si el efectivo era de una caja ya cerrada, lo saca de la caja abierta. Un cobro repetido por doble clic no genera dos ventas.
+- **Paquetes y membresías:** el administrador define paquetes (N sesiones de un servicio, precio y vigencia opcional) en *Cobros → Servicios*. Se venden en caja a un cliente y su saldo queda en su ficha. Cada sesión se canjea como forma de pago («Paquete») de un servicio del mismo tipo: una sesión por unidad, nunca de otro cliente, vencida o agotada, ni dos veces con ventas simultáneas. El dinero se cuenta al vender el paquete (el canje no suma a «cobrado»); la comisión del profesional se paga al canjear. Cancelar un canje devuelve la sesión; la venta de un paquete con sesiones usadas no se puede cancelar.
 - **Reportes:** ventas por periodo (por día, método, persona y artículo) y comisiones por persona.
 
 ### Terminal Mercado Pago (Point)
@@ -180,11 +181,11 @@ sirve `index.html` y `version.json` sin caché y los archivos con huella como in
 | `GET /api/me`, `POST /api/auth/password` | Cualquier usuario autenticado |
 | `GET/POST /api/team`, `PATCH /api/team/{id}`, `GET/PUT /api/team/{id}/hours` | Administrador del negocio |
 | `GET /api/services`, `/api/products`, `/api/branches` | Todo el equipo del negocio |
-| `POST/PATCH` de servicios, productos y sucursales; `PUT /api/services/{id}/staff` | Administrador del negocio |
+| `POST/PATCH` de servicios, paquetes, productos y sucursales; `PUT /api/services/{id}/staff` | Administrador del negocio |
 | `/api/clients`, `/api/clients/{id}` | Todo el equipo del negocio |
 | `/api/clients/{id}/notes` | Administrador y profesionales |
 | `GET /api/agenda`, `GET /api/agenda/slots` | Todo el equipo del negocio |
-| `/api/cash/*`, `POST/GET /api/sales`, `/api/payments/point/*` | Administrador, caja y recepción |
+| `/api/cash/*`, `POST/GET /api/sales`, `GET /api/packages`, `GET /api/clients/{id}/packages`, `/api/payments/point/*` | Administrador, caja y recepción |
 | `POST /api/sales/{id}/void`, `/api/products/{id}/stock`, `/api/commission-rules`, `/api/reports/sales`, `/api/payments/mercadopago/*` | Administrador |
 | `GET /api/reports/commissions` | Administrador (todos) y profesionales (solo lo suyo) |
 | `POST/PATCH /api/appointments`, `POST /api/appointments/{id}/move`, `POST/DELETE /api/blocks` | Administrador, recepción y profesionales (estos últimos solo bloquean su propio horario) |
