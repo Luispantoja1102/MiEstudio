@@ -312,3 +312,36 @@ func TestClientRemindersConsentRules(t *testing.T) {
 		t.Fatal("sin correo no puede haber recordatorios")
 	}
 }
+
+func TestNoReminderRowWithoutConsent(t *testing.T) {
+	o, _ := newMailing(t)
+	o.mustBook(t, at(monday, "10:00"), map[string]any{"consent_reminders": false})
+	o.setNow(time.Date(2026, 11, 8, 22, 0, 0, 0, time.UTC))
+	o.process(t)
+	var n int
+	o.a.DB.QueryRow(context.Background(), `SELECT count(*) FROM notifications WHERE kind = 'reminder'`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("sin consentimiento ni se encola: %d", n)
+	}
+}
+
+func TestReminderForOldTimeIsSkippedAfterMove(t *testing.T) {
+	o, fm := newMailing(t)
+	token := o.mustBook(t, at(monday, "10:00"), nil)
+	o.process(t)
+	o.setNow(time.Date(2026, 11, 8, 22, 0, 0, 0, time.UTC))
+	if err := o.a.enqueueReminders(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var apID int64
+	o.a.DB.QueryRow(context.Background(), `SELECT id FROM appointments WHERE public_token = $1`, token).Scan(&apID)
+	if r := o.a.do(t, "POST", path("/api/appointments/", apID, "/move"), o.admin, map[string]any{"starts_at": at(monday, "13:00")}); r.Status != 204 {
+		t.Fatalf("mover %d %v", r.Status, r.Body)
+	}
+	o.process(t)
+	for _, m := range fm.sent {
+		if strings.Contains(m.Subject, "Recordatorio") && strings.Contains(m.Text, "10:00") {
+			t.Fatal("el recordatorio de la hora anterior no debe enviarse")
+		}
+	}
+}

@@ -100,6 +100,22 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 
 Los tokens de OAuth se renuevan solos antes de vencer. La integración está probada contra un servidor simulado de la API de Mercado Pago; antes de usarla con clientes reales, pruébala con una cuenta de pruebas y tu terminal.
 
+## Reserva en línea y correos
+
+Cada negocio activa su página pública desde los ajustes (`/api/booking/settings`): `/reservar/<slug>`. El cliente
+elige servicio, persona y horario sin crear cuenta; recibe un enlace privado para ver o cancelar su cita.
+Los correos (confirmación, cambio, cancelación y recordatorio) salen de una bandeja con reintentos
+(5 y 20 minutos, 3 intentos); una falla del servidor de correo nunca estropea la reserva. Los recordatorios
+solo se envían a quien los aceptó, y cada uno trae el enlace para darse de baja. Configura `SMTP_*`, `MAIL_FROM`
+y `APP_URL` en `.env` (ver `.env.example`). WhatsApp no está implementado.
+
+## Avisos de nueva versión
+
+Cada compilación del frontend lleva un nombre de versión (`APP_VERSION`, o la hora de la compilación). La app
+consulta `/_app/version.json` cada minuto y al volver a la pestaña; si cambió, muestra un aviso con
+«Actualizar ahora» / «Después». Nunca recarga sola, para no interrumpir una venta o una cita en curso. El servidor
+sirve `index.html` y `version.json` sin caché y los archivos con huella como inmutables.
+
 ## API actual
 
 | Método y ruta | Quién |
