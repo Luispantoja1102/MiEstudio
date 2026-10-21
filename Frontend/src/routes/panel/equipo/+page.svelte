@@ -1,11 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import HoursEditor from '$lib/HoursEditor.svelte';
   import { api } from '$lib/api.js';
   import { ROLES } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
 
   let team = $state([]);
+  let branches = $state([]);
+  let hoursFor = $state(null); // id de la persona cuyo horario se edita
   let loading = $state(true);
   let error = $state('');
   let showForm = $state(false);
@@ -18,6 +21,7 @@
 
   async function load() {
     team = await api('/api/team');
+    branches = (await api('/api/branches')).filter((b) => b.active);
     loading = false;
   }
 
@@ -109,9 +113,13 @@
         <label class="meta" for="com-{m.id}">Comisión %</label>
         <input id="com-{m.id}" type="number" min="0" max="100" step="0.5" value={m.commission_pct} style="width: 84px; margin: 0"
           onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
+        {#if m.bookable && m.active}
+          <button class="btn ghost sm" onclick={() => (hoursFor = hoursFor === m.id ? null : m.id)}>Horario</button>
+        {/if}
         {#if !me}
           <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
         {/if}
+        {#if hoursFor === m.id}<HoursEditor member={m} {branches} />{/if}
       </div>
     {/each}
   </div>

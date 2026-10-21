@@ -10,12 +10,13 @@
   // [icono, etiqueta, ruta (null = próximamente), roles permitidos (vacío = todos)]
   const nav = [
     ['home', 'Inicio', '/panel', []],
-    ['calendar', 'Agenda', null, []],
+    ['calendar', 'Agenda', '/panel/agenda', []],
     ['card', 'Ventas', null, []],
     ['users', 'Clientes', '/panel/clientes', []],
     ['scissors', 'Servicios', '/panel/servicios', []],
     ['package', 'Inventario', '/panel/inventario', []],
     ['users', 'Equipo', '/panel/equipo', ['admin']],
+    ['home', 'Sucursales', '/panel/ajustes', ['admin']],
     ['percent', 'Comisiones', null, []]
   ];
   const items = $derived(

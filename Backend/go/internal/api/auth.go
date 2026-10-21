@@ -225,12 +225,12 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	var name, email string
-	var bizName, kind, status *string
+	var bizName, kind, status, tz *string
 	var trialEnds *time.Time
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at
+		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id WHERE u.id = $1`, p.UserID).
-		Scan(&name, &email, &bizName, &kind, &status, &trialEnds)
+		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz)
 	if err != nil {
 		serverErr(w)
 		return
@@ -238,7 +238,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil}
 	if p.BusinessID != 0 {
 		out["business"] = map[string]any{
-			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds,
+			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
