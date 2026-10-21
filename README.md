@@ -27,6 +27,17 @@ npm run dev              # arranca Frontend, API de Node y API de Go juntos
 
 Abre <http://localhost:5173>. El `.env` vive en la raíz y no se sube a git.
 
+`npm run dev` revisa tu entorno antes de arrancar y, si algo falla, **dice por qué y se detiene** (falta el `.env`, falta una variable, PostgreSQL apagado, la API no compila o no arranca). Los mensajes `[go]` son los de la API.
+
+### Si algo no arranca
+
+| Síntoma | Qué hacer |
+| --- | --- |
+| `Faltan variables en .env` | Tu `.env` viene de una versión anterior: compáralo con `.env.example` y copia lo que falte. |
+| `PostgreSQL no responde` | Con Docker: `npm run db` y espera unos segundos. Sin Docker: enciende tu PostgreSQL y revisa `DATABASE_URL`. |
+| `No se pudo compilar la API` | Necesitas Go 1.26+ (`go version`). |
+| Entras con el administrador del `.env.example` y da «credenciales incorrectas» | El `.env` **solo crea al primer administrador**; si ya existía uno, el arranque lo avisa en `[go]` con su correo. Crea otro o restablece la contraseña con `npm run admin -- -email tu@correo.com -password '...'`. |
+
 ## Pruebas
 
 Las pruebas del backend crean una base temporal, así que necesitan un usuario de Postgres que pueda crear bases:

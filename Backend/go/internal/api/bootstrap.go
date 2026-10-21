@@ -14,7 +14,28 @@ import (
 // BootstrapPlatformAdmin crea el primer administrador de plataforma desde la configuración
 // si todavía no existe ninguno. Es idempotente: no toca a quien ya exista.
 func (a *API) BootstrapPlatformAdmin(ctx context.Context, name, email, password string) error {
+	// Quién administra hoy la plataforma: se informa siempre para que no haya dudas.
+	var admins []string
+	rows, err := a.DB.Query(ctx, `SELECT email FROM users WHERE role = 'platform_admin' AND active ORDER BY id LIMIT 5`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var e string
+		if err := rows.Scan(&e); err != nil {
+			rows.Close()
+			return err
+		}
+		admins = append(admins, e)
+	}
+	rows.Close()
+
 	if email == "" || password == "" {
+		if len(admins) == 0 {
+			log.Printf("plataforma: NO hay administrador. Define PLATFORM_ADMIN_EMAIL y PLATFORM_ADMIN_PASSWORD en .env, o crea uno con: npm run admin -- -email tu@correo.com -password '...'")
+		} else {
+			log.Printf("plataforma: administradores existentes: %s", strings.Join(admins, ", "))
+		}
 		return nil
 	}
 	if !validEmail(email) || !validPassword(password) {
@@ -23,11 +44,10 @@ func (a *API) BootstrapPlatformAdmin(ctx context.Context, name, email, password 
 	if a.Production && password == ExampleAdminPassword {
 		return errors.New("PLATFORM_ADMIN_PASSWORD es la clave de ejemplo: cámbiala antes de usar APP_ENV=production")
 	}
-	var exists bool
-	if err := a.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE role = 'platform_admin')`).Scan(&exists); err != nil {
-		return err
-	}
-	if exists {
+	if len(admins) > 0 {
+		// El .env solo crea al PRIMER administrador. Si ya hay uno, sus valores no se aplican.
+		log.Printf("plataforma: ya existe un administrador (%s); el .env no crea otro ni cambia contraseñas. "+
+			"Para crear otro o restablecer una contraseña: npm run admin -- -email %s -password '...'", strings.Join(admins, ", "), email)
 		return nil
 	}
 	if name == "" {
@@ -36,7 +56,7 @@ func (a *API) BootstrapPlatformAdmin(ctx context.Context, name, email, password 
 	if _, err := a.insertPlatformUser(ctx, name, email, password, auth.RolePlatformAdmin); err != nil {
 		return err
 	}
-	log.Printf("administrador de plataforma creado: %s", email)
+	log.Printf("plataforma: administrador creado: %s", email)
 	return nil
 }
 
