@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -199,11 +200,22 @@ func spa(dir string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := filepath.Join(dir, filepath.Clean("/"+r.URL.Path))
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			w.Header().Set("Cache-Control", staticCache(r.URL.Path))
 			files.ServeHTTP(w, r)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, filepath.Join(dir, "index.html"))
 	})
+}
+
+// staticCache: los archivos con huella (/_app/immutable) no cambian nunca; lo demás (index.html, version.json)
+// se revalida siempre, para que una versión nueva se note en cuanto se publica.
+func staticCache(urlPath string) string {
+	if strings.HasPrefix(urlPath, "/_app/immutable/") {
+		return "public, max-age=31536000, immutable"
+	}
+	return "no-cache"
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
