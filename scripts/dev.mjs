@@ -23,6 +23,9 @@ if (!existsSync('.env')) {
 }
 process.loadEnvFile('.env');
 const env = process.env;
+// el entorno que reciben los procesos hijos: solo variables válidas (en Windows hay entradas internas como «=C:» y valores no texto
+// que hacen fallar spawn con «UNKNOWN»)
+const childEnv = Object.fromEntries(Object.entries(process.env).filter(([k, v]) => k && !k.startsWith('=') && typeof v === 'string'));
 const missing = ['DATABASE_URL', 'JWT_SECRET'].filter((k) => !env[k]);
 if (missing.length) {
   die(`Faltan variables en .env: ${missing.join(', ')}`, 'Tu .env puede ser de una versión anterior. Compáralo con .env.example y copia las variables que falten.');
@@ -61,6 +64,8 @@ const build = spawnSync('go', ['-C', 'Backend/go', 'build', '-o', win ? 'bin/ser
 if (build.error?.code === 'ENOENT') die('No se encontró el comando «go»', 'Instala Go 1.26+ desde https://go.dev/dl/ y abre una terminal nueva.');
 if (build.status !== 0) die('No se pudo compilar la API de Go', 'Revisa el error de arriba. Si dice que necesitas una versión más nueva de Go, instala Go 1.26+.');
 
+if (!existsSync(exe)) die('La compilación terminó pero no aparece el ejecutable de la API', `Esperaba: ${exe}\nRevisa que Go pueda escribir en Backend/go/bin.`);
+
 // ── 4. Procesos
 const children = [];
 let stopping = false;
@@ -82,9 +87,28 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 function run(tag, cmd, args, { critical = true, shell = false } = {}) {
-  // con shell se pasa una sola cadena (evita el aviso DEP0190 y el escape de argumentos de Node)
-  const child = (shell ? spawn(`${cmd} ${args.join(' ')}`, { env, shell: true, detached: !win, stdio: ['ignore', 'pipe', 'pipe'] }) : spawn(cmd, args, { env, detached: !win, stdio: ['ignore', 'pipe', 'pipe'] }));
+  const opts = { env: childEnv, detached: !win, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] };
+  const start = (useShell) => (useShell ? spawn(`"${cmd}" ${args.join(' ')}`.trim(), { ...opts, shell: true }) : spawn(cmd, args, opts));
+  let child;
+  try {
+    // con shell se pasa una sola cadena (evita el aviso DEP0190 y el escape de argumentos de Node)
+    child = shell ? spawn(`${cmd} ${args.join(' ')}`, { ...opts, shell: true }) : start(false);
+  } catch (err) {
+    if (!win || shell) die(`No se pudo iniciar «${tag}»: ${err.message}`, `Comando: ${cmd}\nSi es el ejecutable de la API, prueba abrirlo a mano y revisa que tu antivirus no lo esté bloqueando.`);
+    // Windows a veces rechaza el arranque directo de un .exe recién compilado (antivirus, permisos): se reintenta a través de cmd.exe
+    say('dev', `Windows no dejó iniciar «${tag}» directamente (${err.code || err.message}); reintentando por cmd.exe…`);
+    try {
+      child = start(true);
+    } catch (err2) {
+      die(`No se pudo iniciar «${tag}»: ${err2.message}`, `Prueba abrir el ejecutable a mano para ver el motivo:\n  ${cmd}\nSi Windows o tu antivirus lo bloquean, permite la carpeta del proyecto en Seguridad de Windows.`);
+    }
+  }
   children.push(child);
+  child.on('error', (err) => {
+    if (stopping) return;
+    console.error(`\n\x1b[31m✖ El proceso «${tag}» no pudo ejecutarse: ${err.message}\x1b[0m`);
+    if (critical) shutdown(1);
+  });
   const pipe = (stream, out) => {
     let buf = '';
     stream.on('data', (d) => {
