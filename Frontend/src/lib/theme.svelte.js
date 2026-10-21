@@ -1,7 +1,7 @@
-// Cuatro temas: 'lino' (predeterminado: lino y terracota, navegación en riel), 'light' (Azul tinta), 'ivory' (Marfil: solemne como el oscuro, pero de día) y 'dark' (carbón y champán).
+// Cuatro temas: 'light' (Azul tinta, el predeterminado), 'lino' (lino y terracota), 'ivory' (Marfil: solemne como el oscuro, pero de día) y 'dark' (carbón y champán).
 const KEY = 'miestudio-theme';
 const LIGHT_KEY = 'miestudio-light'; // el claro preferido, al que vuelve el botón de sol/luna
-export const LIGHT_THEMES = ['lino', 'light', 'ivory']; // los que se pueden elegir como «tema claro»
+export const LIGHT_THEMES = ['light', 'lino', 'ivory']; // los que se pueden elegir como «tema claro»
 export const THEMES = [...LIGHT_THEMES, 'dark'];
 
 function stored(key = KEY) {
@@ -17,10 +17,10 @@ function apply(name) {
   document.documentElement.dataset.theme = name;
 }
 
-export const theme = $state({ name: 'lino', light: 'lino', forced: false });
+export const theme = $state({ name: 'light', light: 'light', forced: false });
 
 export function initTheme() {
-  theme.light = LIGHT_THEMES.includes(stored(LIGHT_KEY)) ? stored(LIGHT_KEY) : 'lino';
+  theme.light = LIGHT_THEMES.includes(stored(LIGHT_KEY)) ? stored(LIGHT_KEY) : 'light';
   theme.name = stored() ?? document.documentElement.dataset.theme ?? theme.light;
   apply(theme.name);
 }
