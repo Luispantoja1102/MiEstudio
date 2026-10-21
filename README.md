@@ -29,6 +29,9 @@ Abre <http://localhost:5173>. El `.env` vive en la raíz y no se sube a git.
 
 `npm run dev` revisa tu entorno antes de arrancar y, si algo falla, **dice por qué y se detiene** (falta el `.env`, falta una variable, PostgreSQL apagado, la API no compila o no arranca). Los mensajes `[go]` son los de la API.
 
+En desarrollo, si la base de datos de `DATABASE_URL` no existe, el servidor la crea sola (el usuario debe poder crear bases;
+en producción, `APP_ENV=production`, nunca lo hace).
+
 ### Si algo no arranca
 
 | Síntoma | Qué hacer |

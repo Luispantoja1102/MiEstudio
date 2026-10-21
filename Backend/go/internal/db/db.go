@@ -3,11 +3,51 @@ package db
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var dbName = regexp.MustCompile(`^[A-Za-z0-9_]{1,63}$`)
+
+// EnsureDatabase crea la base de datos de la URL si el servidor responde pero la base no existe
+// (SQLSTATE 3D000). Es una comodidad de desarrollo: se conecta a la base «postgres» con las mismas credenciales.
+// Si la conexión falla por otra razón, o el usuario no puede crear bases, devuelve el error original.
+func EnsureDatabase(ctx context.Context, url string) (created bool, err error) {
+	cfg, err := pgx.ParseConfig(url)
+	if err != nil {
+		return false, err
+	}
+	conn, err := pgx.ConnectConfig(ctx, cfg)
+	if err == nil {
+		conn.Close(ctx)
+		return false, nil
+	}
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != "3D000" {
+		return false, err
+	}
+	name := cfg.Database
+	if !dbName.MatchString(name) {
+		return false, fmt.Errorf("el nombre de base de datos %q no se puede crear automáticamente: %w", name, err)
+	}
+	admin := cfg.Copy()
+	admin.Database = "postgres"
+	ac, aerr := pgx.ConnectConfig(ctx, admin)
+	if aerr != nil {
+		return false, fmt.Errorf("la base %q no existe y no se pudo crear (%v): %w", name, aerr, err)
+	}
+	defer ac.Close(ctx)
+	if _, xerr := ac.Exec(ctx, `CREATE DATABASE "`+name+`"`); xerr != nil {
+		return false, fmt.Errorf("la base %q no existe y no se pudo crear (%v): %w", name, xerr, err)
+	}
+	return true, nil
+}
 
 //go:embed migrations/*.sql
 var migrations embed.FS

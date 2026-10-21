@@ -19,6 +19,13 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
+	if !cfg.Production { // en desarrollo, si la base no existe se crea sola
+		if created, err := db.EnsureDatabase(ctx, cfg.DatabaseURL); err != nil {
+			log.Fatal(err)
+		} else if created {
+			log.Printf("base de datos creada")
+		}
+	}
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
