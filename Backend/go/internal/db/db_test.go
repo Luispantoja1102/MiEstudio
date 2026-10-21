@@ -48,3 +48,41 @@ func TestEnsureDatabase(t *testing.T) {
 		t.Fatalf("un nombre con guion no se crea solo: %v %v", created, err)
 	}
 }
+
+func TestMigrateConcurrentStartsAreSafe(t *testing.T) {
+	base := os.Getenv("TEST_DATABASE_URL")
+	if base == "" {
+		t.Skip("TEST_DATABASE_URL no definida")
+	}
+	ctx := context.Background()
+	u, _ := url.Parse(base)
+	name := fmt.Sprintf("mie_migrate_%d", time.Now().UnixNano())
+	u.Path = "/" + name
+	t.Cleanup(func() {
+		u.Path = "/postgres"
+		if c, err := pgx.Connect(ctx, u.String()); err == nil {
+			c.Exec(ctx, `DROP DATABASE IF EXISTS "`+name+`" WITH (FORCE)`)
+			c.Close(ctx)
+		}
+	})
+	if _, err := EnsureDatabase(ctx, u.String()); err != nil {
+		t.Fatal(err)
+	}
+	errs := make(chan error, 4)
+	for i := 0; i < 4; i++ {
+		go func() {
+			pool, err := Connect(ctx, u.String())
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer pool.Close()
+			errs <- Migrate(ctx, pool)
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("arranque simultáneo: %v", err)
+		}
+	}
+}

@@ -65,7 +65,17 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // Migrate aplica en orden las migraciones que aún no se han ejecutado.
+// Un candado de sesión evita que dos instancias que arrancan a la vez apliquen la misma migración.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	lock, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
+	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(7319002)`); err != nil {
+		return err
+	}
+	defer lock.Exec(context.Background(), `SELECT pg_advisory_unlock(7319002)`)
 	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {
 		return err

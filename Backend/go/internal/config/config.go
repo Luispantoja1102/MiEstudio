@@ -38,6 +38,9 @@ type Config struct {
 	PlatformAdminName     string
 	PlatformAdminEmail    string
 	PlatformAdminPassword string
+
+	// negocio de ejemplo para pruebas (opcional; solo se crea en la primera ejecución, con la base sin negocios)
+	DemoBusiness, DemoKind, DemoName, DemoEmail, DemoPassword string
 }
 
 func Load() (Config, error) {
@@ -52,6 +55,8 @@ func Load() (Config, error) {
 		PlatformAdminEmail:    os.Getenv("PLATFORM_ADMIN_EMAIL"),
 		PlatformAdminPassword: os.Getenv("PLATFORM_ADMIN_PASSWORD"),
 	}
+	c.DemoBusiness, c.DemoKind = strings.TrimSpace(os.Getenv("DEMO_BUSINESS_NAME")), strings.TrimSpace(os.Getenv("DEMO_BUSINESS_KIND"))
+	c.DemoName, c.DemoEmail, c.DemoPassword = strings.TrimSpace(os.Getenv("DEMO_ADMIN_NAME")), strings.TrimSpace(os.Getenv("DEMO_ADMIN_EMAIL")), os.Getenv("DEMO_ADMIN_PASSWORD")
 	c.MPBase = os.Getenv("MP_API_BASE")
 	c.MPClientID, c.MPClientSecret = os.Getenv("MP_CLIENT_ID"), os.Getenv("MP_CLIENT_SECRET")
 	c.MPRedirect = os.Getenv("MP_OAUTH_REDIRECT")

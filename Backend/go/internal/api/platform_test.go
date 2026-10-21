@@ -353,3 +353,44 @@ func TestUpsertPlatformAdmin(t *testing.T) {
 		t.Fatalf("en desarrollo la clave de ejemplo es válida: %v", err)
 	}
 }
+
+func TestBootstrapDemoBusiness(t *testing.T) {
+	a := newTestAPI(t)
+	ctx := context.Background()
+	if err := a.BootstrapDemoBusiness(ctx, "", "", "", "", ""); err != nil {
+		t.Fatal(err) // sin datos: no hace nada
+	}
+	var n int
+	a.DB.QueryRow(ctx, `SELECT count(*) FROM businesses`).Scan(&n)
+	if n != 0 {
+		t.Fatal("sin variables no debe crear nada")
+	}
+	if err := a.BootstrapDemoBusiness(ctx, "Barbería Demo", "barberia", "Dueño", "demo@x.com", "NegocioDemo123"); err != nil {
+		t.Fatal(err)
+	}
+	if r := a.doLogin(t, "demo@x.com", "NegocioDemo123"); r.Status != 200 {
+		t.Fatalf("entrar al negocio de ejemplo: %d", r.Status)
+	}
+	var status string
+	a.DB.QueryRow(ctx, `SELECT status FROM businesses`).Scan(&status)
+	if status != "active" {
+		t.Fatalf("estado %s", status)
+	}
+	// ya hay un negocio: no se crea otro aunque cambien los datos
+	if err := a.BootstrapDemoBusiness(ctx, "Otro", "barberia", "X", "otro@x.com", "NegocioDemo123"); err != nil {
+		t.Fatal(err)
+	}
+	a.DB.QueryRow(ctx, `SELECT count(*) FROM businesses`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("negocios: %d", n)
+	}
+	// producción rechaza la clave de ejemplo; datos inválidos informan el motivo
+	b := newTestAPI(t)
+	b.Production = true
+	if err := b.BootstrapDemoBusiness(ctx, "N", "barberia", "X", "a@x.com", ExampleDemoPassword); err == nil {
+		t.Fatal("producción no acepta la clave de ejemplo")
+	}
+	if err := b.BootstrapDemoBusiness(ctx, "N", "giro-raro", "X", "a@x.com", "ClaveLarga123"); err == nil {
+		t.Fatal("giro inválido debe informarse")
+	}
+}

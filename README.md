@@ -29,8 +29,11 @@ Abre <http://localhost:5173>. El `.env` vive en la raíz y no se sube a git.
 
 `npm run dev` revisa tu entorno antes de arrancar y, si algo falla, **dice por qué y se detiene** (falta el `.env`, falta una variable, PostgreSQL apagado, la API no compila o no arranca). Los mensajes `[go]` son los de la API.
 
-En desarrollo, si la base de datos de `DATABASE_URL` no existe, el servidor la crea sola (el usuario debe poder crear bases;
-en producción, `APP_ENV=production`, nunca lo hace).
+**Primera ejecución** (como en MiConsultorio): si la base de datos de `DATABASE_URL` no existe, el servidor la crea
+sola (el usuario de Postgres debe poder crear bases); aplica las migraciones con un candado, para que dos instancias
+no choquen; crea el administrador de plataforma de `PLATFORM_ADMIN_*` si aún no hay ninguno; y, solo si no hay ningún
+negocio, crea el negocio de ejemplo de `DEMO_*` (`demo@miestudio.local`) para probar sin registrarte. Ninguno de los
+dos pisa datos existentes, y en producción rechazan las claves de ejemplo.
 
 ### Si algo no arranca
 

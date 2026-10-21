@@ -19,12 +19,11 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
-	if !cfg.Production { // en desarrollo, si la base no existe se crea sola
-		if created, err := db.EnsureDatabase(ctx, cfg.DatabaseURL); err != nil {
-			log.Fatal(err)
-		} else if created {
-			log.Printf("base de datos creada")
-		}
+	// primera ejecución: si la base no existe se crea sola (como en MiConsultorio)
+	if created, err := db.EnsureDatabase(ctx, cfg.DatabaseURL); err != nil {
+		log.Fatal(err)
+	} else if created {
+		log.Printf("base de datos creada")
 	}
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -47,6 +46,9 @@ func main() {
 	go a.RunNotifications(ctx)
 	if err := a.BootstrapPlatformAdmin(ctx, cfg.PlatformAdminName, cfg.PlatformAdminEmail, cfg.PlatformAdminPassword); err != nil {
 		log.Fatal(err)
+	}
+	if err := a.BootstrapDemoBusiness(ctx, cfg.DemoBusiness, cfg.DemoKind, cfg.DemoName, cfg.DemoEmail, cfg.DemoPassword); err != nil {
+		log.Printf("negocio de ejemplo: %v", err) // no es grave: la API arranca igual
 	}
 	log.Printf("go api on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, a.Routes()))
