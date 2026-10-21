@@ -40,6 +40,29 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/team", admin(a.createTeamMember))
 	mux.Handle("PATCH /api/team/{id}", admin(a.updateTeamMember))
 
+	// catálogo: lectura para todo el equipo, cambios solo del administrador
+	mux.Handle("GET /api/services", authed(http.HandlerFunc(a.listServices)))
+	mux.Handle("POST /api/services", admin(a.createService))
+	mux.Handle("PATCH /api/services/{id}", admin(a.updateService))
+	mux.Handle("PUT /api/services/{id}/staff", admin(a.setServiceStaff))
+	mux.Handle("GET /api/products", authed(http.HandlerFunc(a.listProducts)))
+	mux.Handle("POST /api/products", admin(a.createProduct))
+	mux.Handle("PATCH /api/products/{id}", admin(a.updateProduct))
+	mux.Handle("GET /api/branches", authed(http.HandlerFunc(a.listBranches)))
+	mux.Handle("POST /api/branches", admin(a.createBranch))
+	mux.Handle("PATCH /api/branches/{id}", admin(a.updateBranch))
+	mux.Handle("GET /api/team/{id}/hours", admin(a.getHours))
+	mux.Handle("PUT /api/team/{id}/hours", admin(a.setHours))
+
+	// clientes: todo el equipo; las notas de seguimiento solo administrador y profesionales
+	mux.Handle("GET /api/clients", authed(http.HandlerFunc(a.listClients)))
+	mux.Handle("POST /api/clients", authed(http.HandlerFunc(a.createClient)))
+	mux.Handle("GET /api/clients/{id}", authed(http.HandlerFunc(a.getClient)))
+	mux.Handle("PATCH /api/clients/{id}", authed(http.HandlerFunc(a.updateClient)))
+	notes := func(h http.HandlerFunc) http.Handler { return authed(auth.RequireRole("admin", "staff")(h)) }
+	mux.Handle("GET /api/clients/{id}/notes", notes(a.listNotes))
+	mux.Handle("POST /api/clients/{id}/notes", notes(a.createNote))
+
 	mux.Handle("/api/", http.NotFoundHandler())
 	if a.StaticDir != "" {
 		mux.Handle("/", spa(a.StaticDir))

@@ -59,6 +59,7 @@ func newTestAPI(t *testing.T) *API {
 type resp struct {
 	Status int
 	Body   map[string]any
+	Raw    []byte
 }
 
 func (a *API) do(t *testing.T, method, path, token string, body any) resp {
@@ -73,7 +74,7 @@ func (a *API) do(t *testing.T, method, path, token string, body any) resp {
 	}
 	rec := httptest.NewRecorder()
 	a.Routes().ServeHTTP(rec, req)
-	out := resp{Status: rec.Code}
+	out := resp{Status: rec.Code, Raw: rec.Body.Bytes()}
 	json.Unmarshal(rec.Body.Bytes(), &out.Body)
 	return out
 }
