@@ -21,9 +21,9 @@ type bookingSettings struct {
 	ReminderHours     int    `json:"reminder_hours"` // 0 = sin recordatorios
 	ShowPrices        bool   `json:"show_prices"`
 	WelcomeText       string `json:"welcome_text"`
-	PrivacyEmail      string `json:"privacy_email"`      // correo para solicitudes de privacidad (se muestra en el aviso)
-	PublicTheme       string `json:"public_theme"`       // auto | light | ivory | dark: tema de las páginas públicas del negocio
-	WhatsAppReminders bool   `json:"whatsapp_reminders"` // además del correo, recordar por WhatsApp a quien lo aceptó
+	PrivacyEmail      string `json:"privacy_email"`          // correo para solicitudes de privacidad (se muestra en el aviso)
+	PublicTheme       string `json:"public_theme,omitempty"` // auto | light | ivory | dark: tema de las páginas públicas del negocio
+	WhatsAppReminders bool   `json:"whatsapp_reminders"`     // además del correo, recordar por WhatsApp a quien lo aceptó
 }
 
 func defaultBookingSettings() bookingSettings {
@@ -40,6 +40,17 @@ func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSe
 		return s, nil
 	}
 	return s, err
+}
+
+// isOwner dice si la persona es la titular del negocio: quien lo registró (el primer administrador). Si esa persona
+// ya no es administradora activa, el título pasa al administrador activo más antiguo, para que nunca quede sin titular.
+func (a *API) isOwner(ctx context.Context, bizID, userID int64) bool {
+	var ok bool
+	a.DB.QueryRow(ctx,
+		`SELECT COALESCE(
+		   (SELECT u.id FROM businesses b JOIN users u ON u.id = b.owner_user_id AND u.active AND u.role = 'admin' WHERE b.id = $1),
+		   (SELECT id FROM users WHERE business_id = $1 AND role = 'admin' AND active ORDER BY id LIMIT 1)) = $2`, bizID, userID).Scan(&ok)
+	return ok
 }
 
 func (a *API) mpConnected(ctx context.Context, bizID int64) bool {
@@ -62,8 +73,13 @@ func (a *API) getBookingSettings(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
+	// la apariencia de la página pública es del titular: a los demás ni siquiera se les muestra
+	owner := a.isOwner(ctx, p.BusinessID, p.UserID)
+	if !owner {
+		s.PublicTheme = ""
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"settings": s, "slug": slug, "public_path": "/reservar/" + slug,
+		"settings": s, "slug": slug, "public_path": "/reservar/" + slug, "is_owner": owner,
 		"mp_connected": a.mpConnected(ctx, p.BusinessID), "mail_enabled": a.mailEnabled(), "whatsapp_available": a.waEnabled(),
 	})
 }
@@ -99,8 +115,17 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
 	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
+	// sin el campo (otros administradores, clientes antiguos) el tema no cambia; solo el titular puede cambiarlo
+	cur, err := loadBookingSettings(r.Context(), a.DB, p.BusinessID)
+	if err != nil {
+		serverErr(w)
+		return
+	}
 	if s.PublicTheme == "" {
-		s.PublicTheme = "auto" // clientes antiguos que no envían el campo
+		s.PublicTheme = cur.PublicTheme
+	} else if s.PublicTheme != cur.PublicTheme && !a.isOwner(r.Context(), p.BusinessID, p.UserID) {
+		writeErr(w, http.StatusForbidden, "solo el titular del negocio puede cambiar el tema de la página pública")
+		return
 	}
 	if msg := validBookingSettings(s); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)

@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func (o *onlineFixture) setTheme(t *testing.T, theme any, want int) {
 	t.Helper()
@@ -77,5 +80,63 @@ func TestOnlyTheAdministratorCanChoosePublicTheme(t *testing.T) {
 	// ni sin sesión
 	if r := o.a.do(t, "PUT", "/api/booking/settings", "", body); r.Status != 401 {
 		t.Fatalf("sin sesión: %d", r.Status)
+	}
+}
+
+func TestOnlyTheOwnerSeesAndChangesPublicTheme(t *testing.T) {
+	o := newOnline(t)
+	o.setTheme(t, "ivory", 204)
+	// un segundo administrador no es el titular
+	o.a.addMember(t, o.admin, "socio@x.com", "admin")
+	socio := login(t, o.a, "socio@x.com")
+	get := o.a.do(t, "GET", "/api/booking/settings", socio, nil)
+	if get.Status != 200 || get.Body["is_owner"] != false {
+		t.Fatalf("el socio no es titular: %v", get.Body)
+	}
+	if _, visible := get.Body["settings"].(map[string]any)["public_theme"]; visible {
+		t.Fatalf("a quien no es titular no se le debe mostrar el tema: %v", get.Body["settings"])
+	}
+	me := o.a.do(t, "GET", "/api/me", socio, nil).Body["business"].(map[string]any)
+	if me["is_owner"] != false {
+		t.Fatalf("/api/me del socio: %v", me)
+	}
+	if o.a.do(t, "GET", "/api/me", o.admin, nil).Body["business"].(map[string]any)["is_owner"] != true {
+		t.Fatal("el primer administrador es el titular")
+	}
+	body := map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2,
+		"deposit_percent": 0, "reminder_hours": 12, "show_prices": true, "welcome_text": "Hola"}
+	// guarda sus demás ajustes sin tocar el tema (no lo envía)
+	if r := o.a.do(t, "PUT", "/api/booking/settings", socio, body); r.Status != 204 {
+		t.Fatalf("el socio guarda ajustes: %d %v", r.Status, r.Body)
+	}
+	if got := o.a.do(t, "GET", "/api/public/"+o.slug, "", nil).Body["theme"]; got != "ivory" {
+		t.Fatalf("el tema se perdió al guardar otro administrador: %v", got)
+	}
+	// intentar cambiarlo es un 403 y no cambia nada
+	body["public_theme"] = "dark"
+	if r := o.a.do(t, "PUT", "/api/booking/settings", socio, body); r.Status != 403 {
+		t.Fatalf("el socio cambió el tema: %d", r.Status)
+	}
+	// enviar el mismo valor que ya hay no es un cambio
+	body["public_theme"] = "ivory"
+	if r := o.a.do(t, "PUT", "/api/booking/settings", socio, body); r.Status != 204 {
+		t.Fatalf("mismo tema: %d", r.Status)
+	}
+	if got := o.a.do(t, "GET", "/api/public/"+o.slug, "", nil).Body["theme"]; got != "ivory" {
+		t.Fatalf("tema: %v", got)
+	}
+	// el titular sí lo ve y lo cambia
+	body["public_theme"] = "dark"
+	if r := o.a.do(t, "PUT", "/api/booking/settings", o.admin, body); r.Status != 204 {
+		t.Fatalf("el titular no pudo cambiarlo: %d %v", r.Status, r.Body)
+	}
+	own := o.a.do(t, "GET", "/api/booking/settings", o.admin, nil)
+	if own.Body["is_owner"] != true || own.Body["settings"].(map[string]any)["public_theme"] != "dark" {
+		t.Fatalf("vista del titular: %v", own.Body)
+	}
+	// si el titular deja de ser administrador activo, el título pasa al administrador activo más antiguo
+	o.a.DB.Exec(context.Background(), `UPDATE users SET active = false WHERE email = 'admin@x.com'`)
+	if r := o.a.do(t, "GET", "/api/booking/settings", socio, nil); r.Body["is_owner"] != true {
+		t.Fatalf("el título debía pasar al socio: %v", r.Body)
 	}
 }

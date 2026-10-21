@@ -195,6 +195,10 @@ func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, s
 		bizID, req.Email, hash, req.Name, req.AcceptTerms, NoticeVersion).Scan(&userID); err != nil {
 		return 0, 0, err
 	}
+	// el primer administrador es el titular del negocio
+	if _, err := tx.Exec(ctx, `UPDATE businesses SET owner_user_id = $2 WHERE id = $1`, bizID, userID); err != nil {
+		return 0, 0, err
+	}
 	return bizID, userID, tx.Commit(ctx)
 }
 
@@ -282,6 +286,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 		out["business"] = map[string]any{
 			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
 			"plan": plan, "billing_state": p.BillingState, "current_period_end": periodEnd,
+			"is_owner": p.Role == "admin" && a.isOwner(r.Context(), p.BusinessID, p.UserID),
 		}
 	}
 	writeJSON(w, http.StatusOK, out)

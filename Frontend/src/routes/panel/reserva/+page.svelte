@@ -6,7 +6,7 @@
   import { session } from '$lib/session.svelte.js';
 
   let s = $state(null);
-  let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false, whatsapp_available: false });
+  let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false, whatsapp_available: false, is_owner: false });
   let services = $state([]);
   let error = $state('');
   let saved = $state(false);
@@ -18,7 +18,7 @@
   async function load() {
     const [r, svc] = await Promise.all([api('/api/booking/settings'), api('/api/services')]);
     s = { ...r.settings };
-    meta = { public_path: r.public_path, mp_connected: r.mp_connected, mail_enabled: r.mail_enabled, whatsapp_available: r.whatsapp_available };
+    meta = { public_path: r.public_path, mp_connected: r.mp_connected, mail_enabled: r.mail_enabled, whatsapp_available: r.whatsapp_available, is_owner: r.is_owner };
     services = svc.filter((x) => x.active);
   }
 
@@ -37,7 +37,7 @@
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
-          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available, public_theme: public_theme || 'auto' }
+          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available, ...(meta.is_owner ? { public_theme: public_theme || 'auto' } : {}) }
       });
       saved = true;
       await load();
@@ -127,6 +127,7 @@
       </span>
     </label>
 
+    {#if meta.is_owner}
     <h3 style="margin-top: 1.5rem">Apariencia de tu página pública</h3>
     <fieldset class="themes">
       <legend class="sr-only">Tema de la página pública</legend>
@@ -138,7 +139,8 @@
         </label>
       {/each}
     </fieldset>
-    <p class="hint">Es el tema con el que tus clientes ven la reserva, su cita y tu aviso de privacidad.</p>
+    <p class="hint">Es el tema con el que tus clientes ven la reserva, su cita y tu aviso de privacidad. Solo tú, como titular del negocio, puedes cambiarlo.</p>
+    {/if}
 
     <h3 style="margin-top: 1.5rem">Recordatorios por correo</h3>
     <label class="field">Enviar el recordatorio (horas antes)

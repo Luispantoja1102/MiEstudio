@@ -1,13 +1,12 @@
 <script>
-  import { LIGHT_THEMES, setLightTheme, setTheme, theme } from '$lib/theme.svelte.js';
+  import { LIGHT_THEMES, setLightTheme, theme } from '$lib/theme.svelte.js';
 
-  // Cada persona elige su tema claro; el oscuro no es una opción de «tema claro» y se activa aparte.
+  // Cada persona elige su tema claro; el oscuro viene siempre incluido y no se elige aquí: se alterna con el botón de la cabecera.
   const options = {
     lino: ['Lino', 'Lino y terracota, editorial y cálido.', 'linear-gradient(135deg, #a8614c 50%, #f8f6f2 50%)'],
     light: ['Azul tinta', 'Marfil fresco con azul profundo.', 'linear-gradient(135deg, #1c2f5c 50%, #f3f1ec 50%)'],
     ivory: ['Marfil', 'Marfil solemne con carbón y champán.', 'linear-gradient(135deg, #17171b 50%, #f4efe6 50%)']
   };
-  const dark = $derived(theme.name === 'dark');
 </script>
 
 <h3>Tema claro</h3>
@@ -21,12 +20,7 @@
   {/each}
 </div>
 
-<h3 style="margin-top: 1.5rem">Modo oscuro</h3>
-<label class="check">
-  <input type="checkbox" checked={dark} onchange={(e) => setTheme(e.currentTarget.checked ? 'dark' : theme.light)} />
-  Usar el tema oscuro (carbón con detalles dorados)
-</label>
-<p class="meta">Se recuerda en este navegador. El botón del sol y la luna, arriba, alterna entre el oscuro y tu tema claro. La página pública de tu negocio la decide el administrador en Reservas en línea.</p>
+<p class="meta">El tema oscuro (carbón con detalles dorados) siempre está disponible: cámbialo con el botón del sol y la luna, arriba, que alterna entre el oscuro y tu tema claro. Se recuerda en este navegador.</p>
 
 <style>
   h3 { font-size: 1.2rem; margin-bottom: 0.75rem; }
