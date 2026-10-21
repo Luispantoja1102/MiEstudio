@@ -277,6 +277,9 @@ func (a *API) publicSlots(w http.ResponseWriter, r *http.Request) {
 	}
 	earliest := now.Add(time.Duration(b.Settings.MinNoticeHours) * time.Hour)
 	out, err := a.computeSlots(ctx, b.ID, svc, serviceID, branchID, onlyStaff, day, b.Loc, earliest)
+	if err == nil {
+		out, err = a.withoutOthersHolds(ctx, out, svc, q.Get("holder")) // lo que otra visita tiene apartado no se ofrece
+	}
 	if err != nil {
 		serverErr(w)
 		return
@@ -297,6 +300,7 @@ type bookingReq struct {
 	ConsentReminders bool   `json:"consent_reminders"`
 	ConsentMarketing bool   `json:"consent_marketing"` // promociones y felicitación de cumpleaños
 	ConsentWhatsApp  bool   `json:"consent_whatsapp"`  // recordatorio por WhatsApp
+	Holder           string `json:"holder"`            // identificador de quien apartó el horario (opcional)
 }
 
 // findOrCreateClient identifica a quien reserva por teléfono (o correo) sin revelar nada de lo que ya hay guardado.
@@ -432,6 +436,9 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 	}
 	earliest := now.Add(time.Duration(b.Settings.MinNoticeHours) * time.Hour)
 	offers, err := a.computeSlots(ctx, b.ID, svc, req.ServiceID, req.BranchID, req.StaffID, day, b.Loc, earliest)
+	if err == nil {
+		offers, err = a.withoutOthersHolds(ctx, offers, svc, req.Holder)
+	}
 	if err != nil {
 		serverErr(w)
 		return
@@ -453,6 +460,9 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 			serverErr(w)
 		}
 		return
+	}
+	if validHolder(req.Holder) {
+		a.DB.Exec(ctx, `DELETE FROM booking_holds WHERE holder = $1`, req.Holder) // ya es cita: se suelta el apartado
 	}
 	writeJSON(w, http.StatusCreated, res)
 }
@@ -559,6 +569,7 @@ type manageRow struct {
 	Branch, Address string
 	Service, Staff  string
 	ClientName      string
+	Confirmed       bool
 }
 
 // byToken busca una cita por su enlace privado. Un token mal formado no toca la base de datos.
@@ -568,10 +579,10 @@ func (a *API) byToken(ctx context.Context, token string) (*manageRow, error) {
 	}
 	m := &manageRow{}
 	err := a.DB.QueryRow(ctx,
-		`SELECT ap.id, ap.business_id, ap.status, ap.starts_at, ap.ends_at, b.name, b.slug, br.name, br.address, s.name, u.name, c.name
+		`SELECT ap.id, ap.business_id, ap.status, ap.starts_at, ap.ends_at, b.name, b.slug, br.name, br.address, s.name, u.name, c.name, ap.confirmed_at IS NOT NULL
 		   FROM appointments ap JOIN businesses b ON b.id = ap.business_id JOIN branches br ON br.id = ap.branch_id
 		   JOIN services s ON s.id = ap.service_id JOIN users u ON u.id = ap.staff_id JOIN clients c ON c.id = ap.client_id
-		  WHERE ap.public_token = $1`, token).Scan(&m.ID, &m.BizID, &m.Status, &m.Starts, &m.Ends, &m.Business, &m.Slug, &m.Branch, &m.Address, &m.Service, &m.Staff, &m.ClientName)
+		  WHERE ap.public_token = $1`, token).Scan(&m.ID, &m.BizID, &m.Status, &m.Starts, &m.Ends, &m.Business, &m.Slug, &m.Branch, &m.Address, &m.Service, &m.Staff, &m.ClientName, &m.Confirmed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -643,6 +654,7 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		"staff":            m.Staff,
 		"client_first":     name,
 		"can_cancel":       m.canCancel(now, st.CancelMinHours),
+		"confirmed":        m.Confirmed,
 		"cancel_min_hours": st.CancelMinHours,
 		"theme":            st.PublicTheme,
 		"cancel_deadline":  m.Starts.Add(-time.Duration(st.CancelMinHours) * time.Hour).UTC().Format(time.RFC3339),
@@ -734,4 +746,30 @@ func (a *API) publicRemindersOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"reminders": false})
+}
+
+// publicConfirm es POST /api/public-appointments/{token}/confirm: el cliente avisa que sí va.
+func (a *API) publicConfirm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !a.allow(w, "pub-token:"+clientIP(r), 60, time.Minute) {
+		return
+	}
+	m, err := a.byToken(ctx, r.PathValue("token"))
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if m == nil {
+		notFound(w)
+		return
+	}
+	if m.Status != "scheduled" || !a.now().Before(m.Starts) {
+		writeErr(w, http.StatusConflict, "esta cita ya no se puede confirmar")
+		return
+	}
+	if _, err := a.DB.Exec(ctx, `UPDATE appointments SET confirmed_at = COALESCE(confirmed_at, now()) WHERE id = $1`, m.ID); err != nil {
+		serverErr(w)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

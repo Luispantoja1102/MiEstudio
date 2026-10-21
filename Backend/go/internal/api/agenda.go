@@ -235,22 +235,24 @@ func (a *API) busyIntervals(ctx context.Context, bizID int64, userIDs []int64, f
 // ---------- vista del día ----------
 
 type apptRow struct {
-	ID            int64     `json:"id"`
-	ClientID      int64     `json:"client_id"`
-	ClientName    string    `json:"client_name"`
-	ServiceID     int64     `json:"service_id"`
-	ServiceName   string    `json:"service_name"`
-	PriceCents    int       `json:"price_cents"`
-	StaffID       int64     `json:"staff_id"`
-	StaffName     string    `json:"staff_name"`
-	BranchID      int64     `json:"branch_id"`
-	StartsAt      time.Time `json:"starts_at"`
-	EndsAt        time.Time `json:"ends_at"`
-	Status        string    `json:"status"`
-	Notes         string    `json:"notes"`
-	Source        string    `json:"source"`                  // staff u online
-	DepositCents  int       `json:"deposit_cents,omitempty"` // anticipo de la cita, si lo hay
-	DepositStatus string    `json:"deposit_status,omitempty"`
+	ID            int64      `json:"id"`
+	ClientID      int64      `json:"client_id"`
+	ClientName    string     `json:"client_name"`
+	ServiceID     int64      `json:"service_id"`
+	ServiceName   string     `json:"service_name"`
+	PriceCents    int        `json:"price_cents"`
+	StaffID       int64      `json:"staff_id"`
+	StaffName     string     `json:"staff_name"`
+	BranchID      int64      `json:"branch_id"`
+	StartsAt      time.Time  `json:"starts_at"`
+	EndsAt        time.Time  `json:"ends_at"`
+	Status        string     `json:"status"`
+	Notes         string     `json:"notes"`
+	Source        string     `json:"source"`                  // staff u online
+	DepositCents  int        `json:"deposit_cents,omitempty"` // anticipo de la cita, si lo hay
+	DepositStatus string     `json:"deposit_status,omitempty"`
+	ConfirmedAt   *time.Time `json:"confirmed_at"` // el cliente (o el negocio) confirmó que va
+	ArrivedAt     *time.Time `json:"arrived_at"`   // ya llegó al negocio
 }
 
 type blockRow struct {
@@ -281,7 +283,15 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "sucursal no encontrada")
 		return
 	}
-	next := day.AddDate(0, 0, 1)
+	// la agenda puede pedir varios días a la vez (semana, mes); por defecto, uno
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	if days < 1 {
+		days = 1
+	}
+	if days > 42 {
+		days = 42
+	}
+	next := day.AddDate(0, 0, days)
 
 	// personas en agenda (todas las activas; se marca su horario de ese día en esta sucursal)
 	urows, err := a.DB.Query(ctx, `SELECT id, name FROM users WHERE business_id = $1 AND active AND bookable ORDER BY name`, p.BusinessID)
@@ -293,6 +303,8 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 		ID    int64               `json:"id"`
 		Name  string              `json:"name"`
 		Hours []map[string]string `json:"hours"`
+		// horario de toda la semana en esta sucursal, por día (0 = domingo), para las vistas de semana y mes
+		Week map[string][]map[string]string `json:"week_hours"`
 	}
 	staff := []staffOut{}
 	ids := []int64{}
@@ -304,29 +316,36 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Hours = []map[string]string{}
+		s.Week = map[string][]map[string]string{}
 		staff = append(staff, s)
 		ids = append(ids, s.ID)
 	}
 	urows.Close()
 
 	hrows, err := a.DB.Query(ctx,
-		`SELECT user_id, to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI') FROM working_hours
-		 WHERE user_id = ANY($1) AND branch_id = $2 AND weekday = $3 ORDER BY start_time`, ids, branchID, int(day.Weekday()))
+		`SELECT user_id, weekday, to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI') FROM working_hours
+		 WHERE user_id = ANY($1) AND branch_id = $2 ORDER BY start_time`, ids, branchID)
 	if err != nil {
 		serverErr(w)
 		return
 	}
 	for hrows.Next() {
 		var uid int64
+		var wd int
 		var s, e string
-		if err := hrows.Scan(&uid, &s, &e); err != nil {
+		if err := hrows.Scan(&uid, &wd, &s, &e); err != nil {
 			hrows.Close()
 			serverErr(w)
 			return
 		}
 		for i := range staff {
 			if staff[i].ID == uid {
-				staff[i].Hours = append(staff[i].Hours, map[string]string{"start": s, "end": e})
+				blk := map[string]string{"start": s, "end": e}
+				k := strconv.Itoa(wd)
+				staff[i].Week[k] = append(staff[i].Week[k], blk)
+				if wd == int(day.Weekday()) {
+					staff[i].Hours = append(staff[i].Hours, blk)
+				}
 			}
 		}
 	}
@@ -334,7 +353,8 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 
 	arows, err := a.DB.Query(ctx,
 		`SELECT ap.id, ap.client_id, c.name, ap.service_id, s.name, s.price_cents, ap.staff_id, u.name,
-		        ap.branch_id, ap.starts_at, ap.ends_at, ap.status, ap.notes, ap.source, COALESCE(d.amount_cents, 0), COALESCE(d.status, '')
+		        ap.branch_id, ap.starts_at, ap.ends_at, ap.status, ap.notes, ap.source, COALESCE(d.amount_cents, 0), COALESCE(d.status, ''),
+		        ap.confirmed_at, ap.arrived_at
 		 FROM appointments ap JOIN clients c ON c.id = ap.client_id JOIN services s ON s.id = ap.service_id
 		 JOIN users u ON u.id = ap.staff_id LEFT JOIN deposits d ON d.appointment_id = ap.id
 		 WHERE ap.business_id = $1 AND ap.branch_id = $2 AND ap.starts_at >= $3 AND ap.starts_at < $4
@@ -347,7 +367,7 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 	for arows.Next() {
 		var x apptRow
 		if err := arows.Scan(&x.ID, &x.ClientID, &x.ClientName, &x.ServiceID, &x.ServiceName, &x.PriceCents, &x.StaffID, &x.StaffName,
-			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes, &x.Source, &x.DepositCents, &x.DepositStatus); err != nil {
+			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes, &x.Source, &x.DepositCents, &x.DepositStatus, &x.ConfirmedAt, &x.ArrivedAt); err != nil {
 			arows.Close()
 			serverErr(w)
 			return
@@ -704,4 +724,36 @@ func (a *API) deleteBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// markAppointment marca una cita agendada como confirmada o como llegada (columna confirmed_at / arrived_at).
+// Con {"on": false} se quita la marca. No cambia el estado: la cita sigue agendada hasta que se atiende.
+func (a *API) markAppointment(column string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p := auth.FromContext(r.Context())
+		id, ok := pathID(w, r)
+		if !ok {
+			return
+		}
+		var req struct {
+			On *bool `json:"on"`
+		}
+		decode(w, r, &req)
+		set := "now()"
+		if req.On != nil && !*req.On {
+			set = "NULL"
+		}
+		// column viene de las dos rutas de arriba, nunca de la solicitud
+		tag, err := a.DB.Exec(r.Context(),
+			`UPDATE appointments SET `+column+` = `+set+` WHERE id = $1 AND business_id = $2 AND status = 'scheduled'`, id, p.BusinessID)
+		if err != nil {
+			serverErr(w)
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeErr(w, http.StatusConflict, "solo se puede marcar una cita agendada")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

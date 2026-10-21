@@ -12,7 +12,7 @@
     if (!res.ok) throw Object.assign(new Error(data.error || 'Error inesperado'), { status: res.status });
     return data;
   };
-  const LABEL = { scheduled: 'Confirmada', pending_payment: 'Esperando tu anticipo', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada' };
+  const LABEL = { scheduled: 'Agendada', pending_payment: 'Esperando tu anticipo', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada' };
   const TONE = { scheduled: '', pending_payment: 'warn', completed: '', no_show: 'warn', cancelled: 'muted' };
 
   let a = $state(null);
@@ -40,6 +40,19 @@
     timer = setInterval(() => a?.status === 'pending_payment' && load(), 5000);
   });
   onDestroy(() => clearInterval(timer));
+
+  async function confirmAttendance() {
+    busy = true;
+    error = '';
+    try {
+      await call(`/api/public-appointments/${token}/confirm`, 'POST');
+      await load();
+    } catch (e) {
+      error = e.message;
+    } finally {
+      busy = false;
+    }
+  }
 
   async function cancel() {
     busy = true;
@@ -91,7 +104,7 @@
     {/if}
 
     <div class="card">
-      <span class="badge {TONE[a.status]}">{LABEL[a.status] ?? a.status}</span>
+      <span class="badge {TONE[a.status]}">{a.status === 'scheduled' && a.confirmed ? 'Confirmada' : (LABEL[a.status] ?? a.status)}</span>
       <h2 style="margin-top: 0.6rem">{a.service}</h2>
       <p>
         <b>{longDate(day)}</b> a las <b>{fmtTime(a.starts_at, tz)}</b><br />
@@ -110,6 +123,13 @@
       {/if}
 
       {#if error}<p class="error" role="alert">{error}</p>{/if}
+
+      {#if a.status === 'scheduled' && !a.confirmed && new Date(a.starts_at) > new Date()}
+        <div class="notice">
+          <p>¿Nos vemos? Avísanos que sí vas a asistir.</p>
+          <button class="btn" disabled={busy} onclick={confirmAttendance}>{busy ? 'Confirmando…' : 'Sí, confirmo mi asistencia'}</button>
+        </div>
+      {/if}
 
       {#if a.can_cancel}
         {#if confirming}

@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/state';
   import PublicLayout from '$lib/PublicLayout.svelte';
   import { money, plural } from '$lib/format.js';
@@ -27,6 +27,11 @@
   let busy = $state(false);
   let form = $state({ name: '', phone: '', email: '', notes: '', accept_privacy: false, consent_reminders: false, consent_marketing: false, consent_whatsapp: false });
   let done = $state(null);
+  // el horario elegido se aparta unos minutos para esta visita: otra persona no lo ve libre mientras se llenan los datos
+  const holder = crypto.randomUUID();
+  let holdLeft = $state(0); // segundos que le quedan al apartado
+  let holdTimer;
+  onDestroy(() => clearInterval(holdTimer));
   let seq = 0;
   let joined = $state(false);
   let joining = $state(false);
@@ -70,7 +75,7 @@
     loadingSlots = true;
     error = '';
     try {
-      const q = new URLSearchParams({ service_id: service.id, branch_id: branchId, date });
+      const q = new URLSearchParams({ service_id: service.id, branch_id: branchId, date, holder });
       if (staffId) q.set('staff_id', staffId);
       const r = await call(`/api/public/${slug}/slots?${q}`);
       if (mine === seq) slots = r.staff;
@@ -97,6 +102,39 @@
       ((!form.consent_reminders && !form.consent_marketing) || form.email.trim())
   );
 
+  async function pick(m) {
+    picked = m;
+    holdLeft = 0;
+    clearInterval(holdTimer);
+    try {
+      const r = await call(`/api/public/${slug}/holds`, { service_id: service.id, branch_id: Number(branchId), staff_id: m.staffId, starts_at: m.iso, holder });
+      holdLeft = r.seconds;
+      holdTimer = setInterval(() => {
+        holdLeft -= 1;
+        if (holdLeft <= 0) {
+          clearInterval(holdTimer);
+          expired();
+        }
+      }, 1000);
+    } catch (e) {
+      // alguien se les adelantó: se actualizan los horarios
+      if (e.status === 409) {
+        picked = null;
+        await loadSlots();
+        error = 'Ese horario acaba de ocuparse. Elige otro.';
+      }
+    }
+  }
+
+  async function expired() {
+    picked = null;
+    step = 3;
+    await loadSlots();
+    error = 'El tiempo para apartar tu horario terminó. Elige uno de nuevo.';
+  }
+
+  const clock = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+
   async function submit(e) {
     e.preventDefault();
     if (!canSubmit) return;
@@ -105,7 +143,7 @@
     try {
       const r = await call(`/api/public/${slug}/bookings`, {
         service_id: service.id, branch_id: Number(branchId), staff_id: picked.staffId, starts_at: picked.iso,
-        ...form
+        ...form, holder
       });
       if (r.pay_url) {
         // la cita queda apartada unos minutos; el pago se hace en Mercado Pago y se regresa al enlace de la cita
@@ -158,7 +196,7 @@
         <p>Tu horario está apartado unos minutos. Si no se abre Mercado Pago, <a href={done.pay_url}>entra aquí</a>.</p>
         <p class="meta">Al terminar volverás a tu cita, donde verás la confirmación.</p>
       {:else}
-        <h2>¡Cita confirmada!</h2>
+        <h2>¡Cita agendada!</h2>
         <p>{service.name} · {longDate(picked.iso.slice(0, 10))} a las {fmtTime(picked.iso, tz)}.</p>
         {#if form.email}<p class="meta">Te enviamos la confirmación a {form.email}.</p>{/if}
       {/if}
@@ -247,7 +285,7 @@
           {:else}
             <div class="chips">
               {#each merged as m (m.iso + m.staffId)}
-                <button class="chip" aria-pressed={picked?.iso === m.iso && picked?.staffId === m.staffId} onclick={() => (picked = m)}>
+                <button class="chip" aria-pressed={picked?.iso === m.iso && picked?.staffId === m.staffId} onclick={() => pick(m)}>
                   {fmtTime(m.iso, tz)}{#if staffId && info.staff.length > 1}<small> · {m.who}</small>{/if}
                 </button>
               {/each}
@@ -261,6 +299,7 @@
       </div>
     {:else}
       <form class="card" onsubmit={submit}>
+        {#if holdLeft > 0}<p class="holdnote" role="status">Tu horario está apartado por <b>{clock(holdLeft)}</b> mientras llenas tus datos.</p>{/if}
         <p class="summary">
           <b>{service.name}</b><br />
           {longDate(picked.iso.slice(0, 10))} · {fmtTime(picked.iso, tz)} · {picked.staffId ? picked.who : staffName}
@@ -317,4 +356,6 @@
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .ok { color: var(--accent); font-weight: 600; }
   .meta { color: var(--muted); font-size: 0.88rem; }
+  .holdnote { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: 0.9rem; }
+  .holdnote b { font-variant-numeric: tabular-nums; }
 </style>

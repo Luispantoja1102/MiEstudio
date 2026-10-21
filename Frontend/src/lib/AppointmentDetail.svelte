@@ -31,6 +31,7 @@
     }
   }
 
+  const mark = (what, on) => run(() => api(`/api/appointments/${appt.id}/${what}`, { method: 'POST', body: { on } }));
   const setStatus = (status) => run(() => api(`/api/appointments/${appt.id}`, { method: 'PATCH', body: { status } }));
   const saveNotes = () => run(() => api(`/api/appointments/${appt.id}`, { method: 'PATCH', body: { notes } }));
   const move = () =>
@@ -45,6 +46,8 @@
       {longDate(date)} · {fmtTime(appt.starts_at, tz)}–{fmtTime(appt.ends_at, tz)} · con {appt.staff_name}
     </p>
     <span class="badge {TONE[appt.status]}">{LABEL[appt.status]}</span>
+    {#if appt.status === 'scheduled' && appt.confirmed_at}<span class="badge">Confirmada</span>{/if}
+    {#if appt.status === 'scheduled' && appt.arrived_at}<span class="badge">Ya llegó</span>{/if}
     {#if appt.source === 'online'}<span class="badge muted">Reserva en línea</span>{/if}
     {#if appt.deposit_cents}
       <p class="meta" style="margin: 0.6rem 0 0">Anticipo de {money(appt.deposit_cents)}: {DEPOSIT[appt.deposit_status] ?? appt.deposit_status}</p>
@@ -78,6 +81,11 @@
         </div>
       </div>
     {:else}
+      <div class="form-actions">
+        {#if !appt.arrived_at}<button class="btn ghost" disabled={busy} onclick={() => mark('arrive', true)}>Ya llegó</button>
+        {:else}<button class="btn ghost" disabled={busy} onclick={() => mark('arrive', false)}>Quitar «ya llegó»</button>{/if}
+        {#if !appt.confirmed_at}<button class="btn ghost" disabled={busy} onclick={() => mark('confirm', true)}>Marcar confirmada</button>{/if}
+      </div>
       <div class="form-actions">
         <button class="btn" disabled={busy} onclick={() => setStatus('completed')}>Marcar completada</button>
         <button class="btn ghost" disabled={busy} onclick={() => (!hasPaidDeposit || confirm(`Si no asistió, el negocio se queda con el anticipo de ${money(appt.deposit_cents)}. ¿Continuar?`)) && setStatus('no_show')}>No asistió</button>
