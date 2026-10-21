@@ -33,11 +33,11 @@
 {#snippet links(list)}
   {#each list as [icon, label, href, extra]}
     {#if href}
-      <a class="item" class:active={isActive(href, extra)} {href} aria-current={isActive(href, extra) ? 'page' : undefined}>
-        <Icon name={icon} size={18} />{label}
+      <a class="item" class:active={isActive(href, extra)} {href} data-label={label} aria-current={isActive(href, extra) ? 'page' : undefined}>
+        <Icon name={icon} size={18} /><span class="lbl">{label}</span>
       </a>
     {:else}
-      <span class="item off" aria-disabled="true"><Icon name={icon} size={18} />{label}<em>Pronto</em></span>
+      <span class="item off" aria-disabled="true"><Icon name={icon} size={18} /><span class="lbl">{label}</span><em>Pronto</em></span>
     {/if}
   {/each}
 {/snippet}
@@ -224,4 +224,64 @@
   @media (prefers-reduced-motion: reduce) {
     .sheet, .sheet.open { transition: none; }
   }
+
+  /* Tema Lino: navegación en un riel de íconos sobre porcelana y contenido centrado en la ventana */
+  @media (min-width: 900px) {
+    :global(:root[data-theme='lino']) .shell { grid-template-columns: 96px 1fr; }
+    /* el riel ocupa 96 px a la izquierda; se reserva lo mismo a la derecha para que el contenido quede centrado en la ventana, no en lo que sobra */
+    :global(:root[data-theme='lino']) .main { padding-right: 96px; }
+    :global(:root[data-theme='lino']) .side {
+      align-items: center;
+      gap: 12px;
+      padding: 32px 0 28px;
+      overflow: visible;
+      border-right: 1px solid var(--side-line);
+    }
+    :global(:root[data-theme='lino']) .brand { padding: 0 0 20px; justify-items: center; }
+    :global(:root[data-theme='lino']) .brand :global(.word), :global(:root[data-theme='lino']) .tag { display: none; }
+    :global(:root[data-theme='lino']) .side nav { justify-items: center; gap: 8px; }
+    :global(:root[data-theme='lino']) .group { display: none; }
+    :global(:root[data-theme='lino']) .side .foot { border-top: 0; padding-top: 0; }
+    :global(:root[data-theme='lino']) .item {
+      position: relative;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      min-height: 0;
+      padding: 0;
+      border-radius: 14px;
+      color: var(--side-muted);
+      font-weight: 500;
+    }
+    :global(:root[data-theme='lino']) .item:hover { color: var(--side-text); }
+    :global(:root[data-theme='lino']) .item.active { color: var(--clay); font-weight: 500; }
+    :global(:root[data-theme='lino']) .item :global(svg) { width: 22px; height: 22px; stroke-width: 1.4; }
+    :global(:root[data-theme='lino']) .item .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    :global(:root[data-theme='lino']) .item em { display: none; }
+    /* nombre al pasar el cursor o enfocar con el teclado */
+    :global(:root[data-theme='lino']) .item::after {
+      content: attr(data-label);
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 50%;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+      color: var(--bg);
+      background: var(--text);
+      border-radius: 8px;
+      opacity: 0;
+      transform: translate(-4px, -50%);
+      pointer-events: none;
+      transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+      z-index: 30;
+    }
+    :global(:root[data-theme='lino']) .item:hover::after, :global(:root[data-theme='lino']) .item:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+    :global(:root[data-theme='lino']) .top { background: transparent; border-bottom: 0; padding: 0; position: static; }
+    :global(:root[data-theme='lino']) .top, :global(:root[data-theme='lino']) .content { width: 100%; max-width: 1200px; margin-inline: auto; }
+    :global(:root[data-theme='lino']) .top { padding: 28px 48px 0; min-height: 0; }
+    :global(:root[data-theme='lino']) .content { padding: 24px 48px 72px; }
+  }
+  :global(:root[data-theme='lino']) .sheet .item::after { display: none; }
 </style>

@@ -82,7 +82,7 @@ func validBookingSettings(s bookingSettings) string {
 		return "el recordatorio debe ser de 0 a 168 horas antes (0 = sin recordatorio)"
 	case s.PrivacyEmail != "" && !validEmail(s.PrivacyEmail):
 		return "el correo de privacidad no es válido"
-	case s.PublicTheme != "auto" && s.PublicTheme != "light" && s.PublicTheme != "ivory" && s.PublicTheme != "dark":
+	case !validPublicTheme(s.PublicTheme):
 		return "el tema de la página pública no es válido"
 	case utf8.RuneCountInString(s.WelcomeText) > 500:
 		return "el mensaje de bienvenida es demasiado largo (máximo 500 caracteres)"
@@ -133,4 +133,12 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	a.logActivity(r.Context(), p.UserID, p.BusinessID, "booking_settings_changed", map[string]any{"enabled": s.Enabled, "deposit_percent": s.DepositPercent})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func validPublicTheme(t string) bool {
+	switch t {
+	case "auto", "lino", "light", "ivory", "dark":
+		return true
+	}
+	return false
 }

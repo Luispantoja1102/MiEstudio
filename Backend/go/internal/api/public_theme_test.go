@@ -31,7 +31,7 @@ func TestPublicThemeIsChosenByTheBusiness(t *testing.T) {
 		}
 		o.setTheme(t, bad, 400)
 	}
-	for _, th := range []string{"light", "ivory", "dark", "auto"} {
+	for _, th := range []string{"lino", "light", "ivory", "dark", "auto"} {
 		o.setTheme(t, th, 204)
 		if info() != th {
 			t.Fatalf("tema %s: %v", th, info())

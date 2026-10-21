@@ -130,7 +130,7 @@
     <h3 style="margin-top: 1.5rem">Apariencia de tu página pública</h3>
     <fieldset class="themes">
       <legend class="sr-only">Tema de la página pública</legend>
-      {#each [['auto', 'Que elija el cliente', 'Respeta el tema que ya usa'], ['light', 'Azul tinta', 'Claro y fresco'], ['ivory', 'Marfil', 'Claro y solemne'], ['dark', 'Oscuro', 'Carbón y champán']] as [v, name, hint]}
+      {#each [['auto', 'Que elija el cliente', 'Respeta el tema que ya usa'], ['lino', 'Lino', 'Claro y editorial'], ['light', 'Azul tinta', 'Claro y fresco'], ['ivory', 'Marfil', 'Claro y solemne'], ['dark', 'Oscuro', 'Carbón y champán']] as [v, name, hint]}
         <label class="theme" class:on={(s.public_theme ?? 'auto') === v}>
           <input type="radio" name="public_theme" value={v} bind:group={s.public_theme} />
           <span class="sw sw-{v}" aria-hidden="true"></span>
@@ -196,6 +196,7 @@
   .theme small { display: block; font-size: 0.8rem; color: var(--muted); }
   .sw { flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); }
   .sw-auto { background: linear-gradient(135deg, #f3f1ec 50%, #101012 50%); }
+  .sw-lino { background: linear-gradient(135deg, #a8614c 50%, #f8f6f2 50%); }
   .sw-light { background: linear-gradient(135deg, #13203b 50%, #f3f1ec 50%); }
   .sw-ivory { background: linear-gradient(135deg, #101012 50%, #f4efe6 50%); }
   .sw-dark { background: linear-gradient(135deg, #c9a45c 50%, #101012 50%); }

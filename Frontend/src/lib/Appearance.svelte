@@ -3,6 +3,7 @@
   import { setTheme, theme } from '$lib/theme.svelte.js';
 
   const options = [
+    ['lino', 'Lino', 'Claro y editorial: lino, terracota y navegación en riel.', 'sun'],
     ['light', 'Azul tinta', 'Claro y fresco: marfil, azul profundo y terracota.', 'sun'],
     ['ivory', 'Marfil', 'Claro y solemne: contenido en marfil con carbón y oro champán.', 'sun'],
     ['dark', 'Oscuro', 'Carbón con detalles dorados, ideal con poca luz.', 'moon']
