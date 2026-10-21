@@ -152,7 +152,7 @@ func TestPaymentUnlocksBusinessOnceAndSendsReceipts(t *testing.T) {
 	}
 	waitMail(t, b.fm, 2)
 	to := map[string]bool{}
-	for _, m := range b.fm.sent {
+	for _, m := range b.fm.all() {
 		to[m.To] = true
 	}
 	if !to["cobros@plataforma.test"] || !to["norte@x.com"] {
@@ -246,7 +246,7 @@ func TestBillingNoticesAreSentOncePerPeriod(t *testing.T) {
 	count := func(sub string) int {
 		time.Sleep(120 * time.Millisecond)
 		n := 0
-		for _, m := range b.fm.sent {
+		for _, m := range b.fm.all() {
 			if strings.Contains(m.Subject, sub) && m.To == "norte@x.com" {
 				n++
 			}
@@ -294,11 +294,11 @@ func TestBillingNoticesAreSentOncePerPeriod(t *testing.T) {
 		t.Fatalf("aviso del nuevo periodo: %d", count("vence pronto"))
 	}
 	// suspendidos y pendientes no reciben avisos de cobro
-	before := len(b.fm.sent)
+	before := b.fm.count()
 	set("suspended", nil, nil)
 	b.a.billingPass(ctx)
 	time.Sleep(100 * time.Millisecond)
-	if len(b.fm.sent) != before {
+	if b.fm.count() != before {
 		t.Fatal("un negocio suspendido no recibe avisos de cobro")
 	}
 }

@@ -61,7 +61,7 @@ func (o *onlineFixture) subjects(fm *fakeMailer) []string {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 	var out []string
-	for _, m := range fm.sent {
+	for _, m := range fm.all() {
 		out = append(out, m.Subject)
 	}
 	return out
@@ -210,7 +210,7 @@ func TestWinbackSendsOncePerLapsedVisit(t *testing.T) {
 	before := fm.count()
 	o.process(t)
 	var to []string
-	for _, m := range fm.sent[before:] {
+	for _, m := range fm.all()[before:] {
 		to = append(to, m.To)
 	}
 	// «Reciente» ya cumplió el plazo; «Ya agendada» también (su cita futura ya pasó sin atenderse). Nadie repite.

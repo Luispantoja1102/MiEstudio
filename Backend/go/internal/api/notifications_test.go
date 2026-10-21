@@ -28,6 +28,13 @@ func (f *fakeMailer) Send(_ context.Context, m mail.Message) error {
 	f.sent = append(f.sent, m)
 	return nil
 }
+
+// all devuelve una copia: el envío en segundo plano escribe a la vez que las pruebas leen.
+func (f *fakeMailer) all() []mail.Message {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]mail.Message(nil), f.sent...)
+}
 func (f *fakeMailer) count() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.sent) }
 func (f *fakeMailer) last() mail.Message {
 	f.mu.Lock()
@@ -187,7 +194,7 @@ func TestReminderNeedsConsentAndSkipsLateBookings(t *testing.T) {
 	o.mustBook(t, at(monday, "10:00"), map[string]any{"consent_reminders": false})
 	o.setNow(time.Date(2026, 11, 8, 22, 0, 0, 0, time.UTC))
 	o.process(t) // la confirmación sale; el recordatorio no
-	for _, m := range fm.sent {
+	for _, m := range fm.all() {
 		if strings.Contains(m.Subject, "Recordatorio") {
 			t.Fatal("sin consentimiento no hay recordatorio")
 		}
@@ -277,7 +284,7 @@ func TestConfirmationNotSentForCancelledBeforeSend(t *testing.T) {
 	token := o.mustBook(t, at(monday, "10:00"), nil)
 	o.a.do(t, "POST", "/api/public-appointments/"+token+"/cancel", "", nil)
 	o.process(t)
-	for _, m := range fm.sent {
+	for _, m := range fm.all() {
 		if strings.Contains(m.Subject, "confirmada") {
 			t.Fatal("no se confirma una cita ya cancelada")
 		}
@@ -339,7 +346,7 @@ func TestReminderForOldTimeIsSkippedAfterMove(t *testing.T) {
 		t.Fatalf("mover %d %v", r.Status, r.Body)
 	}
 	o.process(t)
-	for _, m := range fm.sent {
+	for _, m := range fm.all() {
 		if strings.Contains(m.Subject, "Recordatorio") && strings.Contains(m.Text, "10:00") {
 			t.Fatal("el recordatorio de la hora anterior no debe enviarse")
 		}

@@ -90,7 +90,7 @@ func TestArcoRequestFlow(t *testing.T) {
 	}
 	waitMail(t, f.fm, 2) // solicitante y administrador
 	to := map[string]bool{}
-	for _, m := range f.fm.sent {
+	for _, m := range f.fm.all() {
 		to[m.To] = true
 	}
 	if !to["laura@x.com"] || !to["admin@x.com"] {

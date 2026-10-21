@@ -84,7 +84,7 @@ func TestWhatsAppReminderGoesToConsentingClientOnly(t *testing.T) {
 	}
 	// el correo y el WhatsApp son independientes: Laura recibe ambos recordatorios
 	var mails int
-	for _, x := range fm.sent {
+	for _, x := range fm.all() {
 		if strings.Contains(x.Subject, "Recordatorio") {
 			mails++
 		}
@@ -117,7 +117,7 @@ func TestEmailAndWhatsAppRemindersDoNotBlockEachOther(t *testing.T) {
 	}
 	o.process(t)
 	mails := 0
-	for _, x := range fm.sent {
+	for _, x := range fm.all() {
 		if strings.Contains(x.Subject, "Recordatorio") {
 			mails++
 		}
