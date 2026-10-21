@@ -170,6 +170,7 @@ func TestOverviewCountsMRRAndAttention(t *testing.T) {
 	ins(paid, 79900, 1, "transfer", now.Add(-2*day))
 	ins(annual, 799000, 12, "transfer", now.Add(-3*day))
 	ins(f.biz, 0, 1, "courtesy", now.Add(-day)) // una cortesía no suma
+	ins(paid, 0, 1, "courtesy", now.Add(-time.Hour)) // ni borra lo que ya pagaba: el último pago de verdad es el que cuenta
 	ins(paid, 50000, 1, "transfer", now.AddDate(0, -2, 0))
 
 	ov := f.a.do(t, "GET", "/api/platform/overview", f.plat, nil)
