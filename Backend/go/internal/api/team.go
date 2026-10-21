@@ -18,12 +18,13 @@ type member struct {
 	Bookable      bool    `json:"bookable"`
 	CommissionPct float64 `json:"commission_pct"`
 	Active        bool    `json:"active"`
+	TwoFactor     bool    `json:"two_factor"`
 }
 
 func (a *API) listTeam(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT id, name, email, role, bookable, commission_pct::float8, active
+		`SELECT id, name, email, role, bookable, commission_pct::float8, active, totp_secret_enc IS NOT NULL
 		 FROM users WHERE business_id = $1 ORDER BY name`, p.BusinessID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error interno")
@@ -33,7 +34,7 @@ func (a *API) listTeam(w http.ResponseWriter, r *http.Request) {
 	out := []member{}
 	for rows.Next() {
 		var m member
-		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Bookable, &m.CommissionPct, &m.Active); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Bookable, &m.CommissionPct, &m.Active, &m.TwoFactor); err != nil {
 			writeErr(w, http.StatusInternalServerError, "error interno")
 			return
 		}

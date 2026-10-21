@@ -56,6 +56,17 @@
       await load();
     }
   }
+
+  async function resetTwoFactor(m) {
+    if (!confirm(`¿Quitar la verificación en dos pasos a ${m.name}? Úsalo si perdió su teléfono; tendrá que volver a iniciar sesión.`)) return;
+    error = '';
+    try {
+      await api(`/api/team/${m.id}/2fa/reset`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      error = err.message;
+    }
+  }
 </script>
 
 <div class="page-head">
@@ -115,6 +126,10 @@
           onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
         {#if m.bookable && m.active}
           <button class="btn ghost sm" onclick={() => (hoursFor = hoursFor === m.id ? null : m.id)}>Horario</button>
+        {/if}
+        {#if m.two_factor}<span class="badge" title="Tiene verificación en dos pasos">2 pasos</span>{/if}
+        {#if m.two_factor && !me}
+          <button class="btn ghost sm" onclick={() => resetTwoFactor(m)}>Quitar 2 pasos</button>
         {/if}
         {#if !me}
           <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>

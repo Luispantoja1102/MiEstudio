@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"miestudio/backend-go/internal/auth"
 	"miestudio/backend-go/internal/ratelimit"
 )
 
@@ -117,12 +118,17 @@ func TestLoginNeedsSecondStepAndChallengeIsNotASession(t *testing.T) {
 	if rec, _ := f.a.doCookie(t, "GET", "/api/me", c, false, nil); rec.Code != 200 {
 		t.Fatalf("sesión: %d", rec.Code)
 	}
-	// una sesión normal no sirve como reto
-	if rec, _ := f.a.doCookie(t, "POST", "/api/auth/login/2fa", nil, true, map[string]any{"challenge": body["token"], "code": f.code(t, curStep()+1)}); rec.Code != 401 {
-		t.Fatalf("un token de sesión no es un reto: %d", rec.Code)
-	}
 	if rec, _ := f.a.doCookie(t, "POST", "/api/auth/login/2fa", nil, true, map[string]any{"challenge": "basura", "code": "123456"}); rec.Code != 401 {
 		t.Fatalf("reto inválido: %d", rec.Code)
+	}
+}
+
+func TestSessionTokenIsNotAChallenge(t *testing.T) {
+	f := newTF(t)
+	session, _ := auth.Sign(f.a.Secret, 1, 0)
+	// con un código válido y fresco: lo único que lo detiene es que el token no es un reto
+	if rec, _ := f.a.doCookie(t, "POST", "/api/auth/login/2fa", nil, true, map[string]any{"challenge": session, "code": f.code(t, curStep()+1)}); rec.Code != 401 {
+		t.Fatalf("un token de sesión no es un reto: %d", rec.Code)
 	}
 }
 

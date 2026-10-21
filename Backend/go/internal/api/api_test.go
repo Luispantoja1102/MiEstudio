@@ -222,8 +222,13 @@ func TestDeactivatedAndDemotedTakeEffectImmediately(t *testing.T) {
 		t.Fatal("como admin debería poder")
 	}
 	a.do(t, "PATCH", "/api/team/"+itoa(id), admin, map[string]any{"role": "reception"})
+	// bajar de rol cierra la sesión (hay que volver a entrar) y con el rol nuevo ya no tiene permiso
+	if r := a.do(t, "GET", "/api/team", tok, nil); r.Status != 401 {
+		t.Fatalf("tras bajar de rol: esperaba 401 (sesión cerrada), obtuvo %d", r.Status)
+	}
+	tok = a.doLogin(t, "otro@x.com", "supersecreta1").Body["token"].(string)
 	if r := a.do(t, "GET", "/api/team", tok, nil); r.Status != 403 {
-		t.Fatalf("tras bajar de rol: esperaba 403, obtuvo %d", r.Status)
+		t.Fatalf("con el rol nuevo: esperaba 403, obtuvo %d", r.Status)
 	}
 	a.do(t, "PATCH", "/api/team/"+itoa(id), admin, map[string]any{"active": false})
 	if r := a.do(t, "GET", "/api/me", tok, nil); r.Status != 401 {

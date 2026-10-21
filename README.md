@@ -121,6 +121,17 @@ exacto, verificado siempre con Mercado Pago (aviso automático, regreso del clie
 apartado). Un pago tardío o duplicado se devuelve; si el cliente cancela dentro del plazo, o el negocio cancela,
 se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una inasistencia lo conserva.
 
+## Cuenta y seguridad
+
+- **Sesión:** cookie `HttpOnly` + `SameSite=Lax` (ningún script de la página puede leerla); las escrituras con cookie exigen
+  el encabezado `X-Requested-With`. Cambiar la contraseña, el rol, el correo o dar de baja a alguien cierra sus sesiones al
+  instante (versión de sesión en la base). «Cerrar sesión en todos los dispositivos» está en *Mi cuenta*.
+- **Recuperar contraseña:** `/olvide` envía un enlace de 1 hora y un solo uso (solo se guarda su hash); la respuesta es la
+  misma exista o no la cuenta. Los administradores de plataforma no lo usan: su clave se restablece con `npm run admin`.
+- **Verificación en dos pasos (TOTP):** en *Mi cuenta* con QR y 8 códigos de respaldo; el administrador de un negocio puede
+  quitarla a su equipo (*Equipo → Quitar 2 pasos*) y plataforma a cualquiera. El secreto se guarda cifrado.
+- **Proxy:** declara tus proxies en `TRUSTED_PROXIES` para que los límites usen la IP real.
+
 ## Avisos de nueva versión
 
 Cada compilación del frontend lleva un nombre de versión (`APP_VERSION`, o la hora de la compilación). La app

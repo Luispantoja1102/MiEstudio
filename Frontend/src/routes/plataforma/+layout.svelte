@@ -12,7 +12,8 @@
     ['scissors', 'Negocios', '/plataforma/negocios'],
     ['users', 'Equipo', '/plataforma/equipo'],
     ['bell', 'Actividad', '/plataforma/actividad'],
-    ['percent', 'Ajustes', '/plataforma/ajustes']
+    ['percent', 'Ajustes', '/plataforma/ajustes'],
+    ['shield', 'Mi cuenta', '/plataforma/cuenta']
   ];
 
   onMount(async () => {

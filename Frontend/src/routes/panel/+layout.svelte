@@ -22,7 +22,8 @@
     ['users', 'Equipo', '/panel/equipo', ['admin']],
     ['globe', 'Reserva en línea', '/panel/reserva', ['admin']],
     ['home', 'Sucursales', '/panel/ajustes', ['admin']],
-    ['card', 'Pagos', '/panel/pagos', ['admin']]
+    ['card', 'Pagos', '/panel/pagos', ['admin']],
+    ['shield', 'Mi cuenta', '/panel/cuenta', []]
   ];
   const items = $derived(
     nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h]) => [i, l, h])
