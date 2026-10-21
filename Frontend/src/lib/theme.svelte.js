@@ -1,7 +1,8 @@
 // Cuatro temas: 'lino' (predeterminado: lino y terracota, navegación en riel), 'light' (Azul tinta), 'ivory' (Marfil: solemne como el oscuro, pero de día) y 'dark' (carbón y champán).
 const KEY = 'miestudio-theme';
 const LIGHT_KEY = 'miestudio-light'; // el claro preferido, al que vuelve el botón de sol/luna
-export const THEMES = ['lino', 'light', 'ivory', 'dark'];
+export const LIGHT_THEMES = ['lino', 'light', 'ivory']; // los que se pueden elegir como «tema claro»
+export const THEMES = [...LIGHT_THEMES, 'dark'];
 
 function stored(key = KEY) {
   try {
@@ -16,10 +17,11 @@ function apply(name) {
   document.documentElement.dataset.theme = name;
 }
 
-export const theme = $state({ name: 'lino', forced: false });
+export const theme = $state({ name: 'lino', light: 'lino', forced: false });
 
 export function initTheme() {
-  theme.name = stored() ?? document.documentElement.dataset.theme ?? 'lino';
+  theme.light = LIGHT_THEMES.includes(stored(LIGHT_KEY)) ? stored(LIGHT_KEY) : 'lino';
+  theme.name = stored() ?? document.documentElement.dataset.theme ?? theme.light;
   apply(theme.name);
 }
 
@@ -27,6 +29,7 @@ export function initTheme() {
 export function setTheme(name) {
   if (!THEMES.includes(name)) return;
   theme.name = name;
+  if (name !== 'dark') theme.light = name;
   apply(name);
   try {
     localStorage.setItem(KEY, name);
@@ -34,8 +37,14 @@ export function setTheme(name) {
   } catch {}
 }
 
-// El botón del encabezado alterna entre el oscuro y el claro que la persona prefiere.
-export const toggleTheme = () => setTheme(theme.name === 'dark' ? (stored(LIGHT_KEY) ?? 'lino') : 'dark');
+// La persona elige cuál es su tema claro (cualquiera menos el oscuro) y se muestra de inmediato.
+export function setLightTheme(name) {
+  if (!LIGHT_THEMES.includes(name)) return;
+  setTheme(name);
+}
+
+// El botón del encabezado alterna entre el oscuro y el claro que la persona eligió.
+export const toggleTheme = () => setTheme(theme.name === 'dark' ? theme.light : 'dark');
 
 // Páginas públicas de un negocio que fijó su tema: se muestra ese sin tocar la elección guardada de quien visita.
 // Devuelve la función que lo deshace (al salir de la página vuelve el tema de la persona).

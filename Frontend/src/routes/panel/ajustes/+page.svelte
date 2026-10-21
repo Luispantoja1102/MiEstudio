@@ -44,7 +44,7 @@
       title: 'Mi cuenta',
       items: [
         { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings },
-        { id: 'apariencia', label: 'Apariencia', desc: 'Tema de la aplicación', icon: 'sun', component: Appearance }
+        { id: 'apariencia', label: 'Apariencia', desc: 'Tu tema claro y el modo oscuro', icon: 'sun', component: Appearance }
       ]
     }
   ];
