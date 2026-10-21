@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
   import { api } from '$lib/api.js';
-  import { METHODS, money } from '$lib/format.js';
+  import { METHODS, money, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { addDays, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
@@ -61,7 +61,7 @@
 
 {#if r}
   <div class="kpis">
-    <div class="card"><span class="label">Vendido</span><span class="value">{money(r.total_cents)}</span><small>{r.sales} ventas</small></div>
+    <div class="card"><span class="label">Vendido</span><span class="value">{money(r.total_cents)}</span><small>{plural(r.sales, 'venta', 'ventas')}</small></div>
     <div class="card"><span class="label">Propinas</span><span class="value">{money(r.tip_cents)}</span><small>Total cobrado {money(r.collected_cents)}</small></div>
     <div class="card"><span class="label">Descuentos</span><span class="value">{money(r.discount_cents)}</span><small>Subtotal {money(r.subtotal_cents)}</small></div>
     <div class="card"><span class="label">Costo de productos</span><span class="value">{money(r.cost_cents)}</span><small>Lo vendido menos costo: {money(r.total_cents - r.cost_cents)}</small></div>
@@ -83,13 +83,13 @@
       <section>
         <h2>Por método de pago</h2>
         <div class="list">
-          {#each r.by_method as m}<div class="item-row"><span class="grow">{METHODS[m.method]}</span><small class="meta">{m.count} pagos</small><b>{money(m.amount_cents)}</b></div>{/each}
+          {#each r.by_method as m}<div class="item-row"><span class="grow">{METHODS[m.method]}</span><small class="meta">{plural(m.count, 'pago', 'pagos')}</small><b>{money(m.amount_cents)}</b></div>{/each}
         </div>
       </section>
       <section>
         <h2>Lo más vendido</h2>
         <div class="list">
-          {#each r.top_items as it}<div class="item-row"><span class="grow">{it.name}<small class="meta"> · {KIND[it.kind]} · {it.qty}</small></span><b>{money(it.total_cents)}</b></div>{/each}
+          {#each r.top_items as it}<div class="item-row"><span class="grow">{it.name}<small class="meta">{' · '}{KIND[it.kind]} · {it.qty}</small></span><b>{money(it.total_cents)}</b></div>{/each}
         </div>
       </section>
     </div>
@@ -98,7 +98,7 @@
       <h2>Por persona</h2>
       <div class="list">
         {#each r.by_staff as s (s.staff_id)}
-          <div class="item-row"><span class="grow"><b>{s.name}</b><small class="meta"> · {s.items} partidas</small></span>
+          <div class="item-row"><span class="grow"><b>{s.name}</b><small class="meta">{' · '}{plural(s.items, 'partida', 'partidas')}</small></span>
             <span class="meta">Ingreso {money(s.revenue_cents)}</span><span>Comisión <b>{money(s.commission_cents)}</b></span><span>Propinas <b>{money(s.tip_cents)}</b></span></div>
         {:else}<p class="meta">Ninguna partida tiene persona asignada.</p>{/each}
       </div>

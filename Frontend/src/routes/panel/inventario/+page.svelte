@@ -166,7 +166,7 @@
     <div class="list" style="max-height: 260px; overflow-y: auto">
       {#each movements as m (m.id)}
         <div class="item-row">
-          <span class="grow">{REASON[m.reason]}<small class="meta"> · {m.by || 'Sistema'}{m.note ? ' · ' + m.note : ''}</small><br /><small class="meta">{formatDate(m.created_at)}</small></span>
+          <span class="grow">{REASON[m.reason]}<small class="meta">{' · '}{m.by || 'Sistema'}{m.note ? ' · ' + m.note : ''}</small><br /><small class="meta">{formatDate(m.created_at)}</small></span>
           <b style="color: {m.delta > 0 ? 'var(--accent)' : 'var(--danger)'}">{m.delta > 0 ? '+' : ''}{m.delta}</b>
           <small class="meta">saldo {m.balance}</small>
         </div>

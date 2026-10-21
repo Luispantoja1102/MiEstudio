@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
-  import { formatDate, money } from '$lib/format.js';
+  import { formatDate, money, plural } from '$lib/format.js';
   import { addDays, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
 
@@ -97,7 +97,7 @@
   <div class="list">
     {#each report.staff as s (s.staff_id)}
       <button class="item-row row" class:sel={selected === s.staff_id} onclick={() => isAdmin && pick(s.staff_id)} disabled={!isAdmin}>
-        <span class="grow"><b>{s.name}</b><small class="meta"> · {s.items} partidas · ingreso {money(s.revenue_cents)}</small></span>
+        <span class="grow"><b>{s.name}</b><small class="meta">{' · '}{plural(s.items, 'partida', 'partidas')} · ingreso {money(s.revenue_cents)}</small></span>
         <span>Comisión <b>{money(s.commission_cents)}</b></span>
         <span>Propinas <b>{money(s.tip_cents)}</b></span>
       </button>
@@ -111,7 +111,7 @@
     <h2>Detalle</h2>
     <div class="list">
       {#each report.lines as l, i (i)}
-        <div class="item-row"><span class="meta">#{l.folio}</span><span class="grow">{l.qty} × {l.item}<small class="meta"> · {formatDate(l.created_at)}</small></span>
+        <div class="item-row"><span class="meta">#{l.folio}</span><span class="grow">{l.qty} × {l.item}<small class="meta">{' · '}{formatDate(l.created_at)}</small></span>
           <small class="meta">{money(l.base_cents)} × {l.pct} %</small><b>{money(l.commission_cents)}</b></div>
       {/each}
     </div>
@@ -140,7 +140,7 @@
     <div class="list">
       {#each rules as r (r.id)}
         <div class="item-row" class:off={!r.active}>
-          <span class="grow"><b>{r.item_name}</b><small class="meta"> · {r.user_name || 'Todas las personas'}</small></span>
+          <span class="grow"><b>{r.item_name}</b><small class="meta">{' · '}{r.user_name || 'Todas las personas'}</small></span>
           <input type="number" min="0" max="100" step="0.5" value={r.percent} aria-label="Porcentaje" style="width: 90px; margin: 0; min-height: 38px"
             onchange={(e) => patchRule(r, { percent: Number(e.currentTarget.value) })} /> %
           <button class="btn ghost sm" onclick={() => patchRule(r, { active: !r.active })}>{r.active ? 'Desactivar' : 'Activar'}</button>

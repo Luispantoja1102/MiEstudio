@@ -87,7 +87,7 @@
       {#if terminals.length === 0}<p class="meta">No encontramos terminales en tu cuenta de Mercado Pago.</p>{/if}
       {#each branches.list as b (b.id)}
         <div class="item-row" style="margin-top: 8px">
-          <span class="grow"><b>{b.name}</b>{#if labelOf(b.id)}<small class="meta"> · actual: {labelOf(b.id)}</small>{/if}</span>
+          <span class="grow"><b>{b.name}</b>{#if labelOf(b.id)}<small class="meta">{' · '}actual: {labelOf(b.id)}</small>{/if}</span>
           <select bind:value={choice[b.id]} aria-label="Terminal de {b.name}" style="width: auto; margin: 0; min-height: 38px">
             <option value={undefined}>Elige una terminal</option>
             {#each terminals as t (t.id)}<option value={t.id}>{t.external_pos_id || t.id}</option>{/each}

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
   import { api } from '$lib/api.js';
-  import { METHODS, formatDate, money, toCents } from '$lib/format.js';
+  import { METHODS, formatDate, money, toCents, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
 
   let cash = $state(null);
@@ -42,7 +42,7 @@
     notice = '';
     try {
       await fn();
-      notice = ok;
+      if (ok) notice = ok; // si no hay mensaje fijo, se conserva el que puso la acción (p. ej. el resultado del corte)
       await load();
     } catch (e) {
       error = e.message;
@@ -105,9 +105,9 @@
       <div><dt>Salidas</dt><dd>−{money(cash.moves_out_cents)}</dd></div>
       <div class="total"><dt>Efectivo esperado en caja</dt><dd>{money(cash.expected_cents)}</dd></div>
     </dl>
-    <h3>Ventas de esta caja · {cash.sales} · {money(cash.sales_cents)}{#if cash.tip_cents} + {money(cash.tip_cents)} de propinas{/if}</h3>
+    <h3>Ventas de esta caja · {plural(cash.sales, 'venta', 'ventas')} · {money(cash.sales_cents)}{#if cash.tip_cents} + {money(cash.tip_cents)} de propinas{/if}</h3>
     <ul class="methods">
-      {#each cash.by_method as m}<li><span>{METHODS[m.method]}</span><b>{money(m.amount_cents)}</b><small>{m.count} pagos</small></li>{:else}<li class="meta">Todavía no hay ventas.</li>{/each}
+      {#each cash.by_method as m}<li><span>{METHODS[m.method]}</span><b>{money(m.amount_cents)}</b><small>{plural(m.count, 'pago', 'pagos')}</small></li>{:else}<li class="meta">Todavía no hay ventas.</li>{/each}
     </ul>
   </section>
 
@@ -126,7 +126,7 @@
     {#if cash.movements.length}
       <ul class="methods" style="margin-top: 1rem">
         {#each cash.movements as m (m.id)}
-          <li><span>{m.concept}<small> · {m.by}</small></span><b>{m.kind === 'in' ? '+' : '−'}{money(m.amount_cents)}</b><small>{formatDate(m.created_at)}</small></li>
+          <li><span>{m.concept}<small>{' · '}{m.by}</small></span><b>{m.kind === 'in' ? '+' : '−'}{money(m.amount_cents)}</b><small>{formatDate(m.created_at)}</small></li>
         {/each}
       </ul>
     {/if}
@@ -162,7 +162,7 @@
     <div class="list">
       {#each history as s (s.id)}
         <div class="item-row">
-          <div class="grow"><div class="title">{formatDate(s.opened_at)}</div><div class="meta">{s.opened_by} · {s.sales} ventas · {money(s.sales_cents)}</div></div>
+          <div class="grow"><div class="title">{formatDate(s.opened_at)}</div><div class="meta">{s.opened_by} · {plural(s.sales, 'venta', 'ventas')} · {money(s.sales_cents)}</div></div>
           <span class="meta">Esperado {money(s.expected_cents)} · contado {money(s.counted_cents)}</span>
           <span class="badge" class:warn={s.diff_cents !== 0}>{diffLabel(s.diff_cents)}</span>
         </div>

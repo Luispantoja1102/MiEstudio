@@ -81,6 +81,23 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 - La base de datos impide por sí misma que una persona tenga dos citas encimadas.
 - Las horas se guardan en UTC y se muestran en la zona horaria del negocio (por defecto `America/Tijuana`).
 
+## Punto de venta
+
+- **Caja:** una por sucursal. Se abre con el efectivo inicial; hay entradas y salidas de efectivo; al cerrar se compara lo contado con lo esperado (`apertura + efectivo cobrado − salidas`) y el esperado queda congelado.
+- **Cobrar:** servicios, productos y citas, con descuento, propina, pagos mixtos (efectivo con cambio, tarjeta, transferencia y terminal) y folio consecutivo. Los pagos deben cubrir exactamente el total más la propina.
+- **Comisiones:** se calculan al vender sobre lo realmente cobrado (después del descuento) y **se guardan en la venta**: cambiar las reglas después no altera el historial. Prioridad: persona + artículo, luego el artículo, luego la comisión general de la persona (solo servicios).
+- **Inventario:** cada cambio de existencia deja un movimiento. Vender no puede dejar la existencia en negativo, ni siquiera con ventas simultáneas.
+- **Cancelar una venta** (solo administrador): devuelve la existencia, reembolsa los cobros con terminal y, si el efectivo era de una caja ya cerrada, lo saca de la caja abierta. Un cobro repetido por doble clic no genera dos ventas.
+- **Reportes:** ventas por periodo (por día, método, persona y artículo) y comisiones por persona.
+
+### Terminal Mercado Pago (Point)
+
+1. Define `TOKEN_ENC_KEY` en `.env` (`openssl rand -base64 32`) y reinicia.
+2. En el panel, **Pagos**: pega el *access token de producción* del negocio (se guarda cifrado) y registra la terminal de cada sucursal; queda en modo punto de venta.
+3. En **Cobrar**, agrega un pago «Terminal MP», envíalo y espera la aprobación. Un pago aprobado solo sirve para una venta.
+
+> La integración está probada contra un servidor simulado de la API de Mercado Pago. Antes de usarla con clientes reales, pruébala con una cuenta de pruebas y tu terminal.
+
 ## API actual
 
 | Método y ruta | Quién |
@@ -93,6 +110,9 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 | `/api/clients`, `/api/clients/{id}` | Todo el equipo del negocio |
 | `/api/clients/{id}/notes` | Administrador y profesionales |
 | `GET /api/agenda`, `GET /api/agenda/slots` | Todo el equipo del negocio |
+| `/api/cash/*`, `POST/GET /api/sales`, `/api/payments/point/*` | Administrador, caja y recepción |
+| `POST /api/sales/{id}/void`, `/api/products/{id}/stock`, `/api/commission-rules`, `/api/reports/sales`, `/api/payments/mercadopago/*` | Administrador |
+| `GET /api/reports/commissions` | Administrador (todos) y profesionales (solo lo suyo) |
 | `POST/PATCH /api/appointments`, `POST /api/appointments/{id}/move`, `POST/DELETE /api/blocks` | Administrador, recepción y profesionales (estos últimos solo bloquean su propio horario) |
 | `/api/platform/*` | Plataforma (soporte solo lee) |
 

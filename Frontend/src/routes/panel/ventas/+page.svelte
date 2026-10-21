@@ -3,7 +3,7 @@
   import BranchPicker from '$lib/BranchPicker.svelte';
   import Receipt from '$lib/pos/Receipt.svelte';
   import { api } from '$lib/api.js';
-  import { METHODS, money, newToken, toCents, toPesos } from '$lib/format.js';
+  import { METHODS, money, newToken, toCents, toPesos, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { fmtTime, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
@@ -247,7 +247,7 @@
 <div class="page-head">
   <div>
     <h1>Cobrar</h1>
-    <p>{#if cash}Caja abierta · efectivo esperado {money(cash.expected_cents)} · {cash.sales} ventas{:else}Abre la caja para empezar a cobrar.{/if}</p>
+    <p>{#if cash}Caja abierta · efectivo esperado {money(cash.expected_cents)} · {plural(cash.sales, 'venta', 'ventas')}{:else}Abre la caja para empezar a cobrar.{/if}</p>
   </div>
   <div class="form-actions" style="margin: 0">
     <BranchPicker onchange={load} />

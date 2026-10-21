@@ -4,7 +4,7 @@
   import Modal from '$lib/Modal.svelte';
   import Receipt from '$lib/pos/Receipt.svelte';
   import { api } from '$lib/api.js';
-  import { METHODS, formatDate, money } from '$lib/format.js';
+  import { METHODS, formatDate, money, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
@@ -67,7 +67,7 @@
 <div class="page-head">
   <div>
     <h1>Historial de ventas</h1>
-    <p>{rows.filter((r) => r.status === 'paid').length} ventas · {money(sum)}</p>
+    <p>{plural(rows.filter((r) => r.status === 'paid').length, 'venta', 'ventas')} · {money(sum)}</p>
   </div>
   <a class="btn ghost" href="/panel/ventas">Volver a cobrar</a>
 </div>
