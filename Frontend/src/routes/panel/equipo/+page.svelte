@@ -1,0 +1,118 @@
+<script>
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { api } from '$lib/api.js';
+  import { ROLES } from '$lib/format.js';
+  import { session } from '$lib/session.svelte.js';
+
+  let team = $state([]);
+  let loading = $state(true);
+  let error = $state('');
+  let showForm = $state(false);
+  let busy = $state(false);
+  let form = $state(blank());
+
+  function blank() {
+    return { name: '', email: '', password: '', role: 'staff', bookable: true, commission_pct: 0 };
+  }
+
+  async function load() {
+    team = await api('/api/team');
+    loading = false;
+  }
+
+  onMount(() => {
+    if (session.me.role !== 'admin') return goto('/panel');
+    load().catch((e) => ((error = e.message), (loading = false)));
+  });
+
+  async function add(e) {
+    e.preventDefault();
+    error = '';
+    busy = true;
+    try {
+      await api('/api/team', { method: 'POST', body: { ...form, commission_pct: Number(form.commission_pct) } });
+      form = blank();
+      showForm = false;
+      await load();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function patch(member, changes) {
+    error = '';
+    try {
+      await api(`/api/team/${member.id}`, { method: 'PATCH', body: changes });
+      await load();
+    } catch (err) {
+      error = err.message;
+      await load();
+    }
+  }
+</script>
+
+<div class="page-head">
+  <div>
+    <h1>Equipo</h1>
+    <p>Personas con acceso a tu negocio y lo que pueden hacer.</p>
+  </div>
+  <button class="btn" onclick={() => (showForm = !showForm)}>{showForm ? 'Cancelar' : 'Agregar persona'}</button>
+</div>
+
+{#if error}<p class="error" role="alert">{error}</p>{/if}
+
+{#if showForm}
+  <form class="card" onsubmit={add} style="margin-bottom: 1.5rem">
+    <div class="form-grid">
+      <label class="field">Nombre <input bind:value={form.name} required /></label>
+      <label class="field">Correo <input type="email" bind:value={form.email} required /></label>
+      <label class="field">
+        Contraseña inicial
+        <input type="password" bind:value={form.password} minlength="8" maxlength="72" autocomplete="new-password" required />
+        <span class="hint">Mínimo 8 caracteres. La persona podrá cambiarla.</span>
+      </label>
+      <label class="field">
+        Rol
+        <select bind:value={form.role}>
+          {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
+        </select>
+      </label>
+      <label class="field">
+        Comisión (%)
+        <input type="number" min="0" max="100" step="0.5" bind:value={form.commission_pct} />
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" bind:checked={form.bookable} />Aparece en la agenda (atiende clientes)</label>
+    <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button></div>
+  </form>
+{/if}
+
+{#if loading}
+  <p class="meta">Cargando…</p>
+{:else}
+  <div class="list">
+    {#each team as m (m.id)}
+      {@const me = m.id === session.me.id}
+      <div class="item-row" class:off={!m.active}>
+        <div class="grow">
+          <div class="title">{m.name} {#if me}<span class="badge">Tú</span>{/if}{#if !m.active}<span class="badge muted">Inactivo</span>{/if}</div>
+          <div class="meta">{m.email}</div>
+        </div>
+        <label class="sr-only" for="role-{m.id}">Rol de {m.name}</label>
+        <select id="role-{m.id}" value={m.role} disabled={me} onchange={(e) => patch(m, { role: e.currentTarget.value })} style="width: auto; margin: 0">
+          {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
+        </select>
+        <label class="check"><input type="checkbox" checked={m.bookable} onchange={(e) => patch(m, { bookable: e.currentTarget.checked })} />En agenda</label>
+        <label class="meta" for="com-{m.id}">Comisión %</label>
+        <input id="com-{m.id}" type="number" min="0" max="100" step="0.5" value={m.commission_pct} style="width: 84px; margin: 0"
+          onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
+        {#if !me}
+          <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
+        {/if}
+      </div>
+    {/each}
+  </div>
+{/if}
