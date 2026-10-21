@@ -3,9 +3,10 @@
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { formatDay } from '$lib/format.js';
+  import { todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
 
-  let counts = $state({ clients: null, services: null, team: null });
+  let counts = $state({ clients: null, services: null, team: null, today: null });
 
   onMount(async () => {
     const [clients, services, team] = await Promise.all([
@@ -13,7 +14,13 @@
       api('/api/services').catch(() => null),
       session.me.role === 'admin' ? api('/api/team').catch(() => null) : null
     ]);
+    // citas de hoy en la primera sucursal activa
+    const branches = (await api('/api/branches').catch(() => [])).filter((b) => b.active);
+    const today = branches.length
+      ? await api('/api/agenda?' + new URLSearchParams({ branch_id: branches[0].id, date: todayIn(session.me.business.timezone || 'America/Tijuana') })).catch(() => null)
+      : null;
     counts = {
+      today: today && today.appointments.filter((a) => a.status === 'scheduled').length,
       clients: clients && (clients.length >= 100 ? '100+' : clients.length),
       services: services && services.filter((s) => s.active).length,
       team: team && team.filter((m) => m.active).length
@@ -21,6 +28,7 @@
   });
 
   const cards = $derived([
+    ['calendar', 'Citas de hoy', counts.today, '/panel/agenda'],
     ['users', 'Clientes', counts.clients, '/panel/clientes'],
     ['scissors', 'Servicios activos', counts.services, '/panel/servicios'],
     ...(session.me.role === 'admin' ? [['users', 'Equipo activo', counts.team, '/panel/equipo']] : [])
@@ -46,11 +54,6 @@
       <span class="value">{value ?? '—'}</span>
     </a>
   {/each}
-  <div class="card stat soon">
-    <span class="ico"><Icon name="calendar" /></span>
-    <span class="label">Agenda y ventas</span>
-    <span class="note">Disponible pronto</span>
-  </div>
 </div>
 
 <style>
@@ -60,6 +63,4 @@
   .ico { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
   .label { color: var(--muted); font-size: 0.9rem; }
   .value { font-family: var(--font-heading); font-size: 2.2rem; line-height: 1.1; }
-  .note { font-size: 0.85rem; color: var(--muted); }
-  .soon { border-style: dashed; box-shadow: none; }
 </style>

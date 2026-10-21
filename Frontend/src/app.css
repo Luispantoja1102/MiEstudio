@@ -128,11 +128,11 @@ a { color: var(--accent); text-underline-offset: 3px; }
 }
 
 .field { display: block; margin-bottom: 1.1rem; font-size: 0.9rem; font-weight: 500; }
-.field input, .field select {
+input:not([type='checkbox']):not([type='radio']),
+select {
   display: block;
   width: 100%;
   min-height: 46px;
-  margin-top: 0.4rem;
   padding: 0 0.9rem;
   font: inherit;
   font-weight: 400;
@@ -142,12 +142,14 @@ a { color: var(--accent); text-underline-offset: 3px; }
   border-radius: var(--radius-sm);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.field input:hover, .field select:hover { border-color: var(--muted); }
-.field input:focus, .field select:focus {
+.field input, .field select { margin-top: 0.4rem; }
+input:not([type='checkbox']):not([type='radio']):hover, select:hover { border-color: var(--muted); }
+input:not([type='checkbox']):not([type='radio']):focus, select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent);
 }
+input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 .field .hint { display: block; margin-top: 0.35rem; font-size: 0.8rem; font-weight: 400; color: var(--muted); }
 
 .error {
