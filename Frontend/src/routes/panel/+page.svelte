@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
+  import { formatDay } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
 
   let counts = $state({ clients: null, services: null, team: null });
@@ -25,6 +26,10 @@
     ...(session.me.role === 'admin' ? [['users', 'Equipo activo', counts.team, '/panel/equipo']] : [])
   ]);
 </script>
+
+{#if session.me.business.status === 'trial' && session.me.business.trial_ends_at}
+  <p class="banner">Prueba gratuita hasta el {formatDay(session.me.business.trial_ends_at)}.</p>
+{/if}
 
 <div class="page-head">
   <div>

@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
   import { api, setToken } from '$lib/api.js';
+  import { homeFor } from '$lib/session.svelte.js';
 
   let email = $state('');
   let password = $state('');
@@ -15,7 +16,7 @@
     try {
       const { token } = await api('/api/auth/login', { method: 'POST', body: { email, password } });
       setToken(token);
-      goto('/panel');
+      goto(homeFor(await api('/api/me')));
     } catch (err) {
       error = err.message;
     } finally {
