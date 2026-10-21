@@ -33,11 +33,11 @@
     saved = false;
     busy = true;
     try {
-      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders } = s;
+      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme } = s;
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
-          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available }
+          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available, public_theme: public_theme || 'auto' }
       });
       saved = true;
       await load();
@@ -127,6 +127,19 @@
       </span>
     </label>
 
+    <h3 style="margin-top: 1.5rem">Apariencia de tu página pública</h3>
+    <fieldset class="themes">
+      <legend class="sr-only">Tema de la página pública</legend>
+      {#each [['auto', 'Que elija el cliente', 'Respeta el tema que ya usa'], ['light', 'Azul tinta', 'Claro y fresco'], ['ivory', 'Marfil', 'Claro y solemne'], ['dark', 'Oscuro', 'Carbón y champán']] as [v, name, hint]}
+        <label class="theme" class:on={(s.public_theme ?? 'auto') === v}>
+          <input type="radio" name="public_theme" value={v} bind:group={s.public_theme} />
+          <span class="sw sw-{v}" aria-hidden="true"></span>
+          <span><b>{name}</b><small>{hint}</small></span>
+        </label>
+      {/each}
+    </fieldset>
+    <p class="hint">Es el tema con el que tus clientes ven la reserva, su cita y tu aviso de privacidad.</p>
+
     <h3 style="margin-top: 1.5rem">Recordatorios por correo</h3>
     <label class="field">Enviar el recordatorio (horas antes)
       <input type="number" min="0" max="168" bind:value={s.reminder_hours} disabled={!meta.mail_enabled} />
@@ -174,6 +187,18 @@
 {/if}
 
 <style>
+  .themes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 0 0 0.5rem; padding: 0; border: 0; }
+  .theme { display: flex; align-items: center; gap: 12px; padding: 0.7rem 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color var(--dur-ui) var(--ease), background-color var(--dur-ui) var(--ease); }
+  .theme:hover { border-color: var(--muted); }
+  .theme.on { border-color: var(--accent); background: var(--accent-soft); }
+  .theme input { position: absolute; opacity: 0; pointer-events: none; }
+  .theme input:focus-visible + .sw { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme small { display: block; font-size: 0.8rem; color: var(--muted); }
+  .sw { flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); }
+  .sw-auto { background: linear-gradient(135deg, #f3f1ec 50%, #101012 50%); }
+  .sw-light { background: linear-gradient(135deg, #13203b 50%, #f3f1ec 50%); }
+  .sw-ivory { background: linear-gradient(135deg, #101012 50%, #f4efe6 50%); }
+  .sw-dark { background: linear-gradient(135deg, #c9a45c 50%, #101012 50%); }
   .linkbox { display: flex; gap: 8px; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; }
   .linkbox input { flex: 1 1 240px; }
   .meta { color: var(--muted); font-size: 0.88rem; }

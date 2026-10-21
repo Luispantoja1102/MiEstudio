@@ -401,10 +401,10 @@ func (a *API) eraseClient(w http.ResponseWriter, r *http.Request) {
 func (a *API) publicPrivacy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var id int64
-	var name, email string
+	var name, email, pubTheme string
 	err := a.DB.QueryRow(ctx,
-		`SELECT b.id, b.name, COALESCE(bs.privacy_email, '') FROM businesses b LEFT JOIN booking_settings bs ON bs.business_id = b.id
-		  WHERE b.slug = $1 AND b.status IN ('trial', 'active')`, r.PathValue("slug")).Scan(&id, &name, &email)
+		`SELECT b.id, b.name, COALESCE(bs.privacy_email, ''), COALESCE(bs.public_theme, 'auto') FROM businesses b LEFT JOIN booking_settings bs ON bs.business_id = b.id
+		  WHERE b.slug = $1 AND b.status IN ('trial', 'active')`, r.PathValue("slug")).Scan(&id, &name, &email, &pubTheme)
 	if errors.Is(err, pgx.ErrNoRows) {
 		notFound(w)
 		return
@@ -429,5 +429,5 @@ func (a *API) publicPrivacy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"business": name, "privacy_email": email, "branches": places, "version": ClientNoticeVersion, "days": arcoDays,
-		"platform": a.Operator.Name})
+		"platform": a.Operator.Name, "theme": pubTheme})
 }

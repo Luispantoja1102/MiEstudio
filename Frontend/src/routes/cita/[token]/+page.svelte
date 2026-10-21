@@ -73,7 +73,7 @@
   const refundable = $derived(a?.deposit?.status === 'paid');
 </script>
 
-<PublicLayout title={missing ? 'Cita no encontrada' : 'Tu cita'}>
+<PublicLayout title={missing ? 'Cita no encontrada' : 'Tu cita'} businessTheme={a?.theme}>
   {#if missing}
     <div class="card"><p>No encontramos esta cita. Revisa que el enlace esté completo.</p></div>
   {:else if !a}

@@ -13,7 +13,7 @@
   });
 </script>
 
-<PublicLayout title={missing ? 'Página no disponible' : 'Aviso de privacidad'} subtitle={d ? `${d.business} · versión ${d.version}` : ''}>
+<PublicLayout title={missing ? 'Página no disponible' : 'Aviso de privacidad'} subtitle={d ? `${d.business} · versión ${d.version}` : ''} businessTheme={d?.theme}>
   {#if missing}
     <div class="card"><p>No encontramos esta página.</p></div>
   {:else if d}

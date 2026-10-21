@@ -146,7 +146,7 @@
   const staffName = $derived(staffId ? info?.staff.find((p) => String(p.id) === String(staffId))?.name : 'Cualquier profesional');
 </script>
 
-<PublicLayout title={missing ? 'Página no disponible' : (info?.business.name ?? '')} subtitle={info?.business.welcome_text ?? ''} brand={!missing && !!info}>
+<PublicLayout title={missing ? 'Página no disponible' : (info?.business.name ?? '')} subtitle={info?.business.welcome_text ?? ''} brand={!missing && !!info} businessTheme={info?.theme}>
   {#if missing}
     <div class="card"><p>Esta página de reservas no existe o no está disponible por ahora. Revisa el enlace que te compartió el negocio.</p></div>
   {:else if !info}

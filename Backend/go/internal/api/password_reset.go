@@ -111,7 +111,7 @@ func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
 			To:      email,
 			Subject: "Restablece tu contraseña de MiEstudio",
 			Text:    fmt.Sprintf("Hola %s,\n\nPara elegir una contraseña nueva abre este enlace (vale 1 hora y solo se puede usar una vez):\n%s\n\nSi no lo pediste tú, ignora este correo: tu contraseña sigue igual.\n\n— MiEstudio\n", first, link),
-			HTML:    fmt.Sprintf(`<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2a28"><h2 style="margin:0 0 12px">Restablece tu contraseña</h2><p>Hola %s, para elegir una contraseña nueva usa este botón. Vale 1 hora y solo se puede usar una vez.</p><p><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4b2a5e;color:#fff;text-decoration:none">Elegir contraseña nueva</a></p><p style="font-size:13px;color:#5b6864">Si no lo pediste tú, ignora este correo: tu contraseña sigue igual.</p></div>`, html.EscapeString(first), html.EscapeString(link)),
+			HTML:    fmt.Sprintf(`<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2a28"><h2 style="margin:0 0 12px">Restablece tu contraseña</h2><p>Hola %s, para elegir una contraseña nueva usa este botón. Vale 1 hora y solo se puede usar una vez.</p><p><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#1c2f5c;color:#fff;text-decoration:none">Elegir contraseña nueva</a></p><p style="font-size:13px;color:#5b6864">Si no lo pediste tú, ignora este correo: tu contraseña sigue igual.</p></div>`, html.EscapeString(first), html.EscapeString(link)),
 		}, "restablecer contraseña")
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sent": true})

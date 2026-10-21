@@ -1,10 +1,12 @@
-// Dos temas intercambiables en toda la app: 'dark' (oscuro y elegante) y 'light' (claro y suave).
+// Tres temas: 'light' (Azul tinta), 'ivory' (Marfil: solemne como el oscuro, pero de día) y 'dark' (carbón y champán).
 const KEY = 'miestudio-theme';
+const LIGHT_KEY = 'miestudio-light'; // el claro preferido, al que vuelve el botón de sol/luna
+export const THEMES = ['light', 'ivory', 'dark'];
 
-function stored() {
+function stored(key = KEY) {
   try {
-    const t = localStorage.getItem(KEY);
-    return t === 'dark' || t === 'light' ? t : null;
+    const t = localStorage.getItem(key);
+    return THEMES.includes(t) ? t : null;
   } catch {
     return null;
   }
@@ -14,7 +16,7 @@ function apply(name) {
   document.documentElement.dataset.theme = name;
 }
 
-export const theme = $state({ name: 'light' });
+export const theme = $state({ name: 'light', forced: false });
 
 export function initTheme() {
   theme.name = stored() ?? document.documentElement.dataset.theme ?? 'light';
@@ -23,11 +25,26 @@ export function initTheme() {
 
 // Se recuerda la elección en este navegador.
 export function setTheme(name) {
+  if (!THEMES.includes(name)) return;
   theme.name = name;
   apply(name);
   try {
     localStorage.setItem(KEY, name);
+    if (name !== 'dark') localStorage.setItem(LIGHT_KEY, name);
   } catch {}
 }
 
-export const toggleTheme = () => setTheme(theme.name === 'dark' ? 'light' : 'dark');
+// El botón del encabezado alterna entre el oscuro y el claro que la persona prefiere.
+export const toggleTheme = () => setTheme(theme.name === 'dark' ? (stored(LIGHT_KEY) ?? 'light') : 'dark');
+
+// Páginas públicas de un negocio que fijó su tema: se muestra ese sin tocar la elección guardada de quien visita.
+// Devuelve la función que lo deshace (al salir de la página vuelve el tema de la persona).
+export function forceTheme(name) {
+  if (!THEMES.includes(name)) return () => {};
+  theme.forced = true;
+  apply(name);
+  return () => {
+    theme.forced = false;
+    apply(theme.name);
+  };
+}

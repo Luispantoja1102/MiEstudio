@@ -1,20 +1,19 @@
 /* ───────── Tokens ───────── */
-/* Tema claro: marfil cálido, salvia profunda y terracota  — predeterminado */
-/* Tema claro: marfil cálido, berenjena profunda y cempasúchil (un morado y un dorado de mercado, no de oficina) — predeterminado */
+/* Tema claro «Azul tinta»: marfil fresco, azul tinta profundo y terracota — predeterminado (provisional) */
 :root,
 :root[data-theme='light'] {
-  --bg: #f6f1e9;
-  --surface: #fffdfa;
-  --surface-2: #eee5d8;
-  --text: #241a24;
-  --muted: #5f5463;
-  --border: #e0d4c3;
-  --accent: #4b2a5e;
-  --accent-hover: #3b1f4b;
+  --bg: #f3f1ec;
+  --surface: #fffefb;
+  --surface-2: #e9e6dd;
+  --text: #1b2233;
+  --muted: #566074;
+  --border: #dcd8cb;
+  --accent: #1c2f5c;
+  --accent-hover: #14234a;
   --accent-contrast: #ffffff;
-  --accent-soft: #eee4f2;
-  --marigold: #d98e1f;
-  --marigold-soft: #fbedcf;
+  --accent-soft: #e3e8f4;
+  --marigold: #c8643c;
+  --marigold-soft: #f8e2d6;
   --clay: #a8472d;
   --clay-soft: #f5e1d8;
   --danger: #b0302a;
@@ -22,18 +21,53 @@
   --warn: #7a4f00;
   --warn-soft: #f8ebcf;
   /* un color por profesional (agenda, Inicio): desaturados, distinguibles entre sí y de los estados */
-  --p1: #4b7f9c; --p2: #b0643c; --p3: #7a5aa6; --p4: #a4486f; --p5: #8a7a2e; --p6: #3f8a78;
-  /* barra lateral: berenjena oscura con texto marfil y el dorado como marca */
-  --side: #2c1738;
-  --side-text: #f7f0e6;
-  --side-muted: #c0abcb;
-  --side-hover: rgba(255, 250, 240, 0.08);
-  --side-active: rgba(255, 250, 240, 0.15);
-  --side-line: rgba(255, 250, 240, 0.14);
-  --side-mark: #f0b445;
-  --side-mark-ink: #2c1738;
+  --p1: #4b7f9c; --p2: #b0643c; --p3: #6a5aa6; --p4: #a4486f; --p5: #8a7a2e; --p6: #3f8a78;
+  /* barra lateral: azul tinta oscuro con texto marfil y la terracota como marca */
+  --side: #13203b;
+  --side-text: #f4f1ea;
+  --side-muted: #a9b4cc;
+  --side-hover: rgba(244, 241, 234, 0.08);
+  --side-active: rgba(244, 241, 234, 0.15);
+  --side-line: rgba(244, 241, 234, 0.14);
+  --side-mark: #e58a5c;
+  --side-mark-ink: #13203b;
   --shadow-sm: none;
-  --shadow: 0 1px 2px rgba(36, 26, 36, 0.07), 0 14px 32px -14px rgba(36, 26, 36, 0.28);
+  --shadow: 0 1px 2px rgba(27, 34, 51, 0.07), 0 14px 32px -14px rgba(27, 34, 51, 0.28);
+  color-scheme: light;
+}
+
+/* Tema «Marfil»: la solemnidad del tema oscuro (carbón y champán) con el contenido en marfil.
+   Barra lateral y franjas en carbón, botones en carbón, oro champán como único color. */
+:root[data-theme='ivory'] {
+  --bg: #f4efe6;
+  --surface: #fffdf8;
+  --surface-2: #ebe3d3;
+  --text: #161618;
+  --muted: #5a564d;
+  --border: #d9cfbb;
+  --accent: #17171b;
+  --accent-hover: #34343b;
+  --accent-contrast: #f7f1e4;
+  --accent-soft: #f1e7cf;
+  --marigold: #b08a38;
+  --marigold-soft: #f3e8c8;
+  --clay: #a8472d;
+  --clay-soft: #f5e1d8;
+  --danger: #b0302a;
+  --danger-soft: #f9e4e0;
+  --warn: #7a5200;
+  --warn-soft: #f6ead0;
+  --p1: #4b7f9c; --p2: #b0643c; --p3: #6a5aa6; --p4: #a4486f; --p5: #8a7a2e; --p6: #3f8a78;
+  --side: #101012;
+  --side-text: #f3efe6;
+  --side-muted: #a39e93;
+  --side-hover: rgba(243, 239, 230, 0.06);
+  --side-active: rgba(201, 164, 92, 0.18);
+  --side-line: #2a2a2e;
+  --side-mark: #c9a45c;
+  --side-mark-ink: #15110a;
+  --shadow-sm: none;
+  --shadow: 0 1px 2px rgba(22, 22, 24, 0.08), 0 16px 36px -16px rgba(22, 22, 24, 0.34);
   color-scheme: light;
 }
 
@@ -82,6 +116,10 @@
   --dur-press: 140ms;
   --dur-ui: 180ms;
 }
+
+/* Marfil: un filete de oro champán firma la cabecera y los botones principales brillan al pasar el cursor */
+:root[data-theme='ivory'] .btn:not(.ghost):hover { box-shadow: inset 0 0 0 1px var(--marigold); }
+:root[data-theme='ivory'] ::selection { background: var(--marigold-soft); }
 
 /* ───────── Base ───────── */
 * { box-sizing: border-box; }

@@ -22,19 +22,20 @@ type bookingSettings struct {
 	ShowPrices        bool   `json:"show_prices"`
 	WelcomeText       string `json:"welcome_text"`
 	PrivacyEmail      string `json:"privacy_email"`      // correo para solicitudes de privacidad (se muestra en el aviso)
+	PublicTheme       string `json:"public_theme"`       // auto | light | ivory | dark: tema de las páginas públicas del negocio
 	WhatsAppReminders bool   `json:"whatsapp_reminders"` // además del correo, recordar por WhatsApp a quien lo aceptó
 }
 
 func defaultBookingSettings() bookingSettings {
-	return bookingSettings{MinNoticeHours: 2, MaxDaysAhead: 30, CancelMinHours: 2, ReminderHours: 24, ShowPrices: true}
+	return bookingSettings{MinNoticeHours: 2, MaxDaysAhead: 30, CancelMinHours: 2, ReminderHours: 24, ShowPrices: true, PublicTheme: "auto"}
 }
 
 func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSettings, error) {
 	s := defaultBookingSettings()
 	err := q.QueryRow(ctx,
-		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders
+		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme
 		 FROM booking_settings WHERE business_id = $1`, bizID).
-		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders)
+		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders, &s.PublicTheme)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil
 	}
@@ -81,6 +82,8 @@ func validBookingSettings(s bookingSettings) string {
 		return "el recordatorio debe ser de 0 a 168 horas antes (0 = sin recordatorio)"
 	case s.PrivacyEmail != "" && !validEmail(s.PrivacyEmail):
 		return "el correo de privacidad no es válido"
+	case s.PublicTheme != "auto" && s.PublicTheme != "light" && s.PublicTheme != "ivory" && s.PublicTheme != "dark":
+		return "el tema de la página pública no es válido"
 	case utf8.RuneCountInString(s.WelcomeText) > 500:
 		return "el mensaje de bienvenida es demasiado largo (máximo 500 caracteres)"
 	}
@@ -96,6 +99,9 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
 	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
+	if s.PublicTheme == "" {
+		s.PublicTheme = "auto" // clientes antiguos que no envían el campo
+	}
 	if msg := validBookingSettings(s); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
@@ -115,13 +121,13 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		 ON CONFLICT (business_id) DO UPDATE SET enabled = EXCLUDED.enabled, min_notice_hours = EXCLUDED.min_notice_hours,
 		   max_days_ahead = EXCLUDED.max_days_ahead, cancel_min_hours = EXCLUDED.cancel_min_hours, deposit_percent = EXCLUDED.deposit_percent,
 		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email,
-		   whatsapp_reminders = EXCLUDED.whatsapp_reminders`,
-		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders); err != nil {
+		   whatsapp_reminders = EXCLUDED.whatsapp_reminders, public_theme = EXCLUDED.public_theme`,
+		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders, s.PublicTheme); err != nil {
 		serverErr(w)
 		return
 	}

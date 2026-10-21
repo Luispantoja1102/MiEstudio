@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import PublicLayout from '$lib/PublicLayout.svelte';
 
@@ -13,6 +14,13 @@
   let error = $state('');
   let busy = $state(false);
   let done = $state(null);
+  let bizTheme = $state('auto');
+  onMount(async () => {
+    try {
+      const r = await fetch(`/api/public/${slug}/privacy`);
+      if (r.ok) bizTheme = (await r.json()).theme ?? 'auto';
+    } catch {}
+  });
 
   async function submit(e) {
     e.preventDefault();
@@ -31,7 +39,7 @@
   }
 </script>
 
-<PublicLayout title="Ejercer mis derechos" subtitle="Acceso, rectificación, cancelación u oposición sobre tus datos personales.">
+<PublicLayout title="Ejercer mis derechos" subtitle="Acceso, rectificación, cancelación u oposición sobre tus datos personales." businessTheme={bizTheme}>
   {#if done}
     <div class="card" role="status">
       <h2>Recibimos tu solicitud</h2>

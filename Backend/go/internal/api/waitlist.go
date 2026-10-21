@@ -590,7 +590,7 @@ func (a *API) offerWaitlist(ctx context.Context, c waitCand, times []time.Time, 
 	h.WriteString(`<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2a28">`)
 	fmt.Fprintf(&h, `<h2 style="margin:0 0 12px;font-size:20px">%s</h2><p style="margin:0 0 16px;line-height:1.5">Hola %s, se liberó un lugar para %s: %s.</p>`, esc(c.Business), esc(name), esc(c.ServiceName), htmlList.String())
 	if book != "" {
-		fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4b2a5e;color:#fff;text-decoration:none">Reservar ahora</a></p><p style="margin:8px 0 0;font-size:13px;color:#5b6864">El primero que lo toma, se lo queda.</p>`, esc(book))
+		fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#1c2f5c;color:#fff;text-decoration:none">Reservar ahora</a></p><p style="margin:8px 0 0;font-size:13px;color:#5b6864">El primero que lo toma, se lo queda.</p>`, esc(book))
 	} else {
 		fmt.Fprintf(&h, `<p style="margin:16px 0 0;line-height:1.5">Comunícate con %s para tomarlo; el primero que lo pide, se lo queda.</p>`, esc(c.Business))
 	}

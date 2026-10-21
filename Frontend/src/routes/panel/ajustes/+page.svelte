@@ -1,6 +1,7 @@
 <script>
   import { goto } from '$app/navigation';
   import AccountSettings from '$lib/AccountSettings.svelte';
+  import Appearance from '$lib/Appearance.svelte';
   import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
@@ -41,7 +42,10 @@
     },
     {
       title: 'Mi cuenta',
-      items: [{ id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings }]
+      items: [
+        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings },
+        { id: 'apariencia', label: 'Apariencia', desc: 'Tema de la aplicación', icon: 'sun', component: Appearance }
+      ]
     }
   ];
 

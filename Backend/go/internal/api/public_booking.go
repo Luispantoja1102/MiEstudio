@@ -206,6 +206,7 @@ func (a *API) publicInfo(w http.ResponseWriter, r *http.Request) {
 		"reminders":        b.Settings.ReminderHours > 0 && a.mailEnabled(),
 		"whatsapp":         b.Settings.ReminderHours > 0 && b.Settings.WhatsAppReminders && a.waEnabled(),
 		"waitlist":         a.mailEnabled(), // la lista de espera avisa por correo
+		"theme":            b.Settings.PublicTheme,
 		"today":            a.now().In(b.Loc).Format(dateLayout),
 	})
 }
@@ -643,6 +644,7 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		"client_first":     name,
 		"can_cancel":       m.canCancel(now, st.CancelMinHours),
 		"cancel_min_hours": st.CancelMinHours,
+		"theme":            st.PublicTheme,
 		"cancel_deadline":  m.Starts.Add(-time.Duration(st.CancelMinHours) * time.Hour).UTC().Format(time.RFC3339),
 	}
 	if dep != nil {

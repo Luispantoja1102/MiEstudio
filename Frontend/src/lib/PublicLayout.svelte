@@ -1,13 +1,18 @@
 <script>
   import Header from '$lib/Header.svelte';
+  import { forceTheme, theme } from '$lib/theme.svelte.js';
 
   // Marco de las páginas públicas (sin sesión): encabezado con tema y un contenedor angosto.
   // brand: muestra la inicial del negocio como monograma (páginas de reserva)
-  let { title = '', subtitle = '', brand = false, children } = $props();
+  // businessTheme: tema que fijó el negocio ('auto' deja elegir a quien visita)
+  let { title = '', subtitle = '', brand = false, businessTheme = 'auto', children } = $props();
+  $effect(() => {
+    if (businessTheme && businessTheme !== 'auto') return forceTheme(businessTheme);
+  });
 </script>
 
 <svelte:head><title>{title ? `${title} · MiEstudio` : 'MiEstudio'}</title></svelte:head>
-<Header />
+<Header hideToggle={theme.forced} />
 <main class="wrap">
   {#if title && brand}
     <div class="id">

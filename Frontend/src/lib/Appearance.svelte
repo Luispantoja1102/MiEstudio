@@ -3,8 +3,9 @@
   import { setTheme, theme } from '$lib/theme.svelte.js';
 
   const options = [
-    ['light', 'Claro y suave', 'Tonos cálidos y descansados, ideal de día.', 'sun'],
-    ['dark', 'Oscuro y elegante', 'Fondo oscuro con detalles dorados, ideal con poca luz.', 'moon']
+    ['light', 'Azul tinta', 'Claro y fresco: marfil, azul profundo y terracota.', 'sun'],
+    ['ivory', 'Marfil', 'Claro y solemne: contenido en marfil con carbón y oro champán.', 'sun'],
+    ['dark', 'Oscuro', 'Carbón con detalles dorados, ideal con poca luz.', 'moon']
   ];
 </script>
 
@@ -17,7 +18,7 @@
     </button>
   {/each}
 </div>
-<p class="meta">Se recuerda en este navegador. También puedes cambiarlo con el botón de la luna o el sol arriba.</p>
+<p class="meta">Se recuerda en este navegador. El botón del sol y la luna arriba alterna entre el oscuro y tu tema claro. La página pública de tu negocio tiene su propio tema (Ajustes → Reservas en línea).</p>
 
 <style>
   .opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }

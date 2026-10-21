@@ -1,14 +1,14 @@
 <script>
   import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
-  let { children } = $props();
+  let { hideToggle = false, children } = $props();
 </script>
 
 <header>
   <div class="container bar">
     <Logo />
     <nav aria-label="Principal">
-      <ThemeToggle />
+      {#if !hideToggle}<ThemeToggle />{/if}
       {@render children?.()}
     </nav>
   </div>
