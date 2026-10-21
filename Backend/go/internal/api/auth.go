@@ -205,10 +205,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if !a.allow(w, "login-ip:"+clientIP(r), 30, time.Minute) ||
-		!a.allow(w, "login-email:"+email, 10, 15*time.Minute) {
-		return
-	}
+	// el inicio de sesión no se bloquea por intentos (decisión del dueño): un fallo siempre responde 401 con el mismo mensaje
 
 	var id int64
 	var hash string

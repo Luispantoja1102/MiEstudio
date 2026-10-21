@@ -42,6 +42,7 @@
   let error = $state('');
   let busy = $state(false);
   let receipt = $state(null);
+  let ticketOpen = $state(false); // celular: el ticket es una hoja que sube desde abajo
   let timers = {};
   let clientTimer;
 
@@ -275,6 +276,7 @@
         }))
       };
       receipt = await api('/api/sales', { method: 'POST', body });
+      ticketOpen = false;
       resetTicket();
       await load();
     } catch (err) {
@@ -389,8 +391,12 @@
     </section>
 
     <!-- ticket -->
-    <section class="ticket card">
-      <h2>Ticket</h2>
+    <button class="scrim" class:open={ticketOpen} aria-label="Cerrar el ticket" tabindex="-1" onclick={() => (ticketOpen = false)}></button>
+    <section class="ticket card" class:open={ticketOpen} aria-label="Ticket">
+      <div class="sheet-head">
+        <h2>Ticket</h2>
+        <button class="btn ghost sm close" onclick={() => (ticketOpen = false)}>Seguir agregando</button>
+      </div>
 
       <div class="client">
         {#if client}
@@ -519,6 +525,14 @@
         {#if mpPending}<p class="meta" style="text-align: center; margin: 0.5rem 0 0">Espera a que la terminal apruebe el pago.</p>{/if}
       {/if}
     </section>
+
+    {#if lines.length > 0}
+      <button class="ticketbar" onclick={() => (ticketOpen = true)}>
+        <span class="tb-count">{plural(lines.reduce((n, l) => n + l.qty, 0), 'artículo', 'artículos')}</span>
+        <span class="tb-total">{money(due)}</span>
+        <span class="tb-go">Ver ticket y cobrar</span>
+      </button>
+    {/if}
   </div>
 {/if}
 
@@ -526,7 +540,33 @@
   .item-row.appt small { display: block; }
   .open { max-width: 420px; }
   .pos { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
-  @media (min-width: 1000px) { .pos { grid-template-columns: 1.1fr 0.9fr; } .ticket { position: sticky; top: 16px; } }
+  @media (min-width: 760px) { .pos { grid-template-columns: 1.1fr 0.9fr; } .ticket { position: sticky; top: 16px; } }
+
+  /* celular: barra con el total siempre a la vista y el ticket como hoja */
+  .ticketbar, .scrim, .sheet-head .close { display: none; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  @media (max-width: 759px) {
+    .ticketbar {
+      position: fixed; inset: auto 12px calc(72px + env(safe-area-inset-bottom)) 12px; z-index: 35;
+      display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 12px; padding: 0.6rem 1rem; text-align: left;
+      font: inherit; color: var(--accent-contrast); background: var(--accent); border: 0; border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer;
+      transition: transform var(--dur-press) var(--ease);
+    }
+    .ticketbar:active { transform: scale(0.98); }
+    .tb-count { font-size: 0.8rem; opacity: 0.85; }
+    .tb-total { grid-column: 2; grid-row: 1 / 3; justify-self: end; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tb-go { font-weight: 600; }
+    .scrim { display: block; position: fixed; inset: 0; z-index: 55; border: 0; padding: 0; background: rgba(20, 18, 14, 0.45); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease); }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .ticket {
+      position: fixed; inset: auto 0 0 0; z-index: 60; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      transform: translateY(105%); visibility: hidden; transition: transform 260ms var(--ease), visibility 0s linear 260ms; box-shadow: var(--shadow);
+    }
+    .ticket.open { transform: none; visibility: visible; transition: transform 260ms var(--ease); }
+    .sheet-head .close { display: inline-flex; }
+    .done, .pos { padding-bottom: 88px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .ticket, .ticket.open { transition: none; } }
 
   .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.75rem; }
   .tabs .chip { margin: 0; }

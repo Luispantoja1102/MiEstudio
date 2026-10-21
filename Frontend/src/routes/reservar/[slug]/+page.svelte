@@ -146,7 +146,7 @@
   const staffName = $derived(staffId ? info?.staff.find((p) => String(p.id) === String(staffId))?.name : 'Cualquier profesional');
 </script>
 
-<PublicLayout title={missing ? 'Página no disponible' : (info?.business.name ?? '')} subtitle={info?.business.welcome_text ?? ''}>
+<PublicLayout title={missing ? 'Página no disponible' : (info?.business.name ?? '')} subtitle={info?.business.welcome_text ?? ''} brand={!missing && !!info}>
   {#if missing}
     <div class="card"><p>Esta página de reservas no existe o no está disponible por ahora. Revisa el enlace que te compartió el negocio.</p></div>
   {:else if !info}
@@ -168,7 +168,9 @@
   {:else}
     <ol class="steps" aria-label="Pasos">
       {#each ['Servicio', 'Lugar', 'Horario', 'Tus datos'] as label, i}
-        <li aria-current={step === i + 1 ? 'step' : undefined} class:on={step >= i + 1}>{label}</li>
+        <li aria-current={step === i + 1 ? 'step' : undefined} class:on={step >= i + 1}>
+          {#if i + 1 < step}<button type="button" onclick={() => (step = i + 1)}>{label}</button>{:else}<span>{label}</span>{/if}
+        </li>
       {/each}
     </ol>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -295,9 +297,12 @@
 </PublicLayout>
 
 <style>
-  .steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 1.25rem; font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; }
-  .steps li { padding: 4px 12px; border-radius: 999px; background: var(--surface-2); }
+  .steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 1.25rem; font-size: 0.88rem; color: var(--muted); flex-wrap: wrap; }
+  .steps li { border-radius: 999px; background: var(--surface-2); }
+  .steps li > span, .steps li > button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 999px; }
+  .steps li > button { cursor: pointer; }
   .steps li.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .steps li[aria-current='step'] { background: var(--accent); color: var(--accent-contrast); }
   .pick { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
   .pick:hover { border-color: var(--accent); }
   .pick .meta { display: block; }

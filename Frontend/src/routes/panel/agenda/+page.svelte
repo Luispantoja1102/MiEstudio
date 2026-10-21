@@ -13,6 +13,7 @@
   const tz = session.me.business.timezone || 'America/Tijuana';
   const role = session.me.role;
   const canBook = ['admin', 'reception', 'staff'].includes(role);
+  const sells = ['admin', 'cashier', 'reception'].includes(role);
 
   let branches = $state([]);
   let branchId = $state(null);
@@ -25,6 +26,9 @@
   let detail = $state(null);
   let detailOpen = $state(false);
   let seq = 0;
+  // celular: «Mi día» (lista cronológica) en lugar de columnas por persona
+  let view = $state('grid');
+  let who = $state(role === 'staff' ? session.me.id : 0); // 0 = todos
 
   async function load() {
     if (!branchId) return;
@@ -44,6 +48,7 @@
     try {
       branches = (await api('/api/branches')).filter((b) => b.active);
       branchId = branches[0]?.id ?? null;
+      if (window.matchMedia('(max-width: 699px)').matches) view = 'list';
       await load();
     } catch (e) {
       error = e.message;
@@ -88,6 +93,13 @@
     const list = (data?.appointments ?? []).filter((a) => a.status === 'scheduled');
     return list.length;
   });
+
+  const dayList = $derived(
+    (data?.appointments ?? [])
+      .filter((a) => (showCancelled || a.status !== 'cancelled') && (!who || a.staff_id === who))
+      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+  );
+  const STATE = { pending_payment: ['Espera anticipo', 'clay'], completed: ['Cobrada', 'muted'], no_show: ['No asistió', 'muted'], cancelled: ['Cancelada', 'muted'] };
 
   function openDetail(a) {
     detail = a;
@@ -134,6 +146,10 @@
     </select>
   {/if}
   <label class="check"><input type="checkbox" bind:checked={showCancelled} />Ver canceladas</label>
+  <div class="viewswitch" role="group" aria-label="Vista">
+    <button class="chip" aria-pressed={view === 'list'} onclick={() => (view = 'list')}>Mi día</button>
+    <button class="chip" aria-pressed={view === 'grid'} onclick={() => (view = 'grid')}>Columnas</button>
+  </div>
 </div>
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -145,7 +161,34 @@
       {#if role === 'admin'}Ve a <a href="/panel/equipo">Equipo</a>, marca «En agenda» y define su horario.{/if}
     </div>
   {:else}
-    <div class="wrap">
+    {#if view === 'list'}
+      <div class="chips" role="group" aria-label="Persona">
+        <button class="chip" aria-pressed={who === 0} onclick={() => (who = 0)}>Todos</button>
+        {#each data.staff as s (s.id)}<button class="chip" aria-pressed={who === s.id} onclick={() => (who = s.id)}>{s.name}</button>{/each}
+      </div>
+      {#if dayList.length === 0}
+        <div class="empty">No hay citas {who ? 'para esta persona' : ''} este día.</div>
+      {:else}
+        <ol class="daylist">
+          {#each dayList as a (a.id)}
+            <li class={a.status}>
+              <button class="row" onclick={() => openDetail(a)}>
+                <time class="when" datetime={a.starts_at}>{fmtTime(a.starts_at, tz)}</time>
+                <span class="what">
+                  <b>{a.client_name}</b>
+                  <span class="meta">{a.service_name}{#if !who}{' · ' + a.staff_name}{/if}</span>
+                  {#if STATE[a.status] || a.deposit_status === 'paid'}
+                    <span class="badge {STATE[a.status]?.[1] ?? ''}">{STATE[a.status]?.[0] ?? 'Anticipo pagado'}</span>
+                  {/if}
+                </span>
+              </button>
+              {#if sells && a.status === 'scheduled'}<a class="btn sm ghost" href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>{/if}
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    {/if}
+    <div class="wrap" class:hidden-sm={view === 'list'}>
       <div class="grid" style="grid-template-columns: 52px repeat({data.staff.length}, minmax(170px, 1fr))">
         <div class="corner"></div>
         {#each data.staff as s (s.id)}<div class="colhead">{s.name}</div>{/each}
@@ -191,6 +234,20 @@
 </Modal>
 
 <style>
+  .viewswitch { display: none; gap: 6px; margin-left: auto; }
+  .viewswitch .chip { margin: 0; }
+  .daylist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .daylist li { display: flex; align-items: center; gap: 8px; padding-right: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .daylist li.cancelled { opacity: 0.55; }
+  .daylist .row { flex: 1; min-width: 0; display: grid; grid-template-columns: 3.4rem 1fr; gap: 10px; align-items: center; padding: 0.8rem 0.5rem 0.8rem 0.85rem; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+  .daylist .when { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .daylist .what { display: grid; gap: 2px; justify-items: start; min-width: 0; }
+  .daylist .meta { font-size: 0.88rem; color: var(--muted); }
+  @media (max-width: 699px) {
+    .viewswitch { display: flex; }
+    .hidden-sm { display: none; }
+  }
+  @media (min-width: 700px) { .daylist, .chips[aria-label='Persona'] { display: none; } .wrap.hidden-sm { display: block; } }
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 1rem; }
   .icon { width: 40px; padding: 0; }
   .flip { display: inline-flex; transform: rotate(180deg); }

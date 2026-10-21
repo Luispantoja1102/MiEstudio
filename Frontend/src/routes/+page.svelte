@@ -2,25 +2,49 @@
   import Header from '$lib/Header.svelte';
   import Icon from '$lib/Icon.svelte';
 
-  const features = [
-    ['calendar', 'Agenda por profesional', 'Horarios, bloqueos y citas sin empalmes. Cada barbero o estilista con su propia agenda.'],
-    ['card', 'Punto de venta', 'Cobra servicios y productos, con caja diaria, propinas y pagos en efectivo, tarjeta o transferencia.'],
-    ['percent', 'Comisiones claras', 'Calcula automáticamente lo que le toca a cada profesional por servicio.'],
-    ['notes', 'Clientes y seguimiento', 'Una ficha por cliente con notas: fórmulas, preferencias y cuidados especiales.'],
-    ['globe', 'Reserva en línea', 'Un enlace para que tus clientes agenden y cancelen solos, a cualquier hora.'],
-    ['package', 'Inventario', 'Controla tus productos de reventa y su existencia.']
+  const parts = [
+    {
+      title: 'En el mostrador',
+      lead: 'Lo que usas cien veces al día, sin pensar.',
+      items: [
+        'Agenda por profesional, sin citas empalmadas',
+        'Cobra en efectivo, tarjeta, transferencia o con tu terminal de Mercado Pago',
+        'Caja diaria con apertura, cierre y propinas',
+        'Paquetes y comisiones que se calculan solas'
+      ]
+    },
+    {
+      title: 'Para tus clientes',
+      lead: 'Que reserven, paguen y lleguen, sin que les marques.',
+      items: [
+        'Una página de reservas con tu nombre, a cualquier hora',
+        'Anticipo con Mercado Pago para que no te dejen plantado',
+        'Recordatorio por correo y por WhatsApp',
+        'Lista de espera: si se libera un lugar, se les avisa'
+      ]
+    },
+    {
+      title: 'Para ti, que eres el dueño',
+      lead: 'Saber cómo va el día sin preguntarle a nadie.',
+      items: [
+        'Ventas, comisiones y existencias en un solo lugar',
+        'Felicitación de cumpleaños y encuesta con reseña en Google',
+        'Aviso de privacidad y solicitudes ARCO (LFPDPPP) ya resueltos',
+        'Equipo con roles: recepción, caja y profesionales'
+      ]
+    }
   ];
   const steps = [
-    ['Crea tu cuenta', 'Registra tu negocio y elige tu giro.'],
-    ['Configura tu equipo', 'Agrega servicios, profesionales y horarios.'],
-    ['Empieza a agendar y cobrar', 'Recibe citas y lleva tu caja sin papel.']
+    ['Crea tu cuenta', 'Tu negocio y tu giro: barbería, estética, spa o uñas.'],
+    ['Agrega tu equipo y tus servicios', 'Con sus horarios y precios en pesos.'],
+    ['Comparte tu enlace', 'Tus clientes reservan y tú cobras desde el primer día.']
   ];
   const giros = ['Barberías', 'Estéticas', 'Spas', 'Uñas'];
   const sample = [
-    ['10:00', 'Corte clásico', 'Marco', 'accent'],
-    ['10:45', 'Barba y toalla caliente', 'Marco', 'accent'],
-    ['11:00', 'Facial hidratante', 'Ana', 'soft'],
-    ['12:30', 'Manicure', 'Lucía', 'soft']
+    ['10:00', 'Corte clásico', 'Marco', true],
+    ['10:45', 'Corte y barba', 'Ana', false],
+    ['11:30', 'Facial hidratante', 'Lalo', false],
+    ['12:30', 'Manicure', 'Lucía', false]
   ];
 </script>
 
@@ -30,59 +54,59 @@
 </Header>
 
 <main>
-  <section class="container hero">
-    <div class="copy">
-      <span class="eyebrow">Agenda y punto de venta</span>
-      <h1>Gestiona tu negocio de belleza con elegancia.</h1>
-      <p class="lead">
-        Citas, cobros y clientes en un solo lugar. Pensado para barberías, estéticas y spas que quieren verse y operar como los mejores.
-      </p>
-      <div class="actions">
-        <a class="btn lg" href="/registro">Empezar ahora <Icon name="arrow" size={18} /></a>
-        <a class="btn ghost lg" href="/login">Ya tengo cuenta</a>
-      </div>
-      <ul class="giros" aria-label="Giros">
-        {#each giros as g}<li>{g}</li>{/each}
-      </ul>
-    </div>
-
-    <div class="preview" aria-hidden="true">
-      <div class="card agenda">
-        <div class="agenda-head">
-          <strong>Hoy</strong>
-          <span>4 citas</span>
+  <section class="band">
+    <div class="container hero">
+      <div class="copy">
+        <h1>La agenda y la caja de tu negocio de belleza, hechas en México.</h1>
+        <p class="lead">
+          Tus clientes reservan solos y pagan su anticipo con Mercado Pago. Tú cobras en pesos y ves qué le toca a cada quien.
+        </p>
+        <div class="actions">
+          <a class="btn lg" href="/registro">Probar 14 días gratis <Icon name="arrow" size={18} /></a>
+          <a class="btn ghost lg" href="/login">Ya tengo cuenta</a>
         </div>
-        {#each sample as [time, service, who, tone]}
-          <div class="row" class:soft={tone === 'soft'}>
-            <span class="time">{time}</span>
-            <span class="info"><b>{service}</b><small>con {who}</small></span>
-          </div>
-        {/each}
+        <p class="fine">Sin tarjeta para empezar.</p>
+        <ul class="giros" aria-label="Giros">
+          {#each giros as g}<li>{g}</li>{/each}
+        </ul>
       </div>
+
+      <figure class="preview" aria-label="Ejemplo de la agenda del día">
+        <div class="agenda">
+          <div class="agenda-head">
+            <strong>Hoy</strong>
+            <span>4 citas</span>
+          </div>
+          {#each sample as [time, service, who, next]}
+            <div class="row" class:next>
+              <span class="time">{time}</span>
+              <span class="info"><b>{service}</b><small>con {who}</small></span>
+              {#if next}<span class="tag">Siguiente</span>{/if}
+            </div>
+          {/each}
+        </div>
+        <figcaption>Ejemplo ilustrativo</figcaption>
+      </figure>
     </div>
   </section>
 
   <section class="container section" id="funciones">
-    <div class="head">
-      <span class="eyebrow">Todo en uno</span>
-      <h2>Lo que necesitas para operar cada día</h2>
-    </div>
-    <div class="grid">
-      {#each features as [icon, title, text]}
-        <article class="card feature">
-          <span class="ico"><Icon name={icon} size={22} /></span>
-          <h3>{title}</h3>
-          <p>{text}</p>
+    <h2>Todo lo del día, en un solo lugar</h2>
+    <div class="parts">
+      {#each parts as p}
+        <article>
+          <h3>{p.title}</h3>
+          <p class="plead">{p.lead}</p>
+          <ul>
+            {#each p.items as i}<li>{i}</li>{/each}
+          </ul>
         </article>
       {/each}
     </div>
   </section>
 
   <section class="container section">
-    <div class="head">
-      <span class="eyebrow">Cómo funciona</span>
-      <h2>Listo en tres pasos</h2>
-    </div>
+    <h2>Listo en tres pasos</h2>
     <ol class="steps">
       {#each steps as [title, text], i}
         <li>
@@ -96,8 +120,8 @@
 
   <section class="container section">
     <div class="cta">
-      <h2>Lleva tu negocio al siguiente nivel</h2>
-      <p>Crea tu cuenta y empieza a organizar tu agenda hoy.</p>
+      <h2>Empieza hoy, sin tarjeta</h2>
+      <p>14 días para probar todo con tus propios clientes.</p>
       <a class="btn lg invert" href="/registro">Crear mi cuenta</a>
     </div>
   </section>
@@ -109,82 +133,64 @@
 </footer>
 
 <style>
-  .hero { display: grid; gap: 48px; padding-block: 56px 72px; align-items: center; }
+  /* la franja principal lleva el color de la barra lateral: berenjena en claro, carbón en oscuro */
+  .band {
+    --text: var(--side-text);
+    --muted: var(--side-muted);
+    --accent: var(--side-mark);
+    --accent-hover: var(--side-mark);
+    --accent-contrast: var(--side-mark-ink);
+    background: var(--side);
+    color: var(--side-text);
+  }
+  .band :global(.btn.ghost) { color: var(--side-text); border-color: var(--side-line); }
+  .band :global(.btn.ghost:hover) { background: var(--side-hover); border-color: var(--side-muted); }
+  .band :global(.btn:not(.ghost):hover) { filter: brightness(1.06); }
+  .hero { display: grid; gap: 48px; padding-block: 64px 80px; align-items: center; }
   .copy { animation: rise 0.6s var(--ease) both; }
-  h1 { font-size: clamp(2.3rem, 6vw, 3.6rem); }
-  .lead { font-size: 1.15rem; color: var(--muted); max-width: 34em; margin-bottom: 1.75rem; }
-  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 2rem; }
+  h1 { font-size: clamp(2.2rem, 5.6vw, 3.5rem); max-width: 15em; }
+  .lead { font-size: 1.15rem; color: var(--side-muted); max-width: 32em; margin-bottom: 1.75rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 0.75rem; }
+  .fine { font-size: 0.88rem; color: var(--side-muted); margin-bottom: 1.75rem; }
   .giros { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
-  .giros li {
-    padding: 0.3rem 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--muted);
-    font-size: 0.85rem;
-    background: var(--surface);
-  }
+  .giros li { padding: 0.3rem 0.9rem; border: 1px solid var(--side-line); border-radius: 999px; color: var(--side-muted); font-size: 0.88rem; }
 
-  .preview { animation: rise 0.6s 0.12s var(--ease) both; }
-  .agenda { padding: 1.25rem; box-shadow: var(--shadow); max-width: 440px; margin-inline: auto; }
-  .agenda-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 0.25rem 0.9rem; }
-  .agenda-head span { font-size: 0.85rem; color: var(--muted); }
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 0.8rem 0.9rem;
-    margin-top: 8px;
-    border-radius: var(--radius-sm);
-    background: var(--accent-soft);
-  }
-  .row.soft { background: var(--surface-2); }
-  .time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.9rem; min-width: 2.8rem; }
-  .info { display: grid; line-height: 1.3; }
-  .info small { color: var(--muted); }
+  .preview { margin: 0; animation: rise 0.6s 0.12s var(--ease) both; }
+  .agenda { padding: 1.25rem; max-width: 440px; margin-inline: auto; background: #fffdfa; color: #241a24; border-radius: var(--radius); box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.55); }
+  .agenda-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 0.25rem 0.9rem; font-family: var(--font-heading); font-size: 1.25rem; }
+  .agenda-head span { font-family: var(--font-body); font-size: 0.88rem; color: #5f5463; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 0.8rem 0.9rem; margin-top: 8px; border-radius: var(--radius-sm); background: #eee5d8; }
+  .row.next { background: #fbedcf; }
+  .time { font-family: var(--font-heading); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 1.1rem; min-width: 3rem; }
+  .info { display: grid; line-height: 1.3; flex: 1; }
+  .info small { color: #5f5463; font-size: 0.85rem; }
+  .tag { font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #fffdfa; color: #7a4f00; }
+  figcaption { margin-top: 10px; text-align: center; font-size: 0.8rem; color: var(--side-muted); }
 
-  .section { padding-block: 56px; }
-  .head { max-width: 640px; margin-bottom: 2rem; }
-  .head h2 { font-size: clamp(1.7rem, 4vw, 2.3rem); margin: 0; }
+  .section { padding-block: 64px 8px; }
+  .section h2 { font-size: clamp(1.7rem, 4vw, 2.3rem); max-width: 20em; margin-bottom: 1.75rem; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-  .feature { transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease); }
-  .feature:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--accent); }
-  .feature h3 { font-size: 1.2rem; }
-  .feature p { color: var(--muted); margin: 0; font-size: 0.95rem; }
-  .ico {
-    display: inline-grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    margin-bottom: 1rem;
-    border-radius: 10px;
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
+  .parts { display: grid; gap: 40px 56px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .parts h3 { font-size: 1.35rem; margin-bottom: 0.25rem; }
+  .plead { color: var(--muted); margin-bottom: 1rem; }
+  .parts ul { list-style: none; margin: 0; padding: 0; }
+  .parts li { padding: 0.7rem 0; border-top: 1px solid var(--border); font-size: 0.98rem; }
 
-  .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); list-style: none; padding: 0; margin: 0; }
-  .steps li { padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .steps { display: grid; gap: 16px 40px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); list-style: none; padding: 0; margin: 0; }
+  .steps li { padding-top: 1.25rem; border-top: 2px solid var(--accent); }
   .num { font-family: var(--font-heading); font-size: 2rem; color: var(--accent); line-height: 1; }
   .steps h3 { font-size: 1.15rem; margin-top: 0.5rem; }
   .steps p { color: var(--muted); margin: 0; }
 
-  .cta {
-    text-align: center;
-    padding: clamp(2.5rem, 7vw, 4.5rem) 1.5rem;
-    border-radius: calc(var(--radius) * 1.5);
-    background: var(--accent);
-    color: var(--accent-contrast);
-  }
-  .cta h2 { font-size: clamp(1.7rem, 4vw, 2.4rem); }
-  .cta p { opacity: 0.9; margin-bottom: 1.5rem; }
-  .btn.invert { background: var(--accent-contrast); color: var(--accent); border-color: var(--accent-contrast); }
-  .btn.invert:hover { background: var(--accent-contrast); filter: brightness(0.94); }
+  .cta { text-align: center; padding: clamp(2.5rem, 7vw, 4.5rem) 1.5rem; border-radius: calc(var(--radius) * 1.5); background: var(--side); color: var(--side-text); }
+  .cta h2 { font-size: clamp(1.7rem, 4vw, 2.4rem); margin-inline: auto; }
+  .cta p { color: var(--side-muted); margin-bottom: 1.5rem; }
+  .cta .btn { background: var(--side-mark); border-color: var(--side-mark); color: var(--side-mark-ink); }
+  .cta .btn:hover { filter: brightness(1.06); }
+  .section:last-of-type { padding-bottom: 64px; }
 
-  .foot { padding-block: 32px 40px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--border); }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-block: 32px 40px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--border); }
 
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-
-  @media (min-width: 900px) {
-    .hero { grid-template-columns: 1.15fr 0.85fr; }
-  }
+  @media (min-width: 900px) { .hero { grid-template-columns: 1.1fr 0.9fr; } }
 </style>

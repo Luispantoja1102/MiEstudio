@@ -274,20 +274,16 @@ func TestChangePassword(t *testing.T) {
 	}
 }
 
-func TestLoginRateLimit(t *testing.T) {
+func TestLoginIsNeverLockedOut(t *testing.T) {
 	a := newTestAPI(t)
 	a.Limiter = ratelimit.New()
 	a.mustRegister(t, "N", "a@x.com")
-
-	var last int
-	for i := 0; i < 12; i++ {
-		last = a.doLogin(t, "a@x.com", "incorrecta1").Status
+	for i := 0; i < 60; i++ {
+		if r := a.doLogin(t, "a@x.com", "incorrecta1"); r.Status != 401 {
+			t.Fatalf("intento %d: esperaba 401, obtuvo %d", i, r.Status)
+		}
 	}
-	if last != 429 {
-		t.Fatalf("tras muchos intentos esperaba 429, obtuvo %d", last)
-	}
-	// aun con la contraseña correcta queda bloqueado por la ventana
-	if r := a.doLogin(t, "a@x.com", "supersecreta1"); r.Status != 429 {
-		t.Fatalf("esperaba 429, obtuvo %d", r.Status)
+	if r := a.doLogin(t, "a@x.com", "supersecreta1"); r.Status != 200 {
+		t.Fatalf("con la contraseña correcta debe entrar siempre: %d", r.Status)
 	}
 }

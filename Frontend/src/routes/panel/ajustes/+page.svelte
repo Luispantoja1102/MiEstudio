@@ -1,7 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
   import AccountSettings from '$lib/AccountSettings.svelte';
-  import Appearance from '$lib/Appearance.svelte';
   import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
@@ -21,29 +20,28 @@
       title: 'Mi negocio',
       items: [
         { id: 'negocio', label: 'Datos del negocio', desc: 'Nombre, giro y zona horaria', icon: 'home', component: BusinessProfile, roles: A },
-        { id: 'equipo', label: 'Equipo', desc: 'Agregar personal, roles, comisiones y horarios', icon: 'users', component: Equipo, roles: A },
-        { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales: nombre, dirección y teléfono', icon: 'home', component: Sucursales, roles: A },
-        { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de MiEstudio, cuánto pagas y tus pagos', icon: 'wallet', component: Suscripcion, roles: A }
+        { id: 'equipo', label: 'Equipo', desc: 'Personal, roles y horarios', icon: 'users', component: Equipo, roles: A },
+        { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales y su dirección', icon: 'home', component: Sucursales, roles: A }
       ]
     },
     {
-      title: 'Agenda y clientes',
+      title: 'Clientes',
       items: [
-        { id: 'reserva', label: 'Reservas y página pública', desc: 'Tu dirección en línea, anticipos y recordatorios por correo', icon: 'globe', component: Reserva, roles: A },
-        { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta con reseña en Google', icon: 'globe', component: Mensajes, roles: A },
-        { id: 'privacidad', label: 'Privacidad y solicitudes ARCO', desc: 'Lo que tus clientes piden sobre sus datos y tu aviso de privacidad', icon: 'shield', component: Privacidad, roles: A }
+        { id: 'reserva', label: 'Reservas en línea', desc: 'Tu página, anticipos y recordatorios', icon: 'globe', component: Reserva, roles: A },
+        { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta', icon: 'globe', component: Mensajes, roles: A },
+        { id: 'privacidad', label: 'Privacidad y ARCO', desc: 'Aviso y solicitudes de tus clientes', icon: 'shield', component: Privacidad, roles: A }
       ]
     },
     {
-      title: 'Cobros',
-      items: [{ id: 'pagos', label: 'Cobro con tarjeta (Mercado Pago)', desc: 'Conecta tu cuenta de Mercado Pago y tu terminal', icon: 'card', component: Pagos, roles: A }]
-    },
-    {
-      title: 'Mi cuenta y esta app',
+      title: 'Dinero',
       items: [
-        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, verificación en dos pasos y sesiones', icon: 'user', component: AccountSettings },
-        { id: 'apariencia', label: 'Apariencia', desc: 'Tema claro u oscuro', icon: 'sun', component: Appearance }
+        { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de MiEstudio y tus pagos', icon: 'wallet', component: Suscripcion, roles: A },
+        { id: 'pagos', label: 'Mercado Pago', desc: 'Cobro con tarjeta y terminal', icon: 'card', component: Pagos, roles: A }
       ]
+    },
+    {
+      title: 'Mi cuenta',
+      items: [{ id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings }]
     }
   ];
 
