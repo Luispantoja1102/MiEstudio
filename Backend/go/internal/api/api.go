@@ -18,11 +18,12 @@ import (
 )
 
 type API struct {
-	DB        *pgxpool.Pool
-	Secret    string
-	Limiter   *ratelimit.Limiter // nil desactiva el límite de intentos
-	StaticDir string             // si se define, sirve el frontend compilado
-	Now       func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
+	DB         *pgxpool.Pool
+	Secret     string
+	Limiter    *ratelimit.Limiter // nil desactiva el límite de intentos
+	StaticDir  string             // si se define, sirve el frontend compilado
+	Now        func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
+	Production bool               // rechaza claves de ejemplo en el alta del administrador
 }
 
 // authed exige sesión válida (negocio o plataforma).

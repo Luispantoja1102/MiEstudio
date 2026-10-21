@@ -12,13 +12,15 @@ WORKDIR /src
 COPY Backend/go/go.mod Backend/go/go.sum ./
 RUN go mod download
 COPY Backend/go/ ./
-RUN CGO_ENABLED=0 go build -o /out/server ./cmd/server
+RUN CGO_ENABLED=0 go build -o /out/server ./cmd/server \
+ && CGO_ENABLED=0 go build -o /out/createplatformadmin ./cmd/createplatformadmin
 
 # 3) Imagen final: una sola app que sirve la API y el frontend
 FROM alpine:3.20
 RUN adduser -D -u 10001 app
 WORKDIR /app
 COPY --from=api /out/server ./server
+COPY --from=api /out/createplatformadmin ./createplatformadmin
 COPY --from=web /web/build ./public
 ENV STATIC_DIR=/app/public GO_API_PORT=8080
 USER app

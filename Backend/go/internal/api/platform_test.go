@@ -301,3 +301,55 @@ func TestPlatformTeamGuardsAndActivity(t *testing.T) {
 		t.Fatalf("bitácora incompleta: %+v", seen)
 	}
 }
+
+func TestUpsertPlatformAdmin(t *testing.T) {
+	a := newTestAPI(t)
+	ctx := context.Background()
+
+	created, err := a.UpsertPlatformAdmin(ctx, "Yo", "Yo@Plataforma.com", "clave-de-prueba-1")
+	if err != nil || !created {
+		t.Fatalf("crear: %v %v", created, err)
+	}
+	if a.doLogin(t, "yo@plataforma.com", "clave-de-prueba-1").Status != 200 {
+		t.Fatal("no puede entrar")
+	}
+	// existente: restablece la contraseña y reactiva
+	a.DB.Exec(ctx, `UPDATE users SET active = false, role = 'platform_support' WHERE email = 'yo@plataforma.com'`)
+	created, err = a.UpsertPlatformAdmin(ctx, "", "yo@plataforma.com", "otra-clave-nueva-2")
+	if err != nil || created {
+		t.Fatalf("restablecer: %v %v", created, err)
+	}
+	r := a.doLogin(t, "yo@plataforma.com", "otra-clave-nueva-2")
+	if r.Status != 200 || a.doLogin(t, "yo@plataforma.com", "clave-de-prueba-1").Status != 401 {
+		t.Fatal("la contraseña no se restableció")
+	}
+	if me := a.do(t, "GET", "/api/me", r.Body["token"].(string), nil); me.Body["role"] != "platform_admin" {
+		t.Fatalf("debe quedar como administrador: %v", me.Body)
+	}
+	// no pisa a personas de un negocio
+	a.mustRegister(t, "N", "negocio@x.com")
+	if _, err := a.UpsertPlatformAdmin(ctx, "X", "negocio@x.com", "clave-de-prueba-1"); err == nil {
+		t.Fatal("no debe tomar el correo de una persona de un negocio")
+	}
+	if a.doLogin(t, "negocio@x.com", "supersecreta1").Status != 200 {
+		t.Fatal("la persona del negocio perdió su contraseña")
+	}
+	// validaciones y clave de ejemplo en producción
+	if _, err := a.UpsertPlatformAdmin(ctx, "X", "sin-arroba", "clave-de-prueba-1"); err == nil {
+		t.Fatal("correo inválido")
+	}
+	if _, err := a.UpsertPlatformAdmin(ctx, "X", "z@p.com", "corta"); err == nil {
+		t.Fatal("contraseña corta")
+	}
+	a.Production = true
+	if _, err := a.UpsertPlatformAdmin(ctx, "X", "z@p.com", ExampleAdminPassword); err == nil {
+		t.Fatal("la clave de ejemplo debe rechazarse en producción")
+	}
+	if err := a.BootstrapPlatformAdmin(ctx, "X", "w@p.com", ExampleAdminPassword); err == nil {
+		t.Fatal("el arranque debe rechazar la clave de ejemplo en producción")
+	}
+	a.Production = false
+	if _, err := a.UpsertPlatformAdmin(ctx, "X", "z@p.com", ExampleAdminPassword); err != nil {
+		t.Fatalf("en desarrollo la clave de ejemplo es válida: %v", err)
+	}
+}

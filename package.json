@@ -6,7 +6,8 @@
     "postinstall": "npm --prefix Frontend install && npm --prefix Backend/node install",
     "dev": "dotenv -e .env -- concurrently -n front,node,go -c cyan,green,yellow \"npm --prefix Frontend run dev\" \"npm --prefix Backend/node run dev\" \"go -C Backend/go run ./cmd/server\"",
     "db": "docker compose -f Backend/docker-compose.yml --env-file .env up -d",
-    "build": "npm --prefix Frontend run build && go -C Backend/go build -o bin/server ./cmd/server"
+    "build": "npm --prefix Frontend run build && go -C Backend/go build -o bin/server ./cmd/server && go -C Backend/go build -o bin/createplatformadmin ./cmd/createplatformadmin",
+    "admin": "dotenv -e .env -- go -C Backend/go run ./cmd/createplatformadmin"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",

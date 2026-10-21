@@ -10,6 +10,7 @@ type Config struct {
 	JWTSecret   string
 	Port        string
 	StaticDir   string
+	Production  bool // APP_ENV=production
 
 	// primer administrador de plataforma (opcional; se crea solo si no existe ninguno)
 	PlatformAdminName     string
@@ -23,6 +24,7 @@ func Load() (Config, error) {
 		JWTSecret:   os.Getenv("JWT_SECRET"),
 		Port:        os.Getenv("GO_API_PORT"),
 		StaticDir:   os.Getenv("STATIC_DIR"),
+		Production:  os.Getenv("APP_ENV") == "production",
 
 		PlatformAdminName:     os.Getenv("PLATFORM_ADMIN_NAME"),
 		PlatformAdminEmail:    os.Getenv("PLATFORM_ADMIN_EMAIL"),
