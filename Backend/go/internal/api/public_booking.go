@@ -441,7 +441,8 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, ferr := a.createOnlineAppointment(ctx, b, req, digits, start, staffID, price, svcName, svc)
+	deposit := a.depositFor(ctx, b, price)
+	res, ferr := a.createOnlineAppointment(ctx, b, req, digits, start, staffID, deposit, svcName, svc)
 	if ferr != nil {
 		if !writeFail(w, ferr) {
 			serverErr(w)
@@ -464,7 +465,7 @@ type bookingResult struct {
 const maxActiveBookingsPerPhone = 3
 
 // createOnlineAppointment guarda la cita de una reserva en línea.
-func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookingReq, digits string, start time.Time, staffID int64, price int, svcName string, svc *svcInfo) (*bookingResult, error) {
+func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookingReq, digits string, start time.Time, staffID int64, deposit int, svcName string, svc *svcInfo) (*bookingResult, error) {
 	end := start.Add(svc.Duration)
 	token := newPublicToken()
 	tx, err := a.DB.Begin(ctx)
@@ -486,31 +487,51 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	if active >= maxActiveBookingsPerPhone {
 		return nil, fail(http.StatusConflict, "ya tienes varias citas pendientes; cancela alguna o contáctanos")
 	}
+	status, holdUntil := "scheduled", (*time.Time)(nil)
+	if deposit > 0 {
+		h := a.now().Add(holdMinutes * time.Minute)
+		status, holdUntil = "pending_payment", &h
+	}
 	var apptID int64
 	err = tx.QueryRow(ctx,
 		`INSERT INTO appointments (business_id, branch_id, client_id, staff_id, service_id, starts_at, ends_at, blocked_until, notes,
-		   source, public_token, reminders_consent, privacy_accepted_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12, $12) RETURNING id`,
-		b.ID, req.BranchID, clientID, staffID, req.ServiceID, start, end, end.Add(svc.Buffer), req.Notes, token, req.ConsentReminders, a.now()).Scan(&apptID)
+		   source, public_token, reminders_consent, privacy_accepted_at, created_at, status, hold_expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11, $12, $12, $13, $14) RETURNING id`,
+		b.ID, req.BranchID, clientID, staffID, req.ServiceID, start, end, end.Add(svc.Buffer), req.Notes, token, req.ConsentReminders, a.now(),
+		status, holdUntil).Scan(&apptID)
 	if isExclusionViolation(err) {
 		return nil, fail(http.StatusConflict, "ese horario ya no está disponible")
 	}
 	if err != nil {
 		return nil, err
 	}
-	if err := a.enqueueMail(ctx, tx, apptID, "booking", false); err != nil {
-		return nil, err
+	if deposit > 0 {
+		// la referencia lleva el id del anticipo; se fija en cuanto se conoce
+		var depID int64
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO deposits (business_id, appointment_id, amount_cents, external_ref, created_at) VALUES ($1, $2, $3, 'tmp-' || $4, $5) RETURNING id`,
+			b.ID, apptID, deposit, token, a.now()).Scan(&depID); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE deposits SET external_ref = 'mie-dep:' || id WHERE id = $1`, depID); err != nil {
+			return nil, err
+		}
+	} else if err := a.enqueueMail(ctx, tx, apptID, "booking", false); err != nil {
+		return nil, err // con anticipo, la confirmación sale cuando se paga
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &bookingResult{Token: token, Status: "scheduled", StartsAt: start.UTC().Format(time.RFC3339), EndsAt: end.UTC().Format(time.RFC3339),
-		ManagePath: "/cita/" + token}, nil
-}
-
-// sweepHolds libera los horarios apartados cuyo plazo de pago venció.
-func (a *API) sweepHolds(ctx context.Context) {
-	a.DB.Exec(ctx, `UPDATE appointments SET status = 'cancelled' WHERE status = 'pending_payment' AND hold_expires_at < $1`, a.now())
+	res := &bookingResult{Token: token, Status: status, StartsAt: start.UTC().Format(time.RFC3339), EndsAt: end.UTC().Format(time.RFC3339),
+		ManagePath: "/cita/" + token}
+	if deposit > 0 {
+		payURL, err := a.startDeposit(ctx, b, apptID, token, deposit, svcName, *holdUntil)
+		if err != nil {
+			return nil, err
+		}
+		res.DepositCents, res.PayURL = deposit, payURL
+	}
+	return res, nil
 }
 
 // ---------- ver y cancelar con el enlace privado ----------
@@ -567,6 +588,21 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
+	dep, err := loadDeposit(ctx, a.DB, "appointment_id = $1", m.ID)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if dep != nil && m.Status == "pending_payment" {
+		// el cliente suele volver de Mercado Pago a esta página: se confirma el pago sin esperar al aviso automático
+		if _, err := a.settleDeposit(ctx, dep.ID); err == nil {
+			if m, err = a.byToken(ctx, r.PathValue("token")); err != nil || m == nil {
+				serverErr(w)
+				return
+			}
+			dep, _ = loadDeposit(ctx, a.DB, "appointment_id = $1", m.ID)
+		}
+	}
 	st, err := loadBookingSettings(ctx, a.DB, m.BizID)
 	if err != nil {
 		serverErr(w)
@@ -579,7 +615,7 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 	if len(first) > 0 {
 		name = first[0]
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"status":           m.Status,
 		"starts_at":        m.Starts.UTC().Format(time.RFC3339),
 		"ends_at":          m.Ends.UTC().Format(time.RFC3339),
@@ -593,7 +629,21 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		"can_cancel":       m.canCancel(now, st.CancelMinHours),
 		"cancel_min_hours": st.CancelMinHours,
 		"cancel_deadline":  m.Starts.Add(-time.Duration(st.CancelMinHours) * time.Hour).UTC().Format(time.RFC3339),
-	})
+	}
+	if dep != nil {
+		d := map[string]any{"amount_cents": dep.Amount, "status": dep.Status}
+		if dep.Status == "pending" && m.Status == "pending_payment" {
+			var payURL string
+			var hold *time.Time
+			a.DB.QueryRow(ctx, `SELECT d.pay_url, ap.hold_expires_at FROM deposits d JOIN appointments ap ON ap.id = d.appointment_id WHERE d.id = $1`, dep.ID).Scan(&payURL, &hold)
+			d["pay_url"] = payURL
+			if hold != nil {
+				d["hold_expires_at"] = hold.UTC().Format(time.RFC3339)
+			}
+		}
+		out["deposit"] = d
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (a *API) publicCancel(w http.ResponseWriter, r *http.Request) {
@@ -624,6 +674,13 @@ func (a *API) publicCancel(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "ya no es posible cancelar en línea; contacta al negocio")
 		return
 	}
+	// dentro del plazo el anticipo se devuelve; si Mercado Pago no puede, la cita no se cancela
+	if err := a.refundDeposit(ctx, m.ID); err != nil {
+		if !writeFail(w, err) {
+			serverErr(w)
+		}
+		return
+	}
 	tag, err := a.DB.Exec(ctx, `UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND status IN ('scheduled', 'pending_payment')`, m.ID)
 	if err != nil {
 		serverErr(w)
@@ -633,6 +690,7 @@ func (a *API) publicCancel(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "la cita ya cambió; recarga la página")
 		return
 	}
+	a.DB.Exec(ctx, `UPDATE deposits SET status = 'expired' WHERE appointment_id = $1 AND status = 'pending'`, m.ID)
 	a.notify(ctx, m.ID, "cancellation", false)
 	writeJSON(w, http.StatusOK, map[string]any{"status": "cancelled"})
 }

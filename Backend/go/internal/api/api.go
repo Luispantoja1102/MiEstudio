@@ -36,6 +36,9 @@ type API struct {
 	MPRedirect     string // debe coincidir exactamente con la registrada en la aplicación de Mercado Pago
 	MPAuthBase     string
 
+	PublicURL       string // dirección pública de la API (sin /api): para los avisos automáticos de Mercado Pago
+	MPWebhookSecret string // firma de los avisos; vacío = no se verifica
+
 	Mailer mail.Sender // nil o sin configurar: no se envían correos
 	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
 }
@@ -68,6 +71,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/auth/registration", a.registrationInfo)
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
+	mux.HandleFunc("POST /api/webhooks/mercadopago", a.mpWebhook)
 	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
 	// reserva en línea (sin sesión)

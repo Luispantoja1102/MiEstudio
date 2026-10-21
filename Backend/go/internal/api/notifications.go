@@ -292,6 +292,7 @@ func (a *API) stillRelevant(ctx context.Context, q queued, now time.Time) (bool,
 // Devuelve cuántos correos salieron.
 func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 	a.sweepHolds(ctx)
+	a.recheckRecentlyExpired(ctx)
 	if !a.mailEnabled() {
 		return 0, nil
 	}

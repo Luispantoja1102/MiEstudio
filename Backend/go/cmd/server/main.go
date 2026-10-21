@@ -31,7 +31,7 @@ func main() {
 	a := &api.API{DB: pool, Secret: cfg.JWTSecret, Limiter: ratelimit.New(), StaticDir: cfg.StaticDir, Production: cfg.Production, EncKey: cfg.EncKey, OAuthState: cfg.OAuthState, MPBase: cfg.MPBase,
 		MPClientID: cfg.MPClientID, MPClientSecret: cfg.MPClientSecret, MPRedirect: cfg.MPRedirect, MPAuthBase: cfg.MPAuthBase}
 	smtp := &mail.SMTP{Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Pass: cfg.SMTPPass, From: cfg.MailFrom, Secure: cfg.SMTPSecure}
-	a.AppURL = cfg.AppURL
+	a.AppURL, a.PublicURL, a.MPWebhookSecret = cfg.AppURL, cfg.PublicURL, cfg.MPWebhookSecret
 	if smtp.Enabled() {
 		a.Mailer = smtp
 	} else {

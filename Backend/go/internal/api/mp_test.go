@@ -37,6 +37,20 @@ type fakeMP struct {
 	refreshFail  bool
 	refreshDelay time.Duration // hace lenta la renovación para que las peticiones simultáneas se solapen de verdad
 	expiresIn    int
+
+	// anticipos (Checkout Pro)
+	prefs         []map[string]any
+	prefFail      bool
+	payments      map[string]*fakePay
+	paySeq        int
+	payRefundFail string
+	searchFail    bool
+}
+
+type fakePay struct {
+	ID, Ref, Status string
+	Amount          float64
+	Refunds         int
 }
 
 type fakeOrder struct {
@@ -170,9 +184,75 @@ func newFakeMP(t *testing.T) *fakeMP {
 		f.orders[r.PathValue("id")].refunded++
 		w.Write([]byte(`{}`))
 	}))
+	f.payments = map[string]*fakePay{}
+	mux.HandleFunc("POST /checkout/preferences", guard(func(w http.ResponseWriter, r *http.Request) {
+		if f.prefFail {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"message":"invalid preference"}`))
+			return
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		f.prefs = append(f.prefs, body)
+		n := len(f.prefs)
+		json.NewEncoder(w).Encode(map[string]any{"id": fmt.Sprintf("pref-%d", n), "init_point": fmt.Sprintf("https://mp.test/pay/%d", n)})
+	}))
+	mux.HandleFunc("GET /v1/payments/search", guard(func(w http.ResponseWriter, r *http.Request) {
+		if f.searchFail {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"message":"boom"}`))
+			return
+		}
+		out := []map[string]any{}
+		for _, p := range f.payments {
+			if p.Ref == r.URL.Query().Get("external_reference") {
+				out = append(out, map[string]any{"id": json.Number(p.ID), "status": p.Status, "transaction_amount": p.Amount, "external_reference": p.Ref})
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"results": out})
+	}))
+	mux.HandleFunc("GET /v1/payments/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := f.payments[r.PathValue("id")]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"not found"}`))
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"id": json.Number(p.ID), "status": p.Status, "transaction_amount": p.Amount, "external_reference": p.Ref})
+	}))
+	mux.HandleFunc("POST /v1/payments/{id}/refunds", guard(func(w http.ResponseWriter, r *http.Request) {
+		if f.payRefundFail != "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{"message": f.payRefundFail})
+			return
+		}
+		p, ok := f.payments[r.PathValue("id")]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		p.Refunds++
+		w.Write([]byte(`{}`))
+	}))
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
+}
+
+// pay registra un pago del cliente para una referencia de anticipo.
+func (f *fakeMP) pay(ref string, amount float64, status string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.paySeq++
+	id := fmt.Sprint(1000 + f.paySeq)
+	f.payments[id] = &fakePay{ID: id, Ref: ref, Status: status, Amount: amount}
+	return id
+}
+
+func (f *fakeMP) refunds(id string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.payments[id].Refunds
 }
 
 func (f *fakeMP) count(prefix string) int {

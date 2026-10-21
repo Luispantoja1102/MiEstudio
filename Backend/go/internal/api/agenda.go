@@ -527,6 +527,15 @@ func (a *API) updateAppointment(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "solo se puede cambiar el estado de una cita agendada")
 		return
 	}
+	if req.Status != nil && *req.Status == "cancelled" {
+		// el negocio cancela: el anticipo se devuelve íntegro; si no se puede devolver, la cita sigue en pie
+		if err := a.refundDeposit(ctx, id); err != nil {
+			if !writeFail(w, err) {
+				serverErr(w)
+			}
+			return
+		}
+	}
 	if _, err := a.DB.Exec(ctx,
 		`UPDATE appointments SET status = COALESCE($3, status), notes = COALESCE($4, notes) WHERE id = $1 AND business_id = $2`,
 		id, p.BusinessID, req.Status, req.Notes); err != nil {
@@ -535,6 +544,9 @@ func (a *API) updateAppointment(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Status != nil && *req.Status == "cancelled" {
 		a.notify(ctx, id, "cancellation", false)
+	}
+	if req.Status != nil && *req.Status == "no_show" {
+		a.keepDeposit(ctx, id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
