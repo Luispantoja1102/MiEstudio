@@ -105,7 +105,7 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 
 `TOKEN_ENC_KEY` y `OAUTH_STATE_SECRET` son claves propias del servidor (cifrado de tokens y firma del enlace de retorno). Son opcionales: si las omites se derivan de `JWT_SECRET`.
 
-Los tokens de OAuth se renuevan solos antes de vencer. La integración está probada contra un servidor simulado de la API de Mercado Pago; antes de usarla con clientes reales, pruébala con una cuenta de pruebas y tu terminal.
+Los tokens de OAuth se renuevan solos antes de vencer. La integración está probada contra un servidor simulado de la API de Mercado Pago; antes de usarla con clientes reales, sigue la guía **[docs/MERCADO_PAGO.md](docs/MERCADO_PAGO.md)** (cuentas de prueba, anticipos, suscripciones, terminal y paso a producción) y revisa tu configuración con `npm run check:mp`.
 
 ## Reserva en línea y correos
 
