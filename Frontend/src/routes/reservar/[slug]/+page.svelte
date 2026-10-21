@@ -28,6 +28,10 @@
   let form = $state({ name: '', phone: '', email: '', notes: '', accept_privacy: false, consent_reminders: false });
   let done = $state(null);
   let seq = 0;
+  let joined = $state(false);
+  let joining = $state(false);
+  let wait = $state(false); // formulario de lista de espera abierto
+  let waitForm = $state({ name: '', phone: '', email: '', accept_privacy: false, from: '', to: '' });
 
   const tz = $derived(info?.business.timezone ?? 'America/Mexico_City');
   const lastDay = $derived(info ? addDays(info.today, info.max_days_ahead) : '');
@@ -37,6 +41,16 @@
       info = await call(`/api/public/${slug}`);
       date = info.today;
       if (info.branches.length === 1) branchId = String(info.branches[0].id);
+      // el correo de lista de espera trae el servicio, la sucursal y el día
+      const q = page.url.searchParams;
+      const svc = info.services.find((s) => String(s.id) === q.get('service'));
+      if (svc && info.branches.some((b) => String(b.id) === q.get('branch'))) {
+        service = svc;
+        branchId = q.get('branch');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '') && q.get('date') >= info.today) date = q.get('date');
+        step = 3;
+        await loadSlots();
+      }
     } catch (e) {
       if (e.status === 404) missing = true;
       else error = e.message;
@@ -109,6 +123,23 @@
       }
     } finally {
       busy = false;
+    }
+  }
+
+  async function joinWaitlist(e) {
+    e.preventDefault();
+    joining = true;
+    error = '';
+    try {
+      await call(`/api/public/${slug}/waitlist`, {
+        service_id: service.id, branch_id: Number(branchId), staff_id: staffId ? Number(staffId) : 0, date,
+        from: waitForm.from, to: waitForm.to, name: waitForm.name, phone: waitForm.phone, email: waitForm.email, accept_privacy: waitForm.accept_privacy
+      });
+      joined = true;
+    } catch (err) {
+      error = err.message;
+    } finally {
+      joining = false;
     }
   }
 
@@ -188,6 +219,29 @@
             <p class="meta">Buscando horarios…</p>
           {:else if merged.length === 0}
             <p class="meta">No hay horarios ese día. Prueba con otra fecha{info.staff.length > 1 ? ' o con otra persona' : ''}.</p>
+            {#if info.waitlist}
+              {#if joined}
+                <p class="ok" role="status">✓ Listo. Si se libera un lugar ese día, te avisamos por correo.</p>
+              {:else if !wait}
+                <button class="btn ghost" onclick={() => (wait = true)}>Avisarme si se libera un lugar</button>
+              {:else}
+                <form class="wait" onsubmit={joinWaitlist}>
+                  <p class="meta">Te escribimos si se libera un horario de {service.name} el {longDate(date)}. El primero que lo reserva, se lo queda.</p>
+                  <label class="field">Nombre <input bind:value={waitForm.name} autocomplete="name" required maxlength="120" /></label>
+                  <label class="field">Teléfono <input type="tel" bind:value={waitForm.phone} autocomplete="tel" inputmode="tel" required maxlength="30" placeholder="10 dígitos" /></label>
+                  <label class="field">Correo <input type="email" bind:value={waitForm.email} autocomplete="email" required maxlength="200" /></label>
+                  <div class="row2">
+                    <label class="field">Desde (opcional) <input type="time" bind:value={waitForm.from} /></label>
+                    <label class="field">Hasta <input type="time" bind:value={waitForm.to} /></label>
+                  </div>
+                  <label class="check"><input type="checkbox" bind:checked={waitForm.accept_privacy} required /> <span>Acepto el <a href="/aviso/{slug}" target="_blank" rel="noopener">aviso de privacidad</a></span></label>
+                  <div class="form-actions">
+                    <button type="button" class="btn ghost" onclick={() => (wait = false)}>Cancelar</button>
+                    <button class="btn" disabled={joining || !waitForm.accept_privacy}>{joining ? 'Guardando…' : 'Avisarme'}</button>
+                  </div>
+                </form>
+              {/if}
+            {/if}
           {:else}
             <div class="chips">
               {#each merged as m (m.iso + m.staffId)}
@@ -252,5 +306,8 @@
   .done h2 { margin-bottom: 0; }
   .foot { text-align: center; margin-top: 1.5rem; }
   .chip small { opacity: 0.8; }
+  .wait { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ok { color: var(--accent); font-weight: 600; }
   .meta { color: var(--muted); font-size: 0.88rem; }
 </style>

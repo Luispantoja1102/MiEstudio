@@ -122,6 +122,13 @@ exacto, verificado siempre con Mercado Pago (aviso automático, regreso del clie
 apartado). Un pago tardío o duplicado se devuelve; si el cliente cancela dentro del plazo, o el negocio cancela,
 se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una inasistencia lo conserva.
 
+**Lista de espera.** Si no hay horario, la página pública ofrece «Avisarme si se libera un lugar» (nombre, teléfono, correo y,
+opcional, una franja) y en *Agenda → Lista de espera* el equipo puede anotar a alguien. El proceso de fondo (cada minuto) revisa
+los horarios libres reales —cancelaciones, bloqueos quitados, horarios nuevos— y avisa por correo, en orden de llegada, solo a
+tantas personas como horarios haya (un aviso reciente sigue contando 12 h). El aviso no aparta el horario: el primero que lo reserva
+se lo queda, y su solicitud pasa a «reservada». Cada correo trae el enlace `/espera/<token>` para salir de la lista; las solicitudes
+vencen al pasar el día, y si se borran los datos del cliente se cancelan. Requiere correo configurado.
+
 ## Ajustes
 
 Como en MiConsultorio, el menú trae pocas opciones: **Inicio, Agenda, Clientes, Cobros y Reportes**, y **Ajustes** al pie.
@@ -188,7 +195,7 @@ sirve `index.html` y `version.json` sin caché y los archivos con huella como in
 | `/api/cash/*`, `POST/GET /api/sales`, `GET /api/packages`, `GET /api/clients/{id}/packages`, `/api/payments/point/*` | Administrador, caja y recepción |
 | `POST /api/sales/{id}/void`, `/api/products/{id}/stock`, `/api/commission-rules`, `/api/reports/sales`, `/api/payments/mercadopago/*` | Administrador |
 | `GET /api/reports/commissions` | Administrador (todos) y profesionales (solo lo suyo) |
-| `POST/PATCH /api/appointments`, `POST /api/appointments/{id}/move`, `POST/DELETE /api/blocks` | Administrador, recepción y profesionales (estos últimos solo bloquean su propio horario) |
+| `POST/PATCH /api/appointments`, `POST /api/appointments/{id}/move`, `POST/DELETE /api/blocks`, `/api/waitlist` | Administrador, recepción y profesionales (estos últimos solo bloquean su propio horario) |
 | `/api/platform/*` | Plataforma (soporte solo lee) |
 
 Todo lo de negocio se limita al negocio de quien hace la petición, y se bloquea si la cuenta está pendiente o suspendida.

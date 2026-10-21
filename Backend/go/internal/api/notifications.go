@@ -240,7 +240,8 @@ func (a *API) enqueueReminders(ctx context.Context) error {
 }
 
 type queued struct {
-	ID, ApptID              int64
+	ID, ApptID              int64 // ApptID 0: aviso sin cita (lista de espera, cumpleaños…)
+	ClientID, WaitlistID    int64
 	Kind, To, Subject, Text string
 	HTML                    string
 	ForStarts               time.Time
@@ -252,7 +253,7 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 	rows, err := a.DB.Query(ctx,
 		`UPDATE notifications SET attempts = attempts + 1, send_after = $2
 		  WHERE id IN (SELECT id FROM notifications WHERE status = 'pending' AND send_after <= $1 ORDER BY send_after LIMIT $3 FOR UPDATE SKIP LOCKED)
-		  RETURNING id, appointment_id, kind, to_addr, subject, body_text, body_html, for_starts_at, attempts`, now, now.Add(notifClaim), notifBatch)
+		  RETURNING id, COALESCE(appointment_id, 0), COALESCE(client_id, 0), COALESCE(waitlist_id, 0), kind, to_addr, subject, body_text, body_html, COALESCE(for_starts_at, 'epoch'), attempts`, now, now.Add(notifClaim), notifBatch)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +261,7 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 	var out []queued
 	for rows.Next() {
 		var q queued
-		if err := rows.Scan(&q.ID, &q.ApptID, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ForStarts, &q.Attempts); err != nil {
+		if err := rows.Scan(&q.ID, &q.ApptID, &q.ClientID, &q.WaitlistID, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ForStarts, &q.Attempts); err != nil {
 			return nil, err
 		}
 		out = append(out, q)
@@ -270,6 +271,9 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 
 // stillRelevant: entre encolar y enviar la cita pudo cancelarse, moverse o retirarse el consentimiento.
 func (a *API) stillRelevant(ctx context.Context, q queued, now time.Time) (bool, error) {
+	if q.ApptID == 0 {
+		return a.stillRelevantLoose(ctx, q)
+	}
 	var status string
 	var starts time.Time
 	var consent bool
@@ -288,6 +292,28 @@ func (a *API) stillRelevant(ctx context.Context, q queued, now time.Time) (bool,
 	return true, nil
 }
 
+// stillRelevantLoose decide los avisos que no son de una cita.
+func (a *API) stillRelevantLoose(ctx context.Context, q queued) (bool, error) {
+	if q.ClientID != 0 {
+		var email string
+		var gone bool
+		if err := a.DB.QueryRow(ctx, `SELECT email, anonymized_at IS NOT NULL FROM clients WHERE id = $1`, q.ClientID).Scan(&email, &gone); err != nil {
+			return false, err
+		}
+		if gone || email == "" || !strings.EqualFold(email, q.To) {
+			return false, nil
+		}
+	}
+	if q.Kind == "waitlist" {
+		var status string
+		if err := a.DB.QueryRow(ctx, `SELECT status FROM waitlist WHERE id = $1`, q.WaitlistID).Scan(&status); err != nil {
+			return false, err
+		}
+		return status == "notified", nil
+	}
+	return true, nil
+}
+
 // ProcessNotifications libera horarios vencidos, crea los recordatorios que tocan y envía la bandeja.
 // Devuelve cuántos correos salieron.
 func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
@@ -295,6 +321,9 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 	a.recheckRecentlyExpired(ctx)
 	a.purgeResets(ctx)
 	a.billingPass(ctx)
+	if err := a.waitlistPass(ctx); err != nil {
+		return 0, err
+	}
 	if !a.mailEnabled() {
 		return 0, nil
 	}

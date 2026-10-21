@@ -14,13 +14,14 @@
   const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'];
   const COBROS_PATHS = ['/panel/ventas', '/panel/caja', '/panel/servicios', '/panel/inventario'];
   const REPORT_PATHS = ['/panel/reportes', '/panel/comisiones'];
+  const AGENDA_PATHS = ['/panel/agenda', '/panel/espera'];
 
   // Una lista corta, como en MiConsultorio: Cobros y Reportes se abren con sus propias pestañas;
   // lo que no se usa a diario (equipo, sucursales, reserva en línea, pagos, plan, privacidad, cuenta) vive en Ajustes.
   // [icono, etiqueta, ruta, roles permitidos (vacío = todos), rutas extra que la marcan activa]
   const nav = [
     ['home', 'Inicio', '/panel', []],
-    ['calendar', 'Agenda', '/panel/agenda', []],
+    ['calendar', 'Agenda', '/panel/agenda', [], AGENDA_PATHS],
     ['users', 'Clientes', '/panel/clientes', []],
     ['receipt', 'Cobros', '/panel/ventas', SELL, COBROS_PATHS],
     ['scissors', 'Catálogo', '/panel/servicios', ['staff'], COBROS_PATHS],
@@ -35,12 +36,16 @@
     { label: 'Servicios', href: '/panel/servicios' },
     { label: 'Inventario', href: '/panel/inventario' }
   ];
+  const AGENDA_TABS = [
+    { label: 'Agenda', href: '/panel/agenda', exact: true, roles: ['admin', 'reception', 'staff'] },
+    { label: 'Lista de espera', href: '/panel/espera', roles: ['admin', 'reception', 'staff'] }
+  ];
   const REPORT_TABS = [
     { label: 'Ventas', href: '/panel/reportes', roles: ['admin'] },
     { label: 'Comisiones', href: '/panel/comisiones', roles: ['admin', 'staff'] }
   ];
   const under = (paths) => paths.some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
-  const tabs = $derived(under(COBROS_PATHS) ? COBROS_TABS : under(REPORT_PATHS) ? REPORT_TABS : null);
+  const tabs = $derived(under(COBROS_PATHS) ? COBROS_TABS : under(REPORT_PATHS) ? REPORT_TABS : under(AGENDA_PATHS) ? AGENDA_TABS : null);
   const items = $derived(
     nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h, , extra]) => [i, l, h, extra])
   );

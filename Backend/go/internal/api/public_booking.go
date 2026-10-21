@@ -204,6 +204,7 @@ func (a *API) publicInfo(w http.ResponseWriter, r *http.Request) {
 		"cancel_min_hours": b.Settings.CancelMinHours,
 		"deposit_percent":  b.Settings.DepositPercent,
 		"reminders":        b.Settings.ReminderHours > 0 && a.mailEnabled(),
+		"waitlist":         a.mailEnabled(), // la lista de espera avisa por correo
 		"today":            a.now().In(b.Loc).Format(dateLayout),
 	})
 }

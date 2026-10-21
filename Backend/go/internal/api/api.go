@@ -94,6 +94,9 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/legal", a.legalInfo)
 	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
 	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
+	mux.HandleFunc("POST /api/public/{slug}/waitlist", a.publicWaitlist)
+	mux.HandleFunc("GET /api/public-waitlist/{token}", a.publicWaitlistInfo)
+	mux.HandleFunc("POST /api/public-waitlist/{token}/leave", a.publicWaitlistLeave)
 
 	// cualquier sesión (el estado de la cuenta se informa en /api/me)
 	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
@@ -159,6 +162,9 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/appointments", a.tenant(a.createAppointment, book...))
 	mux.Handle("PATCH /api/appointments/{id}", a.tenant(a.updateAppointment, book...))
 	mux.Handle("POST /api/appointments/{id}/move", a.tenant(a.moveAppointment, book...))
+	mux.Handle("GET /api/waitlist", a.tenant(a.listWaitlist, book...))
+	mux.Handle("POST /api/waitlist", a.tenant(a.createWaitlist, book...))
+	mux.Handle("DELETE /api/waitlist/{id}", a.tenant(a.deleteWaitlist, book...))
 	mux.Handle("POST /api/blocks", a.tenant(a.createBlock, book...))
 	mux.Handle("DELETE /api/blocks/{id}", a.tenant(a.deleteBlock, book...))
 
