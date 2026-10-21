@@ -120,6 +120,10 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("GET /api/clients/{id}/export", a.tenant(a.exportClient, admin))
 	mux.Handle("POST /api/clients/{id}/erase", a.tenant(a.eraseClient, admin))
 
+	// negocio: datos del negocio
+	mux.Handle("GET /api/business", a.tenant(a.getBusiness, admin))
+	mux.Handle("PUT /api/business", a.tenant(a.putBusiness, admin))
+
 	// negocio: equipo
 	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))
 	mux.Handle("POST /api/team", a.tenant(a.createTeamMember, admin))

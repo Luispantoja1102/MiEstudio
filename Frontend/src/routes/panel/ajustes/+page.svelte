@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import AccountSettings from '$lib/AccountSettings.svelte';
   import Appearance from '$lib/Appearance.svelte';
+  import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
@@ -18,6 +19,7 @@
     {
       title: 'Mi negocio',
       items: [
+        { id: 'negocio', label: 'Datos del negocio', desc: 'Nombre, giro y zona horaria', icon: 'home', component: BusinessProfile, roles: A },
         { id: 'equipo', label: 'Equipo', desc: 'Agregar personal, roles, comisiones y horarios', icon: 'users', component: Equipo, roles: A },
         { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales: nombre, dirección y teléfono', icon: 'home', component: Sucursales, roles: A },
         { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de MiEstudio, cuánto pagas y tus pagos', icon: 'wallet', component: Suscripcion, roles: A }
