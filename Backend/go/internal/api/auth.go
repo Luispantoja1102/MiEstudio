@@ -268,12 +268,12 @@ func (a *API) logoutAll(w http.ResponseWriter, r *http.Request) {
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	var name, email string
-	var bizName, kind, status, tz *string
-	var trialEnds *time.Time
+	var bizName, kind, status, tz, plan *string
+	var trialEnds, periodEnd *time.Time
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone
+		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone, b.plan, b.current_period_end
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id WHERE u.id = $1`, p.UserID).
-		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz)
+		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz, &plan, &periodEnd)
 	if err != nil {
 		serverErr(w)
 		return
@@ -284,6 +284,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	if p.BusinessID != 0 {
 		out["business"] = map[string]any{
 			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
+			"plan": plan, "billing_state": p.BillingState, "current_period_end": periodEnd,
 		}
 	}
 	writeJSON(w, http.StatusOK, out)

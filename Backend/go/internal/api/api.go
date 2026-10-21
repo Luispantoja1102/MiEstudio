@@ -38,7 +38,8 @@ type API struct {
 	PublicURL       string // dirección pública de la API (sin /api): para los avisos automáticos de Mercado Pago
 	MPWebhookSecret string // firma de los avisos; vacío = no se verifica
 
-	Operator Operator // datos de quien opera la plataforma (aviso de privacidad)
+	PlatformMPToken string   // MPP_ACCESS_TOKEN: cuenta de Mercado Pago de la plataforma, para cobrar suscripciones
+	Operator        Operator // datos de quien opera la plataforma (aviso de privacidad)
 
 	Mailer mail.Sender // nil o sin configurar: no se envían correos
 	AppURL string      // base de los enlaces de los correos (https://tu-dominio)
@@ -184,7 +185,12 @@ func (a *API) Routes() http.Handler {
 
 	// plataforma
 	mux.Handle("POST /api/platform/users/{id}/2fa-reset", a.platform(a.resetPlatformTwoFactor, write))
-	mux.Handle("GET /api/platform/stats", a.platform(a.platformStats, both...))
+	mux.Handle("GET /api/platform/stats", a.platform(a.platformOverview, both...))
+	mux.Handle("GET /api/platform/overview", a.platform(a.platformOverview, both...))
+	mux.Handle("GET /api/platform/plans", a.platform(a.platformPlans, both...))
+	mux.Handle("GET /api/platform/payments", a.platform(a.platformPayments, write))
+	mux.Handle("GET /api/platform/health", a.platform(a.platformHealth, write))
+	mux.Handle("POST /api/platform/businesses/{id}/payments", a.platform(a.platformRecordPayment, write))
 	mux.Handle("GET /api/platform/businesses", a.platform(a.platformListBusinesses, both...))
 	mux.Handle("POST /api/platform/businesses", a.platform(a.platformCreateBusiness, write))
 	mux.Handle("GET /api/platform/businesses/{id}", a.platform(a.platformGetBusiness, both...))
@@ -208,12 +214,16 @@ func (a *API) Routes() http.Handler {
 // lookup lee de la base el rol, el negocio y el estado de la cuenta actuales del usuario.
 func (a *API) lookup(ctx context.Context, userID int64) (*auth.Principal, error) {
 	p := &auth.Principal{UserID: userID}
+	var trialEnds, periodEnd *time.Time
 	err := a.DB.QueryRow(ctx,
-		`SELECT COALESCE(u.business_id, 0), u.role, COALESCE(b.status, ''), u.session_version
+		`SELECT COALESCE(u.business_id, 0), u.role, COALESCE(b.status, ''), u.session_version, b.trial_ends_at, b.current_period_end
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id
-		 WHERE u.id = $1 AND u.active`, userID).Scan(&p.BusinessID, &p.Role, &p.BusinessStatus, &p.SessionVersion)
+		 WHERE u.id = $1 AND u.active`, userID).Scan(&p.BusinessID, &p.Role, &p.BusinessStatus, &p.SessionVersion, &trialEnds, &periodEnd)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
+	}
+	if err == nil && p.BusinessID != 0 {
+		p.BillingState = BillingState(p.BusinessStatus, trialEnds, periodEnd, a.now())
 	}
 	return p, err
 }

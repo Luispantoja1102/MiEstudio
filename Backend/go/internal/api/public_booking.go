@@ -45,7 +45,7 @@ func (a *API) publicBusiness(ctx context.Context, slug string) (*pubBiz, error) 
 	err := a.DB.QueryRow(ctx,
 		`SELECT b.id, b.name, b.kind, b.slug, b.timezone FROM businesses b
 		 JOIN booking_settings bs ON bs.business_id = b.id
-		 WHERE b.slug = $1 AND b.status IN ('trial', 'active') AND bs.enabled`, slug).Scan(&b.ID, &b.Name, &b.Kind, &b.Slug, &tz)
+		 WHERE b.slug = $1 AND `+usableSQL("b.", "$2")+` AND bs.enabled`, slug, a.now()).Scan(&b.ID, &b.Name, &b.Kind, &b.Slug, &tz)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -75,7 +75,7 @@ func depositAmount(price, percent int) int {
 
 // depositFor es el anticipo de un servicio para esta reserva (0 = sin anticipo).
 func (a *API) depositFor(ctx context.Context, b *pubBiz, price int) int {
-	if b.Settings.DepositPercent <= 0 || !a.mpConnected(ctx, b.ID) {
+	if b.Settings.DepositPercent <= 0 || !a.mpConnected(ctx, b.ID) || !a.planOf(ctx, a.DB, b.ID).Deposits {
 		return 0
 	}
 	return depositAmount(price, b.Settings.DepositPercent)

@@ -180,6 +180,7 @@ func TestArcoPanelDeadlinesRolesAndTenancy(t *testing.T) {
 	}
 	// un cliente de otro negocio no puede vincularse; otro negocio no ve ni toca la solicitud
 	other := f.a.mustRegister(t, "Otra", "otra@x.com")
+	f.a.DB.Exec(context.Background(), `UPDATE businesses SET status = 'active'`) // el reloj ya pasó la prueba de 14 días
 	oc := f.a.do(t, "POST", "/api/clients", other, map[string]any{"name": "Ajeno"})
 	if r := f.a.do(t, "PATCH", "/api/arco/"+id, f.admin, map[string]any{"client_id": float64(id2(oc))}); r.Status != 400 {
 		t.Fatalf("cliente de otro negocio: %d", r.Status)

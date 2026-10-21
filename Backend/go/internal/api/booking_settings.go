@@ -99,6 +99,10 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
+	if s.DepositPercent > 0 && !a.planOf(r.Context(), a.DB, p.BusinessID).Deposits {
+		writeFail(w, errPlanDeposits)
+		return
+	}
 	// un anticipo solo se puede cobrar si hay una cuenta de Mercado Pago conectada
 	if s.DepositPercent > 0 && !a.mpConnected(r.Context(), p.BusinessID) {
 		writeJSON(w, http.StatusConflict, map[string]string{

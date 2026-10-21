@@ -209,7 +209,7 @@ func (a *API) enqueueReminders(ctx context.Context) error {
 		   JOIN clients c ON c.id = ap.client_id
 		   JOIN businesses b ON b.id = ap.business_id
 		   JOIN booking_settings bs ON bs.business_id = ap.business_id
-		  WHERE ap.status = 'scheduled' AND b.status IN ('trial', 'active') AND bs.reminder_hours > 0
+		  WHERE ap.status = 'scheduled' AND `+usableSQL("b.", "$1")+` AND bs.reminder_hours > 0
 		    AND (ap.reminders_consent OR c.reminders_consent) AND c.email <> ''
 		    AND ap.starts_at > $1 AND ap.starts_at <= $1 + bs.reminder_hours * interval '1 hour'
 		    AND ap.created_at <= ap.starts_at - bs.reminder_hours * interval '1 hour'

@@ -569,6 +569,10 @@ func (a *API) mpRegisterTerminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	if !a.planOf(ctx, a.DB, p.BusinessID).Terminal {
+		writeFail(w, errPlanTerminal)
+		return
+	}
 	if ok, err := activeBranch(ctx, a.DB, p.BusinessID, req.BranchID); err != nil {
 		serverErr(w)
 		return
@@ -629,6 +633,9 @@ type pointState struct {
 
 // preflight responde «¿puedo cobrar en la terminal ahora mismo?» para una sucursal.
 func (a *API) preflight(ctx context.Context, bizID, branchID int64) (pointState, string, string) {
+	if !a.planOf(ctx, a.DB, bizID).Terminal {
+		return pointState{Code: "plan_feature", Message: errPlanTerminal.Msg}, "", ""
+	}
 	if len(a.EncKey) != 32 {
 		return pointState{Code: "mp_disabled", Message: "El cobro con terminal no está habilitado en este servidor."}, "", ""
 	}

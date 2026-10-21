@@ -76,6 +76,12 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "la comisión debe estar entre 0 y 100")
 		return
 	}
+	if req.Bookable {
+		if err := a.checkStaffRoom(r.Context(), p.BusinessID); err != nil {
+			writeFail(w, err)
+			return
+		}
+	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error interno")
@@ -126,6 +132,23 @@ func (a *API) updateTeamMember(w http.ResponseWriter, r *http.Request) {
 		// evita dejar el negocio sin administrador
 		writeErr(w, http.StatusBadRequest, "no puedes cambiar tu propio rol ni desactivarte")
 		return
+	}
+	// pasar a ser una persona activa en la agenda ocupa un lugar del plan
+	var curActive, curBookable bool
+	if err := a.DB.QueryRow(r.Context(), `SELECT active, bookable FROM users WHERE id = $1 AND business_id = $2`, id, p.BusinessID).Scan(&curActive, &curBookable); err == nil {
+		newActive, newBookable := curActive, curBookable
+		if req.Active != nil {
+			newActive = *req.Active
+		}
+		if req.Bookable != nil {
+			newBookable = *req.Bookable
+		}
+		if newActive && newBookable && !(curActive && curBookable) {
+			if err := a.checkStaffRoom(r.Context(), p.BusinessID); err != nil {
+				writeFail(w, err)
+				return
+			}
+		}
 	}
 	tag, err := a.DB.Exec(r.Context(),
 		`UPDATE users SET role = COALESCE($3, role), active = COALESCE($4, active),

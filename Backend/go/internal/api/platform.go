@@ -14,47 +14,6 @@ import (
 
 var statuses = map[string]bool{"pending": true, "trial": true, "active": true, "suspended": true}
 
-// ---------- resumen ----------
-
-func (a *API) platformStats(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	byStatus := map[string]int{"pending": 0, "trial": 0, "active": 0, "suspended": 0}
-	rows, err := a.DB.Query(ctx, `SELECT status, count(*) FROM businesses GROUP BY status`)
-	if err != nil {
-		serverErr(w)
-		return
-	}
-	for rows.Next() {
-		var s string
-		var n int
-		if err := rows.Scan(&s, &n); err != nil {
-			rows.Close()
-			serverErr(w)
-			return
-		}
-		byStatus[s] = n
-	}
-	rows.Close()
-
-	var users, clients, signups int
-	if err := a.DB.QueryRow(ctx,
-		`SELECT (SELECT count(*) FROM users WHERE business_id IS NOT NULL),
-		        (SELECT count(*) FROM clients),
-		        (SELECT count(*) FROM businesses WHERE created_at > now() - interval '30 days')`).
-		Scan(&users, &clients, &signups); err != nil {
-		serverErr(w)
-		return
-	}
-	total := 0
-	for _, n := range byStatus {
-		total += n
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"businesses": byStatus, "total": total, "users": users, "clients": clients, "signups_30d": signups,
-		"registration_mode": a.registrationMode(ctx),
-	})
-}
-
 // ---------- negocios ----------
 
 type bizRow struct {
@@ -68,28 +27,64 @@ type bizRow struct {
 	Users       int        `json:"users"`
 	Clients     int        `json:"clients"`
 	OwnerEmail  string     `json:"owner_email"`
+
+	Plan             string     `json:"plan"`
+	PlanName         string     `json:"plan_name"`
+	BillingState     string     `json:"billing_state"` // pending, trialing, trial_expired, active, past_due o suspended
+	CurrentPeriodEnd *time.Time `json:"current_period_end"`
+	SuspendedReason  string     `json:"suspended_reason"`
+	TrialDaysLeft    *int       `json:"trial_days_left"`
+	LastPayment      *time.Time `json:"last_payment_at"`
 }
 
+// stateSQL calcula el estado de cobro en SQL (gemelo de BillingState). nowArg es el parámetro con el momento actual.
+func stateSQL(nowArg string) string {
+	return `CASE b.status WHEN 'pending' THEN 'pending' WHEN 'suspended' THEN 'suspended'
+	  WHEN 'trial' THEN CASE WHEN b.trial_ends_at > ` + nowArg + ` THEN 'trialing' ELSE 'trial_expired' END
+	  ELSE CASE WHEN b.current_period_end IS NOT NULL AND b.current_period_end + interval '3 days' < ` + nowArg + ` THEN 'past_due' ELSE 'active' END END`
+}
+
+// bizSelect no lleva parámetros: cada consulta añade su WHERE.
 const bizSelect = `SELECT b.id, b.name, b.slug, b.kind, b.status, b.trial_ends_at, b.created_at,
 	(SELECT count(*) FROM users u WHERE u.business_id = b.id),
 	(SELECT count(*) FROM clients c WHERE c.business_id = b.id),
-	COALESCE((SELECT u.email FROM users u WHERE u.business_id = b.id AND u.role = 'admin' ORDER BY u.id LIMIT 1), '')
+	COALESCE((SELECT u.email FROM users u WHERE u.business_id = b.id AND u.role = 'admin' ORDER BY u.id LIMIT 1), ''),
+	b.plan, b.current_period_end, b.suspended_reason,
+	(SELECT max(p.created_at) FROM payments p WHERE p.business_id = b.id AND p.method <> 'courtesy')
 	FROM businesses b`
 
-func scanBiz(row pgx.Row) (bizRow, error) {
+func scanBiz(row pgx.Row, now time.Time) (bizRow, error) {
 	var b bizRow
-	err := row.Scan(&b.ID, &b.Name, &b.Slug, &b.Kind, &b.Status, &b.TrialEndsAt, &b.CreatedAt, &b.Users, &b.Clients, &b.OwnerEmail)
-	return b, err
+	err := row.Scan(&b.ID, &b.Name, &b.Slug, &b.Kind, &b.Status, &b.TrialEndsAt, &b.CreatedAt, &b.Users, &b.Clients, &b.OwnerEmail,
+		&b.Plan, &b.CurrentPeriodEnd, &b.SuspendedReason, &b.LastPayment)
+	if err != nil {
+		return b, err
+	}
+	if pl, ok := planByID(b.Plan); ok {
+		b.PlanName = pl.Name
+	}
+	b.BillingState = BillingState(b.Status, b.TrialEndsAt, b.CurrentPeriodEnd, now)
+	if b.Status == "trial" && b.TrialEndsAt != nil {
+		d := int(b.TrialEndsAt.Sub(now).Hours()/24 + 0.999)
+		if d < 0 {
+			d = 0
+		}
+		b.TrialDaysLeft = &d
+	}
+	return b, nil
 }
 
 func (a *API) platformListBusinesses(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
+	state := r.URL.Query().Get("state")
+	plan := r.URL.Query().Get("plan")
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	now := a.now()
 	rows, err := a.DB.Query(r.Context(),
-		bizSelect+` WHERE ($1 = '' OR b.status = $1)
-		  AND ($2 = '' OR strpos(lower(b.name), lower($2)) > 0 OR strpos(b.slug, lower($2)) > 0
-		       OR EXISTS (SELECT 1 FROM users u WHERE u.business_id = b.id AND strpos(u.email, lower($2)) > 0))
-		 ORDER BY b.created_at DESC, b.id DESC LIMIT 200`, status, q)
+		bizSelect+` WHERE ($2 = '' OR b.status = $2) AND ($3 = '' OR (`+stateSQL("$1")+`) = $3) AND ($4 = '' OR b.plan = $4)
+		  AND ($5 = '' OR strpos(lower(b.name), lower($5)) > 0 OR strpos(b.slug, lower($5)) > 0
+		       OR EXISTS (SELECT 1 FROM users u WHERE u.business_id = b.id AND strpos(u.email, lower($5)) > 0))
+		 ORDER BY b.created_at DESC, b.id DESC LIMIT 200`, now, status, state, plan, q)
 	if err != nil {
 		serverErr(w)
 		return
@@ -97,7 +92,7 @@ func (a *API) platformListBusinesses(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	out := []bizRow{}
 	for rows.Next() {
-		b, err := scanBiz(rows)
+		b, err := scanBiz(rows, now)
 		if err != nil {
 			serverErr(w)
 			return
@@ -112,7 +107,7 @@ func (a *API) platformGetBusiness(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	b, err := scanBiz(a.DB.QueryRow(r.Context(), bizSelect+` WHERE b.id = $1`, id))
+	b, err := scanBiz(a.DB.QueryRow(r.Context(), bizSelect+` WHERE b.id = $1`, id), a.now())
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeErr(w, http.StatusNotFound, "no encontrado")
 		return
@@ -137,7 +132,15 @@ func (a *API) platformGetBusiness(w http.ResponseWriter, r *http.Request) {
 		}
 		team = append(team, m)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"business": b, "team": team})
+	out := map[string]any{"business": b, "team": team, "usage": a.usageOf(r.Context(), a.DB, id)}
+	if pl, ok := planByID(b.Plan); ok {
+		out["limits"] = pl
+	}
+	// el dinero solo lo ve quien administra la plataforma
+	if auth.FromContext(r.Context()).Role == auth.RolePlatformAdmin {
+		out["payments"] = a.paymentsOf(r.Context(), id, 50)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // platformCreateBusiness da de alta un negocio manualmente (sin importar el modo de registro).
@@ -184,9 +187,12 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Status      *string `json:"status"`
-		TrialEndsAt *string `json:"trial_ends_at"` // YYYY-MM-DD
-		Name        *string `json:"name"`
+		Status          *string `json:"status"`
+		TrialEndsAt     *string `json:"trial_ends_at"`      // YYYY-MM-DD
+		PeriodEnd       *string `json:"current_period_end"` // YYYY-MM-DD: fin del periodo pagado
+		Plan            *string `json:"plan"`
+		SuspendedReason *string `json:"suspended_reason"`
+		Name            *string `json:"name"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -200,6 +206,22 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 	case req.Name != nil && !validName(strings.TrimSpace(*req.Name)):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
 		return
+	case req.Plan != nil && !planExists(*req.Plan):
+		writeErr(w, http.StatusBadRequest, "plan inválido")
+		return
+	case req.SuspendedReason != nil && len(*req.SuspendedReason) > 300:
+		writeErr(w, http.StatusBadRequest, "el motivo es demasiado largo")
+		return
+	}
+	var periodEnd *time.Time
+	if req.PeriodEnd != nil {
+		t, err := time.Parse(dateLayout, *req.PeriodEnd)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "fecha inválida (AAAA-MM-DD)")
+			return
+		}
+		t = t.Add(23*time.Hour + 59*time.Minute)
+		periodEnd = &t
 	}
 	if req.TrialEndsAt != nil {
 		t, err := time.Parse(dateLayout, *req.TrialEndsAt)
@@ -228,8 +250,10 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 	startTrial := req.Status != nil && *req.Status == "trial" && before == "pending" && trialEnds == nil
 	_, err := a.DB.Exec(ctx,
 		`UPDATE businesses SET status = COALESCE($2, status), name = COALESCE($3, name),
-		   trial_ends_at = CASE WHEN $5 THEN now() + interval '14 days' ELSE COALESCE($4, trial_ends_at) END
-		 WHERE id = $1`, id, req.Status, req.Name, trialEnds, startTrial)
+		   trial_ends_at = CASE WHEN $5 THEN $9::timestamptz + interval '14 days' ELSE COALESCE($4, trial_ends_at) END,
+		   plan = COALESCE($6, plan), current_period_end = COALESCE($7, current_period_end),
+		   suspended_reason = CASE WHEN COALESCE($2, status) = 'suspended' THEN COALESCE($8, suspended_reason) ELSE '' END
+		 WHERE id = $1`, id, req.Status, req.Name, trialEnds, startTrial, req.Plan, periodEnd, req.SuspendedReason, a.now())
 	if err != nil {
 		serverErr(w)
 		return
@@ -240,6 +264,15 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.TrialEndsAt != nil {
 		detail["trial_ends_at"] = *req.TrialEndsAt
+	}
+	if req.Plan != nil {
+		detail["plan"] = *req.Plan
+	}
+	if req.PeriodEnd != nil {
+		detail["current_period_end"] = *req.PeriodEnd
+	}
+	if req.SuspendedReason != nil {
+		detail["reason"] = *req.SuspendedReason
 	}
 	a.logActivity(ctx, actor(r), id, "business_updated", detail)
 	w.WriteHeader(http.StatusNoContent)

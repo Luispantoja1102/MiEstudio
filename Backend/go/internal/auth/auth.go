@@ -20,6 +20,7 @@ type Principal struct {
 	BusinessID     int64 // 0 para usuarios de plataforma
 	Role           string
 	BusinessStatus string // vacío para usuarios de plataforma
+	BillingState   string // pending, trialing, trial_expired, active, past_due o suspended (vacío en plataforma)
 	SessionVersion int    // un token solo vale si lleva esta misma versión
 }
 
@@ -175,6 +176,8 @@ func RequireTenant(next http.Handler) http.Handler {
 			denyCode(w, http.StatusForbidden, "tu cuenta está pendiente de aprobación", "business_pending")
 		case p.BusinessStatus == "suspended":
 			denyCode(w, http.StatusForbidden, "tu cuenta está suspendida, contáctanos", "business_suspended")
+		case p.BillingState == "trial_expired" || p.BillingState == "past_due":
+			denyCode(w, http.StatusForbidden, "tu suscripción venció: renueva tu plan para seguir usando MiEstudio", "subscription_required")
 		default:
 			next.ServeHTTP(w, r)
 		}

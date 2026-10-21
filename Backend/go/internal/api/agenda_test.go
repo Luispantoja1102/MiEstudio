@@ -28,6 +28,8 @@ func newFixture(t *testing.T) *fixture {
 	a := newTestAPI(t)
 	a.Now = func() time.Time { return time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC) }
 	admin := a.mustRegister(t, "Barbería", "admin@x.com")
+	// las pruebas mueven el reloj por semanas: el negocio es de pago (sin vencimiento) para no depender de la prueba de 14 días
+	a.DB.Exec(context.Background(), `UPDATE businesses SET status = 'active'`)
 	f := &fixture{a: a, admin: admin}
 	f.branch = list[branch](t, a, "/api/branches", admin)[0].ID
 

@@ -48,6 +48,10 @@ func (a *API) createBranch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "datos de sucursal inválidos")
 		return
 	}
+	if err := a.checkBranchRoom(r.Context(), p.BusinessID); err != nil {
+		writeFail(w, err)
+		return
+	}
 	var id int64
 	if err := a.DB.QueryRow(r.Context(),
 		`INSERT INTO branches (business_id, name, address, phone) VALUES ($1,$2,$3,$4) RETURNING id`,
@@ -94,6 +98,15 @@ func (a *API) updateBranch(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
+	if req.Active != nil && *req.Active {
+		var wasActive bool
+		if err := tx.QueryRow(ctx, `SELECT active FROM branches WHERE id = $1 AND business_id = $2`, id, p.BusinessID).Scan(&wasActive); err == nil && !wasActive {
+			if err := a.checkBranchRoom(ctx, p.BusinessID); err != nil {
+				writeFail(w, err)
+				return
+			}
+		}
+	}
 	if req.Active != nil && !*req.Active {
 		// debe quedar al menos otra sucursal activa
 		var others int
