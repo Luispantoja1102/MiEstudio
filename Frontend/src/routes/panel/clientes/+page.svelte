@@ -9,7 +9,7 @@
   let error = $state('');
   let showForm = $state(false);
   let busy = $state(false);
-  let form = $state({ name: '', phone: '', email: '', birthday: '' });
+  let form = $state({ name: '', phone: '', email: '', birthday: '', reminders_consent: false });
   let timer;
 
   async function load() {
@@ -61,6 +61,7 @@
       <label class="field">Correo <input type="email" bind:value={form.email} /></label>
       <label class="field">Cumpleaños <input type="date" bind:value={form.birthday} /></label>
     </div>
+    <label class="check"><input type="checkbox" bind:checked={form.reminders_consent} disabled={!form.email} /> El cliente aceptó recibir recordatorios de sus citas por correo</label>
     <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar y abrir ficha'}</button></div>
   </form>
 {/if}

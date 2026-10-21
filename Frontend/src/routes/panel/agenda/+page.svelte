@@ -168,9 +168,9 @@
             {/each}
 
             {#each apptsFor(s.id) as a (a.id)}
-              <button class="appt {a.status}" style="top: {top(a.starts_at)}px; height: {span(a.starts_at, a.ends_at)}px" onclick={() => openDetail(a)}>
+              <button class="appt {a.status}" class:online={a.source === 'online'} style="top: {top(a.starts_at)}px; height: {span(a.starts_at, a.ends_at)}px" onclick={() => openDetail(a)}>
                 <b>{fmtTime(a.starts_at, tz)}</b> {a.client_name}
-                <small>{a.service_name}</small>
+                <small>{a.service_name}{#if a.deposit_status === 'paid'} · anticipo ✓{:else if a.status === 'pending_payment'} · esperando anticipo{/if}</small>
               </button>
             {/each}
           </div>
@@ -232,6 +232,8 @@
   .appt small { display: block; color: var(--muted); }
   .appt.completed { background: var(--surface-2); border-color: var(--muted); }
   .appt.no_show { background: var(--warn-soft); border-color: var(--warn); }
+  .appt.pending_payment { background: var(--warn-soft); border-color: var(--warn); border-style: dashed; }
+  .appt.online { border-left-style: double; }
   .appt.cancelled { opacity: 0.55; text-decoration: line-through; background: var(--surface); border-color: var(--border); }
   .appt:hover { filter: brightness(0.97); }
   .block {

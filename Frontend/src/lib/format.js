@@ -45,7 +45,7 @@ export const ACTIONS = {
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-export const METHODS = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', mp_point: 'Terminal Mercado Pago' };
+export const METHODS = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', mp_point: 'Terminal Mercado Pago', deposit: 'Anticipo en línea' };
 
 // identificador único por intento de cobro: repetir la misma petición no cobra dos veces
 export const newToken = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `t-${Date.now()}-${Math.random().toString(36).slice(2)}`);

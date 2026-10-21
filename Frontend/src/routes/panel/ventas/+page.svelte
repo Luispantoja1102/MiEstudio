@@ -71,7 +71,7 @@
     services = s.filter((x) => x.active);
     products = p.filter((x) => x.active);
     staff = a.staff;
-    appts = a.appointments.filter((x) => x.status !== 'cancelled' && x.status !== 'no_show');
+    appts = a.appointments.filter((x) => x.status === 'scheduled' || x.status === 'completed');
     point = st;
     ready = true;
   }
@@ -124,10 +124,18 @@
     appointmentId = a.id;
     client = { id: a.client_id, name: a.client_name };
     lines.unshift({ key: 'appt-' + a.id, kind: 'service', id: a.service_id, name: a.service_name, unit: a.price_cents, qty: 1, staffId: a.staff_id, fromAppt: true });
+    // el anticipo pagado en línea se descuenta solo (y es obligatorio aplicarlo)
+    payments = payments.filter((p) => p.method !== 'deposit');
+    if (a.deposit_status === 'paid') {
+      payments.unshift({ key: 'deposit-' + a.id, method: 'deposit', amount: toPesos(a.deposit_cents), received: '', reference: '', charge: null, locked: true });
+    }
   }
   function removeLine(l) {
     lines = lines.filter((x) => x !== l);
-    if (l.fromAppt) appointmentId = null;
+    if (l.fromAppt) {
+      appointmentId = null;
+      payments = payments.filter((p) => p.method !== 'deposit');
+    }
   }
   const maxQty = (l) => (l.kind === 'service' ? 20 : (l.stock ?? 1000));
 
@@ -306,6 +314,7 @@
             <button class="item-row appt" onclick={() => addAppointment(a)}>
               <span class="grow"><b>{fmtTime(a.starts_at, tz)} · {a.client_name}</b><small class="meta">{a.service_name} · con {a.staff_name}</small></span>
               <span>{money(a.price_cents)}</span>
+              {#if a.deposit_status === 'paid'}<span class="badge">Anticipo {money(a.deposit_cents)} ✓</span>{/if}
               {#if a.status === 'completed'}<span class="badge muted">Completada</span>{/if}
             </button>
           {:else}
@@ -395,12 +404,14 @@
             <div class="prow">
               <div class="prow-head">
                 <b>{METHODS[p.method]}</b>
-                <button class="btn ghost sm" onclick={() => removePayment(p)}>Quitar</button>
+                {#if !p.locked}<button class="btn ghost sm" onclick={() => removePayment(p)}>Quitar</button>{/if}
               </div>
               <label class="field mini">Monto
-                <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null} />
+                <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null || p.locked} />
               </label>
-              {#if p.method === 'cash'}
+              {#if p.method === 'deposit'}
+                <p class="ok" role="status">✓ Anticipo pagado en línea. Quita la cita del ticket para no descontarlo.</p>
+              {:else if p.method === 'cash'}
                 <label class="field mini">Recibido
                   <input inputmode="decimal" bind:value={p.received} placeholder="Exacto" />
                 </label>
@@ -441,6 +452,7 @@
 {/if}
 
 <style>
+  .item-row.appt small { display: block; }
   .open { max-width: 420px; }
   .pos { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
   @media (min-width: 1000px) { .pos { grid-template-columns: 1.1fr 0.9fr; } .ticket { position: sticky; top: 16px; } }

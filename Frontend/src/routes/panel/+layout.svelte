@@ -20,6 +20,7 @@
     ['percent', 'Comisiones', '/panel/comisiones', ['admin', 'staff']],
     ['chart', 'Reportes', '/panel/reportes', ['admin']],
     ['users', 'Equipo', '/panel/equipo', ['admin']],
+    ['globe', 'Reserva en línea', '/panel/reserva', ['admin']],
     ['home', 'Sucursales', '/panel/ajustes', ['admin']],
     ['card', 'Pagos', '/panel/pagos', ['admin']]
   ];

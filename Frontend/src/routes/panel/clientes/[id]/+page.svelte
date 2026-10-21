@@ -22,7 +22,7 @@
   onMount(async () => {
     try {
       const c = await api(`/api/clients/${id}`);
-      form = { name: c.name, phone: c.phone, email: c.email, birthday: c.birthday ?? '' };
+      form = { name: c.name, phone: c.phone, email: c.email, birthday: c.birthday ?? '', reminders_consent: !!c.reminders_consent };
       await loadNotes();
     } catch (e) {
       error = e.status === 404 ? 'No encontramos a este cliente.' : e.message;
@@ -71,6 +71,7 @@
       <label class="field">Correo <input type="email" bind:value={form.email} /></label>
       <label class="field">Cumpleaños <input type="date" bind:value={form.birthday} /></label>
     </div>
+    <label class="check"><input type="checkbox" bind:checked={form.reminders_consent} disabled={!form.email} /> Aceptó recibir recordatorios de sus citas por correo</label>
     <div class="form-actions">
       <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar cambios'}</button>
       {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}

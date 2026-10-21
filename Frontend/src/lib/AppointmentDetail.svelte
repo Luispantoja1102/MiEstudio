@@ -6,8 +6,10 @@
 
   let { appt, tz, date, canBook, ondone } = $props();
 
-  const LABEL = { scheduled: 'Agendada', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada' };
-  const TONE = { scheduled: '', completed: '', no_show: 'warn', cancelled: 'muted' };
+  const LABEL = { scheduled: 'Agendada', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada', pending_payment: 'Esperando anticipo' };
+  const TONE = { scheduled: '', completed: '', no_show: 'warn', cancelled: 'muted', pending_payment: 'warn' };
+  const DEPOSIT = { pending: 'sin pagar', paid: 'pagado', applied: 'aplicado en la venta', refunded: 'devuelto', kept: 'conservado por inasistencia', expired: 'vencido' };
+  const hasPaidDeposit = $derived(appt.deposit_status === 'paid');
 
   let error = $state('');
   let busy = $state(false);
@@ -43,6 +45,13 @@
       {longDate(date)} · {fmtTime(appt.starts_at, tz)}–{fmtTime(appt.ends_at, tz)} · con {appt.staff_name}
     </p>
     <span class="badge {TONE[appt.status]}">{LABEL[appt.status]}</span>
+    {#if appt.source === 'online'}<span class="badge muted">Reserva en línea</span>{/if}
+    {#if appt.deposit_cents}
+      <p class="meta" style="margin: 0.6rem 0 0">Anticipo de {money(appt.deposit_cents)}: {DEPOSIT[appt.deposit_status] ?? appt.deposit_status}</p>
+    {/if}
+    {#if appt.status === 'pending_payment'}
+      <p class="meta" style="margin: 0.4rem 0 0">El horario está apartado unos minutos mientras el cliente paga. Si no paga, se libera solo.</p>
+    {/if}
   </div>
 
   {#if canBook}
@@ -71,9 +80,9 @@
     {:else}
       <div class="form-actions">
         <button class="btn" disabled={busy} onclick={() => setStatus('completed')}>Marcar completada</button>
-        <button class="btn ghost" disabled={busy} onclick={() => setStatus('no_show')}>No asistió</button>
+        <button class="btn ghost" disabled={busy} onclick={() => (!hasPaidDeposit || confirm(`Si no asistió, el negocio se queda con el anticipo de ${money(appt.deposit_cents)}. ¿Continuar?`)) && setStatus('no_show')}>No asistió</button>
         <button class="btn ghost" disabled={busy} onclick={() => (moving = true)}>Reprogramar</button>
-        <button class="btn ghost" disabled={busy} onclick={() => confirm('¿Cancelar esta cita?') && setStatus('cancelled')}>Cancelar cita</button>
+        <button class="btn ghost" disabled={busy} onclick={() => confirm(hasPaidDeposit ? `¿Cancelar esta cita? Se devolverá el anticipo de ${money(appt.deposit_cents)} al cliente.` : '¿Cancelar esta cita?') && setStatus('cancelled')}>Cancelar cita</button>
       </div>
     {/if}
   {/if}
