@@ -303,6 +303,21 @@ func (a *API) stillRelevantLoose(ctx context.Context, q queued) (bool, error) {
 		if gone || email == "" || !strings.EqualFold(email, q.To) {
 			return false, nil
 		}
+		// promociones: solo con consentimiento vigente; encuesta: con recordatorios o promociones
+		var reminders, promos bool
+		if err := a.DB.QueryRow(ctx, `SELECT reminders_consent, marketing_consent FROM clients WHERE id = $1`, q.ClientID).Scan(&reminders, &promos); err != nil {
+			return false, err
+		}
+		switch q.Kind {
+		case "birthday", "winback":
+			if !promos {
+				return false, nil
+			}
+		case "survey":
+			if !promos && !reminders {
+				return false, nil
+			}
+		}
 	}
 	if q.Kind == "waitlist" {
 		var status string
@@ -328,6 +343,9 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 	if err := a.enqueueReminders(ctx); err != nil {
+		return 0, err
+	}
+	if err := a.engagementPass(ctx); err != nil {
 		return 0, err
 	}
 	sent := 0

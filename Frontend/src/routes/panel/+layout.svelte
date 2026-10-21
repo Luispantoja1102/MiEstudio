@@ -11,7 +11,7 @@
   let { children } = $props();
 
   const SELL = ['admin', 'cashier', 'reception'];
-  const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'];
+  const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/mensajes', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'];
   const COBROS_PATHS = ['/panel/ventas', '/panel/caja', '/panel/servicios', '/panel/inventario'];
   const REPORT_PATHS = ['/panel/reportes', '/panel/comisiones'];
   const AGENDA_PATHS = ['/panel/agenda', '/panel/espera'];

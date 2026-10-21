@@ -129,6 +129,18 @@ tantas personas como horarios haya (un aviso reciente sigue contando 12 h). El a
 se lo queda, y su solicitud pasa a «reservada». Cada correo trae el enlace `/espera/<token>` para salir de la lista; las solicitudes
 vencen al pasar el día, y si se borran los datos del cliente se cancelan. Requiere correo configurado.
 
+**Mensajes a clientes** (*Ajustes → Mensajes a clientes*, apagados por defecto; requieren correo configurado). Tres correos automáticos:
+- **Cumpleaños:** el día del cumpleaños, a partir de las 9:00 hora del negocio, con un mensaje opcional (por ejemplo una promoción).
+- **Reactivación:** a quien lleva N días sin venir (14 a 365; cuentan citas atendidas y ventas pagadas), no tiene cita pendiente y sigue dentro del último año.
+  Un solo correo por cada visita: si no vuelve no se le insiste.
+- **Encuesta:** unas horas después de una cita atendida, una calificación de 1 a 5 y un comentario; a lo más una por cliente por semana. El enlace
+  del correo solo preselecciona la calificación (un filtro de correo que abre enlaces no puede contestar por la persona). Las opiniones y su promedio se ven en el panel.
+  El enlace de reseña de Google (opcional) se ofrece a **todas** las personas que contestan; filtrar a quién se le pide según su calificación va contra las reglas de Google.
+
+Las promociones (cumpleaños y reactivación) solo van a quien las aceptó (casilla en la reserva en línea o en su ficha); la encuesta, a quien aceptó recordatorios
+o promociones. Cada correo trae `/baja/<token>`, que retira de una vez recordatorios y promociones (los correos de las citas siguen). Borrar los datos de un cliente
+elimina sus correos en cola y los comentarios de sus encuestas.
+
 ## Ajustes
 
 Como en MiConsultorio, el menú trae pocas opciones: **Inicio, Agenda, Clientes, Cobros y Reportes**, y **Ajustes** al pie.
@@ -193,7 +205,7 @@ sirve `index.html` y `version.json` sin caché y los archivos con huella como in
 | `/api/clients/{id}/notes` | Administrador y profesionales |
 | `GET /api/agenda`, `GET /api/agenda/slots` | Todo el equipo del negocio |
 | `/api/cash/*`, `POST/GET /api/sales`, `GET /api/packages`, `GET /api/clients/{id}/packages`, `/api/payments/point/*` | Administrador, caja y recepción |
-| `POST /api/sales/{id}/void`, `/api/products/{id}/stock`, `/api/commission-rules`, `/api/reports/sales`, `/api/payments/mercadopago/*` | Administrador |
+| `POST /api/sales/{id}/void`, `/api/engagement`, `/api/surveys`, `/api/products/{id}/stock`, `/api/commission-rules`, `/api/reports/sales`, `/api/payments/mercadopago/*` | Administrador |
 | `GET /api/reports/commissions` | Administrador (todos) y profesionales (solo lo suyo) |
 | `POST/PATCH /api/appointments`, `POST /api/appointments/{id}/move`, `POST/DELETE /api/blocks`, `/api/waitlist` | Administrador, recepción y profesionales (estos últimos solo bloquean su propio horario) |
 | `/api/platform/*` | Plataforma (soporte solo lee) |

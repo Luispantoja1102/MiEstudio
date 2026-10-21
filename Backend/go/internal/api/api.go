@@ -95,6 +95,10 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/public/{slug}/slots", a.publicSlots)
 	mux.HandleFunc("POST /api/public/{slug}/bookings", a.publicBook)
 	mux.HandleFunc("POST /api/public/{slug}/waitlist", a.publicWaitlist)
+	mux.HandleFunc("GET /api/public-survey/{token}", a.publicSurveyInfo)
+	mux.HandleFunc("POST /api/public-survey/{token}", a.publicSurveyAnswer)
+	mux.HandleFunc("GET /api/public-unsub/{token}", a.publicUnsubInfo)
+	mux.HandleFunc("POST /api/public-unsub/{token}", a.publicUnsub)
 	mux.HandleFunc("GET /api/public-waitlist/{token}", a.publicWaitlistInfo)
 	mux.HandleFunc("POST /api/public-waitlist/{token}/leave", a.publicWaitlistLeave)
 
@@ -126,6 +130,11 @@ func (a *API) Routes() http.Handler {
 	// negocio: datos del negocio
 	mux.Handle("GET /api/business", a.tenant(a.getBusiness, admin))
 	mux.Handle("PUT /api/business", a.tenant(a.putBusiness, admin))
+
+	// negocio: mensajes a clientes (cumpleaños, reactivación, encuesta con reseña)
+	mux.Handle("GET /api/engagement", a.tenant(a.getEngagement, admin))
+	mux.Handle("PUT /api/engagement", a.tenant(a.putEngagement, admin))
+	mux.Handle("GET /api/surveys", a.tenant(a.listSurveys, admin))
 
 	// negocio: equipo
 	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))

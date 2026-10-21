@@ -293,6 +293,7 @@ type bookingReq struct {
 	Notes            string `json:"notes"`
 	AcceptPrivacy    bool   `json:"accept_privacy"`
 	ConsentReminders bool   `json:"consent_reminders"`
+	ConsentMarketing bool   `json:"consent_marketing"` // promociones y felicitación de cumpleaños
 }
 
 // findOrCreateClient identifica a quien reserva por teléfono (o correo) sin revelar nada de lo que ya hay guardado.
@@ -394,8 +395,8 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 	case tErr != nil:
 		writeErr(w, http.StatusBadRequest, "horario inválido")
 		return
-	case req.ConsentReminders && req.Email == "":
-		writeErr(w, http.StatusBadRequest, "para recibir recordatorios necesitamos tu correo")
+	case (req.ConsentReminders || req.ConsentMarketing) && req.Email == "":
+		writeErr(w, http.StatusBadRequest, "para recibir mensajes necesitamos tu correo")
 		return
 	}
 	if !a.allow(w, "pub-book-phone:"+phoneKey(digits), 5, time.Hour) {
@@ -478,6 +479,11 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	clientID, err := findOrCreateClient(ctx, tx, b.ID, req.Name, digits, req.Email, req.ConsentReminders)
 	if err != nil {
 		return nil, err
+	}
+	if req.ConsentMarketing && req.Email != "" {
+		if _, err := tx.Exec(ctx, `UPDATE clients SET marketing_consent = true WHERE id = $1 AND email <> ''`, clientID); err != nil {
+			return nil, err
+		}
 	}
 	var active int
 	if err := tx.QueryRow(ctx,

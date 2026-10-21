@@ -7,6 +7,7 @@
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
   import Equipo from '../equipo/+page.svelte';
+  import Mensajes from '../mensajes/+page.svelte';
   import Pagos from '../pagos/+page.svelte';
   import Privacidad from '../privacidad/+page.svelte';
   import Reserva from '../reserva/+page.svelte';
@@ -29,6 +30,7 @@
       title: 'Agenda y clientes',
       items: [
         { id: 'reserva', label: 'Reservas y página pública', desc: 'Tu dirección en línea, anticipos y recordatorios por correo', icon: 'globe', component: Reserva, roles: A },
+        { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta con reseña en Google', icon: 'globe', component: Mensajes, roles: A },
         { id: 'privacidad', label: 'Privacidad y solicitudes ARCO', desc: 'Lo que tus clientes piden sobre sus datos y tu aviso de privacidad', icon: 'shield', component: Privacidad, roles: A }
       ]
     },
