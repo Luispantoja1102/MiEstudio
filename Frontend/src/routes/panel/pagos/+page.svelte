@@ -19,8 +19,20 @@
     terminals = status.connected ? await api('/api/payments/mercadopago/terminals').catch((e) => ((error = e.message), [])) : [];
   }
 
+  const REASONS = {
+    cancelled: 'Cancelaste la conexión con Mercado Pago.',
+    state: 'El enlace de conexión caducó o no es válido. Inténtalo de nuevo.',
+    oauth_failed: 'Mercado Pago no aceptó la autorización. Inténtalo de nuevo.',
+    unknown: 'No pudimos terminar la conexión. Inténtalo de nuevo.'
+  };
+
   onMount(async () => {
     if (session.me.role !== 'admin') return goto('/panel');
+    // resultado del regreso desde Mercado Pago (?mp=ok | ?mp=error&reason=…)
+    const back = new URLSearchParams(location.search);
+    if (back.get('mp') === 'ok') notice = 'Cuenta de Mercado Pago conectada.';
+    if (back.get('mp') === 'error') error = REASONS[back.get('reason')] ?? REASONS.unknown;
+    if (back.has('mp')) history.replaceState(null, '', location.pathname);
     try {
       await loadBranches();
       await load();
@@ -28,6 +40,19 @@
       error = e.message;
     }
   });
+
+  // lleva al dueño a autorizar la conexión en Mercado Pago
+  async function connectOAuth() {
+    error = '';
+    busy = true;
+    try {
+      const { url } = await api('/api/payments/mercadopago/connect');
+      window.location.href = url;
+    } catch (e) {
+      error = e.message;
+      busy = false;
+    }
+  }
 
   async function run(fn, ok) {
     error = '';
@@ -69,14 +94,24 @@
   <section class="card">
     <h2>1. Cuenta de Mercado Pago</h2>
     {#if status.connected}
-      <p class="ok">✓ Cuenta conectada</p>
-      <div class="form-actions"><button class="btn ghost sm" onclick={disconnect} disabled={busy}>Desconectar</button></div>
+      <p class="ok">✓ Cuenta conectada{status.source === 'oauth' ? ' con Mercado Pago' : ' con token manual'}</p>
+      <div class="form-actions">
+        {#if status.oauth_available}<button class="btn ghost sm" onclick={connectOAuth} disabled={busy}>Volver a conectar</button>{/if}
+        <button class="btn ghost sm" onclick={disconnect} disabled={busy}>Desconectar</button>
+      </div>
     {:else}
-      <p class="meta">Pega el <b>access token de producción</b> de tu aplicación en <i>Mercado Pago → Tu negocio → Configuración → Credenciales</i>. Se guarda cifrado y nunca se vuelve a mostrar.</p>
-      <form onsubmit={connect}>
-        <label class="field">Access token <input type="password" bind:value={token} autocomplete="off" placeholder="APP_USR-…" required /></label>
-        <button class="btn" disabled={busy}>{busy ? 'Comprobando…' : 'Conectar'}</button>
-      </form>
+      {#if status.oauth_available}
+        <p class="meta">Te llevaremos a Mercado Pago para que autorices a MiEstudio a cobrar con tu terminal. No compartimos tu contraseña.</p>
+        <button class="btn" onclick={connectOAuth} disabled={busy}>{busy ? 'Redirigiendo…' : 'Conectar con Mercado Pago'}</button>
+      {/if}
+      <details class="manual" open={!status.oauth_available}>
+        <summary>{status.oauth_available ? 'Usar un token manual (avanzado)' : 'Conectar con un token de acceso'}</summary>
+        <p class="meta">Pega el <b>access token de producción</b> de tu aplicación en <i>Mercado Pago → Tu negocio → Configuración → Credenciales</i>. Se guarda cifrado y nunca se vuelve a mostrar.</p>
+        <form onsubmit={connect}>
+          <label class="field">Access token <input type="password" bind:value={token} autocomplete="off" placeholder="APP_USR-…" required /></label>
+          <button class="btn" disabled={busy}>{busy ? 'Comprobando…' : 'Conectar'}</button>
+        </form>
+      </details>
     {/if}
   </section>
 
@@ -102,5 +137,8 @@
 <style>
   h2 { font-size: 1.3rem; }
   .ok { color: var(--accent); font-weight: 600; }
+  .manual { margin-top: 1rem; }
+  .manual summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 32px; }
+  .manual[open] summary { margin-bottom: 0.75rem; }
   code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
 </style>

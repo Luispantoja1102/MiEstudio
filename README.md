@@ -92,11 +92,13 @@ npm run admin -- -email otra@persona.com -password 'ClaveLarga123' -name 'Nombre
 
 ### Terminal Mercado Pago (Point)
 
-1. Define `TOKEN_ENC_KEY` en `.env` (`openssl rand -base64 32`) y reinicia.
-2. En el panel, **Pagos**: pega el *access token de producción* del negocio (se guarda cifrado) y registra la terminal de cada sucursal; queda en modo punto de venta.
+1. **Una vez, por quien administra la plataforma:** registra una aplicación en Mercado Pago, pon su *Redirect URL* (`<API_PUBLIC_URL>/api/point/oauth/callback`) y llena `MP_CLIENT_ID`, `MP_CLIENT_SECRET` y `API_PUBLIC_URL` (o `MP_OAUTH_REDIRECT`) en `.env`. Ver los comentarios de `.env.example`.
+2. **Cada negocio**, en el panel → **Pagos**: pulsa *Conectar con Mercado Pago*, autoriza, y registra la terminal de cada sucursal (queda en modo punto de venta). Sin la aplicación de la plataforma, la pantalla ofrece pegar un token de acceso a mano.
 3. En **Cobrar**, agrega un pago «Terminal MP», envíalo y espera la aprobación. Un pago aprobado solo sirve para una venta.
 
-> La integración está probada contra un servidor simulado de la API de Mercado Pago. Antes de usarla con clientes reales, pruébala con una cuenta de pruebas y tu terminal.
+`TOKEN_ENC_KEY` y `OAUTH_STATE_SECRET` son claves propias del servidor (cifrado de tokens y firma del enlace de retorno). Son opcionales: si las omites se derivan de `JWT_SECRET`.
+
+Los tokens de OAuth se renuevan solos antes de vencer. La integración está probada contra un servidor simulado de la API de Mercado Pago; antes de usarla con clientes reales, pruébala con una cuenta de pruebas y tu terminal.
 
 ## API actual
 
