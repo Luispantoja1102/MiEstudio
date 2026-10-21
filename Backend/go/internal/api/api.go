@@ -71,6 +71,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
 	mux.HandleFunc("POST /api/auth/logout", a.logout)
+	mux.HandleFunc("POST /api/auth/login/2fa", a.loginSecondStep)
 	mux.HandleFunc("POST /api/auth/forgot", a.forgotPassword)
 	mux.HandleFunc("POST /api/auth/reset", a.resetPassword)
 	mux.HandleFunc("POST /api/webhooks/mercadopago", a.mpWebhook)
@@ -87,6 +88,11 @@ func (a *API) Routes() http.Handler {
 	// cualquier sesión (el estado de la cuenta se informa en /api/me)
 	mux.Handle("GET /api/me", a.authed()(http.HandlerFunc(a.me)))
 	mux.Handle("POST /api/auth/logout-all", a.authed()(http.HandlerFunc(a.logoutAll)))
+	mux.Handle("GET /api/me/2fa", a.authed()(http.HandlerFunc(a.twoFactorStatus)))
+	mux.Handle("POST /api/me/2fa/setup", a.authed()(http.HandlerFunc(a.twoFactorSetup)))
+	mux.Handle("POST /api/me/2fa/enable", a.authed()(http.HandlerFunc(a.twoFactorEnable)))
+	mux.Handle("POST /api/me/2fa/disable", a.authed()(http.HandlerFunc(a.twoFactorDisable)))
+	mux.Handle("POST /api/me/2fa/recovery", a.authed()(http.HandlerFunc(a.twoFactorRegenerate)))
 	mux.Handle("POST /api/auth/password", a.authed()(http.HandlerFunc(a.changePassword)))
 
 	// negocio: configuración de la reserva en línea
@@ -96,6 +102,7 @@ func (a *API) Routes() http.Handler {
 	// negocio: equipo
 	mux.Handle("GET /api/team", a.tenant(a.listTeam, admin))
 	mux.Handle("POST /api/team", a.tenant(a.createTeamMember, admin))
+	mux.Handle("POST /api/team/{id}/2fa/reset", a.tenant(a.resetTeamTwoFactor, admin))
 	mux.Handle("PATCH /api/team/{id}", a.tenant(a.updateTeamMember, admin))
 	mux.Handle("GET /api/team/{id}/hours", a.tenant(a.getHours, admin))
 	mux.Handle("PUT /api/team/{id}/hours", a.tenant(a.setHours, admin))
@@ -164,6 +171,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/payments/point/charges/{id}/cancel", a.tenant(a.pointChargeCancel, sell...))
 
 	// plataforma
+	mux.Handle("POST /api/platform/users/{id}/2fa-reset", a.platform(a.resetPlatformTwoFactor, write))
 	mux.Handle("GET /api/platform/stats", a.platform(a.platformStats, both...))
 	mux.Handle("GET /api/platform/businesses", a.platform(a.platformListBusinesses, both...))
 	mux.Handle("POST /api/platform/businesses", a.platform(a.platformCreateBusiness, write))

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Shell from '$lib/Shell.svelte';
-  import { getToken, setToken } from '$lib/api.js';
+  import { api } from '$lib/api.js';
   import { isPlatform, loadSession, session } from '$lib/session.svelte.js';
 
   let { children } = $props();
@@ -16,18 +16,16 @@
   ];
 
   onMount(async () => {
-    if (!getToken()) return goto('/login');
     try {
       await loadSession();
       if (!isPlatform()) goto('/panel');
     } catch {
-      setToken(null);
       goto('/login');
     }
   });
 
-  function logout() {
-    setToken(null);
+  async function logout() {
+    await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
     session.me = null;
     goto('/');
   }

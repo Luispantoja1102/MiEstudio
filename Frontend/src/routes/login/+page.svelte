@@ -1,7 +1,7 @@
 <script>
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
-  import { api, setToken } from '$lib/api.js';
+  import { api } from '$lib/api.js';
   import { homeFor } from '$lib/session.svelte.js';
 
   let email = $state('');
@@ -14,8 +14,7 @@
     error = '';
     busy = true;
     try {
-      const { token } = await api('/api/auth/login', { method: 'POST', body: { email, password } });
-      setToken(token);
+      await api('/api/auth/login', { method: 'POST', body: { email, password } });
       goto(homeFor(await api('/api/me')));
     } catch (err) {
       error = err.message;
@@ -34,6 +33,7 @@
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <button class="btn block lg" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
   </form>
+  <p class="alt"><a href="/olvide">¿Olvidaste tu contraseña?</a></p>
   <p class="alt">¿No tienes cuenta? <a href="/registro">Regístrate</a></p>
 </AuthLayout>
 

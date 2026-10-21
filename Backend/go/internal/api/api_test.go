@@ -281,8 +281,3 @@ func TestLoginRateLimit(t *testing.T) {
 		t.Fatalf("esperaba 429, obtuvo %d", r.Status)
 	}
 }
-
-func itoa(n int64) string {
-	b, _ := json.Marshal(n)
-	return string(b)
-}

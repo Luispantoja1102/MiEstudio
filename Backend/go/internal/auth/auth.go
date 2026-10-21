@@ -39,6 +39,8 @@ type Lookup func(ctx context.Context, userID int64) (*Principal, error)
 type claims struct {
 	UserID int64 `json:"uid"`
 	SV     int   `json:"sv"`
+	// Purpose vacío = sesión. Un token con propósito (p. ej. "2fa") no abre ninguna ruta.
+	Purpose string `json:"pur,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -67,7 +69,7 @@ func parseToken(secret, token string) (uid int64, sv int, err error) {
 	c := &claims{}
 	t, err := jwt.ParseWithClaims(token, c, func(*jwt.Token) (any, error) { return []byte(secret), nil },
 		jwt.WithValidMethods([]string{"HS256"}))
-	if err != nil || !t.Valid || c.UserID == 0 {
+	if err != nil || !t.Valid || c.UserID == 0 || c.Purpose != "" {
 		return 0, 0, errors.New("token inválido")
 	}
 	return c.UserID, c.SV, nil
@@ -182,4 +184,22 @@ func RequireTenant(next http.Handler) http.Handler {
 func FromContext(ctx context.Context) *Principal {
 	p, _ := ctx.Value(ctxKey{}).(*Principal)
 	return p
+}
+
+// SignPurpose firma un token de un solo propósito y vida corta (por ejemplo, el reto del segundo paso).
+// Nunca sirve como sesión: el middleware solo acepta tokens sin propósito.
+func SignPurpose(secret, purpose string, userID int64, ttl time.Duration) (string, error) {
+	c := claims{UserID: userID, Purpose: purpose, RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl))}}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString([]byte(secret))
+}
+
+// ParsePurpose devuelve la persona del token si es del propósito indicado y no venció.
+func ParsePurpose(secret, purpose, token string) (int64, error) {
+	c := &claims{}
+	t, err := jwt.ParseWithClaims(token, c, func(*jwt.Token) (any, error) { return []byte(secret), nil },
+		jwt.WithValidMethods([]string{"HS256"}))
+	if err != nil || !t.Valid || c.UserID == 0 || c.Purpose != purpose {
+		return 0, errors.New("token inválido")
+	}
+	return c.UserID, nil
 }

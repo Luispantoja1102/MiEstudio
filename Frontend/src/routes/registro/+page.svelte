@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
-  import { api, setToken } from '$lib/api.js';
+  import { api } from '$lib/api.js';
 
   const kinds = [
     ['barberia', 'Barbería'],
@@ -27,8 +27,7 @@
     error = '';
     busy = true;
     try {
-      const { token } = await api('/api/auth/register', { method: 'POST', body: form });
-      setToken(token);
+      await api('/api/auth/register', { method: 'POST', body: form });
       goto('/panel');
     } catch (err) {
       error = err.message;

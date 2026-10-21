@@ -206,9 +206,9 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 
 	var id int64
 	var hash string
-	var active bool
+	var active, twoFactor bool
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT id, password_hash, active FROM users WHERE email = $1`, email).Scan(&id, &hash, &active)
+		`SELECT id, password_hash, active, totp_secret_enc IS NOT NULL FROM users WHERE email = $1`, email).Scan(&id, &hash, &active, &twoFactor)
 	// mismo error si el correo no existe, está inactivo o la contraseña es incorrecta
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!active || !auth.CheckPassword(hash, req.Password))) {
 		writeErr(w, http.StatusUnauthorized, "credenciales incorrectas")
@@ -216,6 +216,11 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error interno")
+		return
+	}
+	if twoFactor { // la contraseña sola no abre la sesión
+		challenge, _ := auth.SignPurpose(a.Secret, purpose2FA, id, challengeTTL)
+		writeJSON(w, http.StatusOK, map[string]any{"needs_2fa": true, "challenge": challenge})
 		return
 	}
 	token, _ := a.startSession(w, r, id)
@@ -267,7 +272,9 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
-	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil}
+	var twoFactor bool
+	a.DB.QueryRow(r.Context(), `SELECT totp_secret_enc IS NOT NULL FROM users WHERE id = $1`, p.UserID).Scan(&twoFactor)
+	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil, "two_factor": twoFactor}
 	if p.BusinessID != 0 {
 		out["business"] = map[string]any{
 			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
