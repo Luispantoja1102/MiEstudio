@@ -136,9 +136,8 @@
     margin-top: 8px;
     border-radius: var(--radius-sm);
     background: var(--accent-soft);
-    border-left: 3px solid var(--accent);
   }
-  .row.soft { background: var(--surface-2); border-left-color: var(--muted); }
+  .row.soft { background: var(--surface-2); }
   .time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.9rem; min-width: 2.8rem; }
   .info { display: grid; line-height: 1.3; }
   .info small { color: var(--muted); }

@@ -7,6 +7,7 @@
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { fmtTime, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
+  import { page } from '$app/state';
 
   const isAdmin = session.me.role === 'admin';
   const tz = session.me.business.timezone || 'America/Tijuana';
@@ -78,6 +79,15 @@
     appts = a.appointments.filter((x) => x.status === 'scheduled' || x.status === 'completed');
     point = st;
     ready = true;
+    // «Cobrar» desde Inicio o la agenda llega con la cita elegida: el ticket ya viene armado
+    const wanted = Number(page.url.searchParams.get('cita'));
+    if (wanted && !appointmentId && cash) {
+      const found = appts.find((x) => x.id === wanted && x.status === 'scheduled');
+      if (found) {
+        tab = 'appts';
+        addAppointment(found);
+      }
+    }
   }
 
   onMount(async () => {
@@ -302,8 +312,6 @@
   </div>
   <div class="form-actions" style="margin: 0">
     <BranchPicker onchange={load} />
-    <a class="btn ghost" href="/panel/caja">Caja</a>
-    <a class="btn ghost" href="/panel/ventas/historial">Historial</a>
   </div>
 </div>
 

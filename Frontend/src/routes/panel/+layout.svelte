@@ -23,7 +23,7 @@
     ['home', 'Inicio', '/panel', []],
     ['calendar', 'Agenda', '/panel/agenda', [], AGENDA_PATHS],
     ['users', 'Clientes', '/panel/clientes', []],
-    ['receipt', 'Cobros', '/panel/ventas', SELL, COBROS_PATHS],
+    ['receipt', 'Cobrar', '/panel/ventas', SELL, COBROS_PATHS],
     ['scissors', 'Catálogo', '/panel/servicios', ['staff'], COBROS_PATHS],
     ['chart', 'Reportes', '/panel/reportes', ['admin'], REPORT_PATHS],
     ['percent', 'Comisiones', '/panel/comisiones', ['staff']]

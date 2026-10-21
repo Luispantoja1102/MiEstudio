@@ -9,7 +9,7 @@
   import { addDays, clockToMin, fmtTime, longDate, minToClock, minutesOfDay, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
 
-  const PX = 1.1; // píxeles por minuto
+  const PX = 1.4; // píxeles por minuto
   const tz = session.me.business.timezone || 'America/Tijuana';
   const role = session.me.role;
   const canBook = ['admin', 'reception', 'staff'].includes(role);
@@ -202,7 +202,7 @@
   .colhead { padding: 0.7rem 0.5rem; text-align: center; font-weight: 600; border-left: 1px solid var(--border); }
 
   .axis { position: sticky; left: 0; z-index: 2; background: var(--surface); }
-  .axis span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .axis span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .axis span:first-child { transform: none; }
 
   .col {
@@ -219,7 +219,7 @@
     right: 4px;
     z-index: 1;
     overflow: hidden;
-    padding: 3px 8px;
+    padding: 5px 8px;
     font: inherit;
     font-size: 0.8rem;
     line-height: 1.25;
@@ -228,14 +228,15 @@
     border-radius: 6px;
     cursor: pointer;
   }
-  .appt { background: var(--accent-soft); border: 1px solid var(--accent); border-left-width: 4px; }
-  .appt small { display: block; color: var(--muted); }
+  .appt { background: var(--accent-soft); border: 1px solid var(--accent); transition: filter var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease); }
+  .appt small { display: block; font-size: 0.75rem; color: var(--muted); }
   .appt.completed { background: var(--surface-2); border-color: var(--muted); }
   .appt.no_show { background: var(--warn-soft); border-color: var(--warn); }
   .appt.pending_payment { background: var(--warn-soft); border-color: var(--warn); border-style: dashed; }
-  .appt.online { border-left-style: double; }
+  .appt.online { box-shadow: inset 0 0 0 1px var(--accent); } /* reservada en línea: borde doble */
   .appt.cancelled { opacity: 0.55; text-decoration: line-through; background: var(--surface); border-color: var(--border); }
   .appt:hover { filter: brightness(0.97); }
+  .appt:active { transform: scale(0.99); }
   .block {
     color: var(--muted);
     border: 1px dashed var(--muted);
