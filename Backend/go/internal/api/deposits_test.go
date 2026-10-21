@@ -462,3 +462,22 @@ func TestSettleIsSafeUnderConcurrency(t *testing.T) {
 		t.Fatalf("concurrencia: correos=%d %s %s", n, d.apptStatus(t, token), d.depStatus(t, token))
 	}
 }
+
+// Un negocio con Mercado Pago conectado no puede liquidar el anticipo de otro usando su propio biz en el aviso.
+func TestWebhookCannotSettleAnotherBusinessDeposit(t *testing.T) {
+	d := newDeposit(t)
+	token, _ := d.bookDeposit(t, at(monday, "10:00"), nil)
+	pid := d.mp.pay(d.ref(t, token), 45, "approved")
+	other := d.a.mustRegister(t, "Otra Barbería", "otra@x.com")
+	if r := d.a.do(t, "PUT", "/api/payments/mercadopago/token", other, map[string]any{"access_token": mpToken}); r.Status != 204 {
+		t.Fatalf("conectar el otro negocio: %d %v", r.Status, r.Body)
+	}
+	var otherID int64
+	d.a.DB.QueryRow(context.Background(), `SELECT id FROM businesses WHERE name = 'Otra Barbería'`).Scan(&otherID)
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/webhooks/mercadopago?biz=%d&type=payment&data.id=%s", otherID, pid), strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	d.a.Routes().ServeHTTP(rec, req)
+	if rec.Code != 200 || d.apptStatus(t, token) != "pending_payment" {
+		t.Fatalf("un negocio ajeno liquidó el anticipo: %d %s", rec.Code, d.apptStatus(t, token))
+	}
+}

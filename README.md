@@ -109,6 +109,12 @@ Los correos (confirmación, cambio, cancelación y recordatorio) salen de una ba
 solo se envían a quien los aceptó, y cada uno trae el enlace para darse de baja. Configura `SMTP_*`, `MAIL_FROM`
 y `APP_URL` en `.env` (ver `.env.example`). WhatsApp no está implementado.
 
+**Anticipos.** Con Mercado Pago conectado, el negocio puede pedir un porcentaje por adelantado (Checkout Pro).
+La cita queda apartada 15 minutos como «pendiente de pago» y se confirma solo con un pago aprobado por el monto
+exacto, verificado siempre con Mercado Pago (aviso automático, regreso del cliente a su enlace o vencimiento del
+apartado). Un pago tardío o duplicado se devuelve; si el cliente cancela dentro del plazo, o el negocio cancela,
+se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una inasistencia lo conserva.
+
 ## Avisos de nueva versión
 
 Cada compilación del frontend lleva un nombre de versión (`APP_VERSION`, o la hora de la compilación). La app
