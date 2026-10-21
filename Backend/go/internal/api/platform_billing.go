@@ -235,7 +235,7 @@ func (a *API) platformOverview(w http.ResponseWriter, r *http.Request) {
 		}
 		switch b.BillingState {
 		case "pending":
-			attention = append(attention, attentionItem{"pending", b.ID, b.Name, "Espera tu aprobación", "Se registró " + b.CreatedAt.Format("2006-01-02"), &b.CreatedAt})
+			attention = append(attention, attentionItem{"pending", b.ID, b.Name, "Espera tu aprobación", "Se registró y espera revisión", &b.CreatedAt})
 		case "past_due":
 			attention = append(attention, attentionItem{"past_due", b.ID, b.Name, "Pago atrasado", "Plan " + b.PlanName, b.CurrentPeriodEnd})
 		case "trial_expired":

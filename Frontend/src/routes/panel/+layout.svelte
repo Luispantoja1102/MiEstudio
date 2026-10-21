@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Shell from '$lib/Shell.svelte';
+  import { page } from '$app/state';
   import { api } from '$lib/api.js';
   import { isPlatform, loadSession, session } from '$lib/session.svelte.js';
 
@@ -24,12 +25,21 @@
     ['shield', 'Privacidad', '/panel/privacidad', ['admin']],
     ['home', 'Sucursales', '/panel/ajustes', ['admin']],
     ['card', 'Pagos', '/panel/pagos', ['admin']],
+    ['wallet', 'Suscripción', '/panel/suscripcion', ['admin']],
     ['shield', 'Mi cuenta', '/panel/cuenta', []]
   ];
   const items = $derived(
     nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h]) => [i, l, h])
   );
   const blocked = $derived(['pending', 'suspended'].includes(session.me?.business?.status));
+  // suscripción vencida: la cuenta entra, pero solo para renovar (y ver su cuenta)
+  const lapsed = $derived(['trial_expired', 'past_due'].includes(session.me?.business?.billing_state) && !blocked);
+  const lapsedAllowed = $derived(['/panel/suscripcion', '/panel/cuenta'].includes(page.url.pathname));
+  const trialLeft = $derived.by(() => {
+    const b = session.me?.business;
+    if (b?.billing_state !== 'trialing' || !b.trial_ends_at) return null;
+    return Math.max(0, Math.ceil((new Date(b.trial_ends_at) - Date.now()) / 86400000));
+  });
 
   onMount(async () => {
     try {
@@ -59,7 +69,16 @@
           <p>Por ahora no puedes usar la plataforma. Contáctanos para resolverlo.</p>
         {/if}
       </div>
+    {:else if lapsed && !lapsedAllowed}
+      <div class="card state">
+        <h1>{session.me.business.billing_state === 'trial_expired' ? 'Tu prueba terminó' : 'Tu suscripción venció'}</h1>
+        <p>Tus datos están a salvo. {session.me.role === 'admin' ? 'Elige un plan para reactivar tu cuenta al instante.' : 'Pide al administrador que renueve el plan para seguir usando MiEstudio.'}</p>
+        {#if session.me.role === 'admin'}<p style="margin-top: 1rem"><a class="btn" href="/panel/suscripcion">Elegir un plan</a></p>{/if}
+      </div>
     {:else}
+      {#if trialLeft !== null && session.me.role === 'admin' && trialLeft <= 7}
+        <p class="banner" role="status">Tu prueba gratis termina {trialLeft === 0 ? 'hoy' : `en ${trialLeft} ${trialLeft === 1 ? 'día' : 'días'}`}. <a href="/panel/suscripcion">Elegir un plan</a></p>
+      {/if}
       {@render children()}
     {/if}
   </Shell>

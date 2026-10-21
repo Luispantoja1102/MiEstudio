@@ -137,6 +137,23 @@ se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una
   (las ventas se conservan sin ellos). Solo hay una cookie técnica de sesión: no hace falta banner de cookies.
 - **Proxy:** declara tus proxies en `TRUSTED_PROXIES` para que los límites usen la IP real.
 
+## Planes, suscripciones y panel de plataforma
+
+- **Planes** (`internal/api/plans.go`): Esencial, Profesional y Estudio, con topes de personas en agenda y sucursales y
+  funciones (anticipos, terminal). Edita ahí precios y topes. Al registrarse, el negocio arranca 14 días de prueba en Profesional.
+- **Estados de cobro:** en prueba, prueba vencida, activo, pago atrasado (3 días de gracia tras el vencimiento) y suspendido.
+  Con la prueba vencida o el pago atrasado la cuenta entra pero solo para renovar (`/panel/suscripcion`); la página pública de
+  reservas y los recordatorios se pausan. Los datos nunca se borran.
+- **Pagos:** el administrador del negocio paga 1 mes o 1 año con Mercado Pago (cuenta de la plataforma, `MPP_ACCESS_TOKEN`);
+  el pago se confirma siempre con Mercado Pago (aviso, regreso a la página o consulta), por el monto exacto y una sola vez.
+  La plataforma también puede registrar pagos a mano (transferencia, efectivo, cortesía). Aún no hay cobro recurrente automático.
+- **Panel de plataforma** (`/plataforma`): resumen con ingreso mensual recurrente y cobrado del mes, lista de lo que requiere
+  atención (pendientes de aprobar, pagos atrasados, pruebas por terminar), negocios con filtros por estado y plan, detalle con
+  plan, vigencia, pagos, suspensión con motivo y equipo, planes, pagos, salud del sistema, equipo de plataforma y bitácora.
+  Soporte lo ve todo menos el dinero y no puede cambiar nada.
+- **Avisos por correo:** a los negocios cuando su prueba o periodo está por terminar o terminó (una vez por periodo), recibo de
+  cada pago, y a la plataforma cuando entra un pago.
+
 ## Avisos de nueva versión
 
 Cada compilación del frontend lleva un nombre de versión (`APP_VERSION`, o la hora de la compilación). La app

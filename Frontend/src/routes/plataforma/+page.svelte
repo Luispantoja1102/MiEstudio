@@ -2,83 +2,117 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
-  import { KINDS, formatDay } from '$lib/format.js';
+  import { BILLING, KINDS, PLANS, formatDay, money } from '$lib/format.js';
 
   const MODES = { open: 'Abierto', approval: 'Con aprobación', closed: 'Cerrado' };
 
-  let stats = $state(null);
-  let pending = $state([]);
+  let d = $state(null);
   let error = $state('');
-
   onMount(async () => {
     try {
-      [stats, pending] = await Promise.all([api('/api/platform/stats'), api('/api/platform/businesses?status=pending')]);
+      d = await api('/api/platform/overview');
     } catch (e) {
       error = e.message;
     }
   });
 
   const cards = $derived(
-    stats && [
-      ['Negocios', stats.total, 'scissors'],
-      ['Pendientes', stats.businesses.pending, 'bell'],
-      ['En prueba', stats.businesses.trial, 'calendar'],
-      ['Activos', stats.businesses.active, 'check'],
-      ['Suspendidos', stats.businesses.suspended, 'percent'],
-      ['Personas en negocios', stats.users, 'users'],
-      ['Clientes en total', stats.clients, 'users'],
-      ['Altas (30 días)', stats.signups_30d, 'globe']
+    d && [
+      ['Negocios', d.counts.total, 'scissors', '/plataforma/negocios'],
+      ['Activos', d.counts.active, 'check', '/plataforma/negocios?state=active'],
+      ['En prueba', d.counts.trialing, 'calendar', '/plataforma/negocios?state=trialing'],
+      ['Pago atrasado', d.counts.past_due + d.counts.trial_expired, 'bell', '/plataforma/negocios?state=past_due'],
+      ['Suspendidos', d.counts.suspended, 'percent', '/plataforma/negocios?state=suspended'],
+      ['Altas (30 días)', d.signups_30d, 'globe', '/plataforma/negocios']
     ]
   );
+  const KIND_TONE = { pending: 'warn', past_due: 'bad', trial_expired: 'bad', trial_ending: 'warn' };
 </script>
 
 <div class="page-head">
   <div>
     <h1>Resumen de la plataforma</h1>
-    <p>Todos los negocios registrados.</p>
+    <p>Negocios, ingresos y lo que necesita tu atención.</p>
   </div>
-  {#if stats}<a class="badge" href="/plataforma/ajustes">Registro: {MODES[stats.registration_mode]}</a>{/if}
+  {#if d}<a class="badge" href="/plataforma/ajustes">Registro: {MODES[d.registration_mode]}</a>{/if}
 </div>
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-{#if cards}
+{#if d}
+  {#if d.mrr_cents !== undefined}
+    <div class="money">
+      <div class="card stat big">
+        <span class="label">Ingreso mensual recurrente</span>
+        <span class="value">{money(d.mrr_cents)}</span>
+        <span class="hint">Lo que pagan al mes los negocios activos, según su último pago.</span>
+      </div>
+      <div class="card stat big">
+        <span class="label">Cobrado este mes</span>
+        <span class="value">{money(d.paid_this_month_cents)}</span>
+        <span class="hint"><a href="/plataforma/pagos">Ver pagos</a></span>
+      </div>
+    </div>
+  {/if}
+
   <div class="stats">
-    {#each cards as [label, value, icon]}
-      <div class="card stat">
+    {#each cards as [label, value, icon, href]}
+      <a class="card stat" {href}>
         <span class="ico"><Icon name={icon} /></span>
         <span class="label">{label}</span>
         <span class="value">{value}</span>
-      </div>
+      </a>
     {/each}
   </div>
 
-  {#if pending.length}
-    <section>
-      <h2>Por aprobar</h2>
+  <section>
+    <h2>Requieren atención {#if d.attention.length}<span class="badge warn">{d.attention.length}</span>{/if}</h2>
+    {#if d.attention.length === 0}
+      <p class="empty">Nada pendiente. Todo en orden.</p>
+    {:else}
       <div class="list">
-        {#each pending as b (b.id)}
-          <a class="item-row link" href="/plataforma/negocios/{b.id}">
+        {#each d.attention as x (x.kind + x.business_id)}
+          <a class="item-row link" href="/plataforma/negocios/{x.business_id}">
             <div class="grow">
-              <div class="title">{b.name}</div>
-              <div class="meta">{KINDS[b.kind]} · {b.owner_email} · {formatDay(b.created_at)}</div>
+              <div class="title">{x.name}</div>
+              <div class="meta">{x.detail}{#if x.at}{' · '}{formatDay(x.at)}{/if}</div>
             </div>
-            <span class="badge warn">Pendiente</span>
+            <span class="badge {KIND_TONE[x.kind]}">{x.title}</span>
           </a>
         {/each}
       </div>
-    </section>
-  {/if}
+    {/if}
+  </section>
+
+  <section>
+    <h2>Últimos registros</h2>
+    <div class="list">
+      {#each d.recent as b (b.id)}
+        {@const [label, tone] = BILLING[b.billing_state]}
+        <a class="item-row link" href="/plataforma/negocios/{b.id}">
+          <div class="grow">
+            <div class="title">{b.name}</div>
+            <div class="meta">{KINDS[b.kind]} · {PLANS[b.plan]} · {b.owner_email} · {formatDay(b.created_at)}</div>
+          </div>
+          <span class="badge {tone}">{label}</span>
+        </a>
+      {/each}
+    </div>
+  </section>
 {/if}
 
 <style>
-  .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .stat { display: grid; gap: 4px; }
+  .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .money { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 16px; }
+  .stat { display: grid; gap: 4px; color: var(--text); text-decoration: none; }
+  a.stat:hover { border-color: var(--accent); }
   .ico { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
   .label { color: var(--muted); font-size: 0.9rem; }
   .value { font-family: var(--font-heading); font-size: 2.2rem; line-height: 1.1; }
+  .big .value { font-size: 2.6rem; color: var(--accent); }
+  .hint { color: var(--muted); font-size: 0.82rem; }
   section { margin-top: 2.5rem; }
-  section h2 { font-size: 1.5rem; }
+  section h2 { font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
   .link { color: var(--text); text-decoration: none; }
   .link:hover { border-color: var(--accent); }
   a.badge { text-decoration: none; }

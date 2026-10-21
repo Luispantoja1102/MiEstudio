@@ -40,7 +40,16 @@ export const ACTIONS = {
   user_active_changed: 'Persona activada o desactivada',
   platform_user_created: 'Persona de plataforma creada',
   platform_user_updated: 'Persona de plataforma actualizada',
-  settings_changed: 'Ajustes cambiados'
+  settings_changed: 'Ajustes cambiados',
+  payment_recorded: 'Pago registrado',
+  password_reset_by_email: 'Contraseña restablecida por correo',
+  two_factor_enabled: 'Verificación en dos pasos activada',
+  two_factor_disabled: 'Verificación en dos pasos desactivada',
+  two_factor_reset: 'Verificación en dos pasos restablecida',
+  arco_updated: 'Solicitud de privacidad atendida',
+  client_exported: 'Datos de un cliente exportados',
+  client_erased: 'Datos de un cliente borrados',
+  booking_settings_changed: 'Reserva en línea configurada'
 };
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -49,3 +58,19 @@ export const METHODS = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transfere
 
 // identificador único por intento de cobro: repetir la misma petición no cobra dos veces
 export const newToken = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `t-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+// Estado de cobro de un negocio: [etiqueta, tono de la insignia]
+export const BILLING = {
+  pending: ['Pendiente de aprobar', 'warn'],
+  trialing: ['En prueba', ''],
+  trial_expired: ['Prueba vencida', 'bad'],
+  active: ['Activo', ''],
+  past_due: ['Pago atrasado', 'bad'],
+  suspended: ['Suspendido', 'bad']
+};
+
+export const PLANS = { esencial: 'Esencial', profesional: 'Profesional', estudio: 'Estudio' };
+export const PAY_METHODS = { transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', mercadopago: 'Mercado Pago', courtesy: 'Cortesía' };
+
+// precio de lista en pesos (los planes vienen en pesos enteros)
+export const pesos = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);

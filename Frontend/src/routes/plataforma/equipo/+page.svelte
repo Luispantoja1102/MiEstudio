@@ -40,6 +40,17 @@
     }
     await load();
   }
+
+  async function resetTwoFactor(m) {
+    if (!confirm(`¿Quitar la verificación en dos pasos a ${m.name}?`)) return;
+    error = '';
+    try {
+      await api(`/api/platform/users/${m.id}/2fa-reset`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      error = err.message;
+    }
+  }
 </script>
 
 <div class="page-head">
@@ -80,6 +91,10 @@
         <select id="r-{m.id}" value={m.role} onchange={(e) => patch(m, { role: e.currentTarget.value })} style="width: auto; margin: 0">
           {#each Object.entries(PLATFORM_ROLES) as [v, l]}<option value={v}>{l}</option>{/each}
         </select>
+        {#if m.two_factor}
+          <span class="badge" title="Tiene verificación en dos pasos">2 pasos</span>
+          {#if !me}<button class="btn ghost sm" onclick={() => resetTwoFactor(m)}>Quitar 2 pasos</button>{/if}
+        {/if}
         <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
       {:else}
         <span class="badge muted">{PLATFORM_ROLES[m.role]}</span>

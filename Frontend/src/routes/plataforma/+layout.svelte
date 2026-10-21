@@ -10,6 +10,9 @@
   const items = [
     ['home', 'Resumen', '/plataforma'],
     ['scissors', 'Negocios', '/plataforma/negocios'],
+    ['package', 'Planes', '/plataforma/planes'],
+    ['wallet', 'Pagos', '/plataforma/pagos'],
+    ['chart', 'Salud', '/plataforma/salud'],
     ['users', 'Equipo', '/plataforma/equipo'],
     ['bell', 'Actividad', '/plataforma/actividad'],
     ['percent', 'Ajustes', '/plataforma/ajustes'],

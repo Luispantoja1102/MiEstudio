@@ -341,16 +341,17 @@ func (a *API) platformUpdateUser(w http.ResponseWriter, r *http.Request) {
 // ---------- equipo de plataforma ----------
 
 type platformMember struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	Active bool   `json:"active"`
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	Active    bool   `json:"active"`
+	TwoFactor bool   `json:"two_factor"`
 }
 
 func (a *API) platformListTeam(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT id, name, email, role, active FROM users WHERE business_id IS NULL ORDER BY id`)
+		`SELECT id, name, email, role, active, totp_secret_enc IS NOT NULL FROM users WHERE business_id IS NULL ORDER BY id`)
 	if err != nil {
 		serverErr(w)
 		return
@@ -359,7 +360,7 @@ func (a *API) platformListTeam(w http.ResponseWriter, r *http.Request) {
 	out := []platformMember{}
 	for rows.Next() {
 		var m platformMember
-		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Active); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Active, &m.TwoFactor); err != nil {
 			serverErr(w)
 			return
 		}

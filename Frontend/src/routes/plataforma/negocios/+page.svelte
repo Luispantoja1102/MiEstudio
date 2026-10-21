@@ -2,13 +2,15 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
-  import { KINDS, STATUS, formatDay, plural } from '$lib/format.js';
+  import { page } from '$app/state';
+  import { BILLING, KINDS, PLANS, formatDay, plural } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
 
-  const filters = [['', 'Todos'], ['pending', 'Pendientes'], ['trial', 'En prueba'], ['active', 'Activos'], ['suspended', 'Suspendidos']];
+  const filters = [['', 'Todos'], ['pending', 'Pendientes'], ['trialing', 'En prueba'], ['trial_expired', 'Prueba vencida'], ['active', 'Activos'], ['past_due', 'Pago atrasado'], ['suspended', 'Suspendidos']];
 
   let businesses = $state([]);
-  let status = $state('');
+  let state = $state(page.url.searchParams.get('state') ?? '');
+  let plan = $state('');
   let q = $state('');
   let loading = $state(true);
   let error = $state('');
@@ -23,7 +25,7 @@
 
   async function load() {
     try {
-      const params = new URLSearchParams({ status, q: q.trim() });
+      const params = new URLSearchParams({ state, plan, q: q.trim() });
       businesses = await api('/api/platform/businesses?' + params);
       error = '';
     } catch (e) {
@@ -34,7 +36,7 @@
   onMount(load);
 
   const pick = (value) => {
-    status = value;
+    state = value;
     load();
   };
   const onSearch = () => {
@@ -98,13 +100,22 @@
 
 <div class="chips" role="group" aria-label="Filtrar por estado">
   {#each filters as [value, label]}
-    <button class="chip" aria-pressed={status === value} onclick={() => pick(value)}>{label}</button>
+    <button class="chip" aria-pressed={state === value} onclick={() => pick(value)}>{label}</button>
   {/each}
 </div>
-<label class="field">
-  <span class="sr-only">Buscar negocios</span>
-  <input type="search" placeholder="Buscar por nombre, identificador o correo" bind:value={q} oninput={onSearch} />
-</label>
+<div class="bar">
+  <label class="field grow">
+    <span class="sr-only">Buscar negocios</span>
+    <input type="search" placeholder="Buscar por nombre, identificador o correo" bind:value={q} oninput={onSearch} />
+  </label>
+  <label class="field">
+    <span class="sr-only">Plan</span>
+    <select bind:value={plan} onchange={load}>
+      <option value="">Todos los planes</option>
+      {#each Object.entries(PLANS) as [v, l]}<option value={v}>{l}</option>{/each}
+    </select>
+  </label>
+</div>
 
 {#if loading}
   <p class="meta">Cargando…</p>
@@ -113,13 +124,13 @@
 {:else}
   <div class="list">
     {#each businesses as b (b.id)}
-      {@const [label, tone] = STATUS[b.status]}
+      {@const [label, tone] = BILLING[b.billing_state]}
       <a class="item-row link" href="/plataforma/negocios/{b.id}">
         <div class="grow">
           <div class="title">{b.name}</div>
           <div class="meta">{KINDS[b.kind]} · {b.owner_email || 'sin responsable'} · {plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')}</div>
         </div>
-        <span class="meta">{b.status === 'trial' ? 'Prueba hasta ' + formatDay(b.trial_ends_at) : 'Alta ' + formatDay(b.created_at)}</span>
+        <span class="meta">{PLANS[b.plan]} · {b.status === 'trial' ? 'prueba hasta ' + formatDay(b.trial_ends_at) : b.current_period_end ? 'vigente hasta ' + formatDay(b.current_period_end) : 'alta ' + formatDay(b.created_at)}</span>
         <span class="badge {tone}">{label}</span>
       </a>
     {/each}
@@ -127,6 +138,8 @@
 {/if}
 
 <style>
+  .bar { display: flex; gap: 12px; flex-wrap: wrap; }
+  .bar .grow { flex: 1 1 260px; }
   .link { color: var(--text); text-decoration: none; transition: border-color 0.2s var(--ease); }
   .link:hover { border-color: var(--accent); }
 </style>
