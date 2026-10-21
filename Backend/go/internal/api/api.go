@@ -115,6 +115,10 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/commission-rules", a.tenant(a.createRule, admin))
 	mux.Handle("PATCH /api/commission-rules/{id}", a.tenant(a.updateRule, admin))
 
+	// negocio: reportes (ventas: administrador; comisiones: administrador y profesionales, cada quien lo suyo)
+	mux.Handle("GET /api/reports/sales", a.tenant(a.salesReport, admin))
+	mux.Handle("GET /api/reports/commissions", a.tenant(a.commissionsReport, admin, "staff"))
+
 	// negocio: terminal Mercado Pago
 	mux.Handle("GET /api/payments/mercadopago", a.tenant(a.mpStatus, admin))
 	mux.Handle("PUT /api/payments/mercadopago/token", a.tenant(a.mpConnect, admin))
