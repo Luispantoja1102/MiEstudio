@@ -26,7 +26,7 @@ type saleLineIn struct {
 }
 
 type paymentIn struct {
-	Method        string `json:"method"` // cash, card, transfer o mp_point
+	Method        string `json:"method"` // cash, card, transfer, mp_point o deposit (anticipo de la cita)
 	AmountCents   int    `json:"amount_cents"`
 	ReceivedCents *int   `json:"received_cents"` // efectivo entregado; el cambio se calcula
 	Reference     string `json:"reference"`
@@ -400,6 +400,7 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 		return 0, fail(http.StatusBadRequest, fmt.Sprintf("los pagos ($%s) deben cubrir exactamente el total más la propina ($%s)", cents(payTotal), cents(total+req.TipCents)))
 	}
 	seenCharges := map[string]bool{}
+	var depositID int64
 	for i := range req.Payments {
 		pay := &req.Payments[i]
 		switch pay.Method {
@@ -416,11 +417,46 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 				return 0, fail(http.StatusBadRequest, "el pago con terminal necesita su cobro aprobado (uno por pago)")
 			}
 			seenCharges[pay.MPChargeID] = true
+		case "deposit":
+			// el anticipo pagado en línea se descuenta una sola vez, por su monto exacto
+			if req.AppointmentID == nil || depositID != 0 || pay.ReceivedCents != nil || pay.MPChargeID != "" {
+				return 0, fail(http.StatusBadRequest, "el anticipo se aplica una vez y solo a una cita")
+			}
+			var depAmount int
+			var depStatus string
+			err := tx.QueryRow(ctx,
+				`SELECT id, amount_cents, status FROM deposits WHERE appointment_id = $1 AND business_id = $2 FOR UPDATE`,
+				*req.AppointmentID, bizID).Scan(&depositID, &depAmount, &depStatus)
+			if errors.Is(err, pgx.ErrNoRows) || (err == nil && depStatus != "paid") {
+				return 0, fail(http.StatusConflict, "esa cita no tiene un anticipo pagado disponible")
+			}
+			if err != nil {
+				return 0, err
+			}
+			if pay.AmountCents != depAmount {
+				return 0, fail(http.StatusBadRequest, fmt.Sprintf("el anticipo pagado es de $%s", cents(depAmount)))
+			}
+			if depAmount > total {
+				return 0, fail(http.StatusConflict, fmt.Sprintf("el anticipo ($%s) es mayor que la cuenta ($%s); cancela la cita para devolverlo o ajusta la cuenta", cents(depAmount), cents(total)))
+			}
 		default:
 			return 0, fail(http.StatusBadRequest, "método de pago inválido")
 		}
 		if len(pay.Reference) > 100 {
 			return 0, fail(http.StatusBadRequest, "referencia demasiado larga")
+		}
+	}
+
+	// un anticipo pagado no puede quedarse sin aplicar: se cobraría dos veces al cliente
+	if req.AppointmentID != nil && depositID == 0 {
+		var pending int
+		err := tx.QueryRow(ctx, `SELECT amount_cents FROM deposits WHERE appointment_id = $1 AND business_id = $2 AND status = 'paid' FOR UPDATE`,
+			*req.AppointmentID, bizID).Scan(&pending)
+		if err == nil {
+			return 0, fail(http.StatusConflict, fmt.Sprintf("la cita tiene un anticipo pagado de $%s: aplícalo como forma de pago", cents(pending)))
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, err
 		}
 	}
 
@@ -467,10 +503,17 @@ func (a *API) buildSale(ctx context.Context, tx pgx.Tx, p *auth.Principal, req s
 			}
 			chargeID = &pay.MPChargeID
 		}
+		var depID *int64
+		if pay.Method == "deposit" {
+			depID = &depositID
+			if _, err := tx.Exec(ctx, `UPDATE deposits SET status = 'applied', sale_id = $2 WHERE id = $1 AND status = 'paid'`, depositID, saleID); err != nil {
+				return 0, err
+			}
+		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO sale_payments (sale_id, method, amount_cents, received_cents, change_cents, reference, cash_session_id, mp_charge_id)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			saleID, pay.Method, pay.AmountCents, received, change, strings.TrimSpace(pay.Reference), sessionID, chargeID); err != nil {
+			`INSERT INTO sale_payments (sale_id, method, amount_cents, received_cents, change_cents, reference, cash_session_id, mp_charge_id, deposit_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			saleID, pay.Method, pay.AmountCents, received, change, strings.TrimSpace(pay.Reference), sessionID, chargeID, depID); err != nil {
 			return 0, err
 		}
 	}
@@ -724,6 +767,13 @@ func (a *API) voidSale(w http.ResponseWriter, r *http.Request) {
 	}
 	// primero se devuelve el dinero de la terminal (idempotente); si falla, la venta no se cancela
 	if err := a.refundMPCharges(ctx, p.BusinessID, id); err != nil {
+		if !writeFail(w, err) {
+			serverErr(w)
+		}
+		return
+	}
+	// y el anticipo que se había descontado en esta venta
+	if err := a.refundAppliedDeposit(ctx, p.BusinessID, id); err != nil {
 		if !writeFail(w, err) {
 			serverErr(w)
 		}

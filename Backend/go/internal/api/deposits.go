@@ -420,3 +420,21 @@ func firstNonEmpty(v ...string) string {
 	}
 	return ""
 }
+
+// refundAppliedDeposit devuelve el anticipo que una venta había descontado, al cancelarse la venta.
+// Es idempotente: si ya se devolvió no hace nada.
+func (a *API) refundAppliedDeposit(ctx context.Context, bizID, saleID int64) error {
+	d, err := loadDeposit(ctx, a.DB, "sale_id = $1 AND business_id = "+strconv.FormatInt(bizID, 10), saleID)
+	if err != nil || d == nil || d.Status != "applied" {
+		return err
+	}
+	token, err := a.mpToken(ctx, d.BizID)
+	if err != nil {
+		return err
+	}
+	if err := a.refundPayment(ctx, token, flexID(d.PaymentID)); err != nil {
+		return providerFail(err)
+	}
+	_, err = a.DB.Exec(ctx, `UPDATE deposits SET status = 'refunded', refunded_at = $2 WHERE id = $1 AND status = 'applied'`, d.ID, a.now())
+	return err
+}

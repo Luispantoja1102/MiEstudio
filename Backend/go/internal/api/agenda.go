@@ -235,19 +235,22 @@ func (a *API) busyIntervals(ctx context.Context, bizID int64, userIDs []int64, f
 // ---------- vista del día ----------
 
 type apptRow struct {
-	ID          int64     `json:"id"`
-	ClientID    int64     `json:"client_id"`
-	ClientName  string    `json:"client_name"`
-	ServiceID   int64     `json:"service_id"`
-	ServiceName string    `json:"service_name"`
-	PriceCents  int       `json:"price_cents"`
-	StaffID     int64     `json:"staff_id"`
-	StaffName   string    `json:"staff_name"`
-	BranchID    int64     `json:"branch_id"`
-	StartsAt    time.Time `json:"starts_at"`
-	EndsAt      time.Time `json:"ends_at"`
-	Status      string    `json:"status"`
-	Notes       string    `json:"notes"`
+	ID            int64     `json:"id"`
+	ClientID      int64     `json:"client_id"`
+	ClientName    string    `json:"client_name"`
+	ServiceID     int64     `json:"service_id"`
+	ServiceName   string    `json:"service_name"`
+	PriceCents    int       `json:"price_cents"`
+	StaffID       int64     `json:"staff_id"`
+	StaffName     string    `json:"staff_name"`
+	BranchID      int64     `json:"branch_id"`
+	StartsAt      time.Time `json:"starts_at"`
+	EndsAt        time.Time `json:"ends_at"`
+	Status        string    `json:"status"`
+	Notes         string    `json:"notes"`
+	Source        string    `json:"source"`                  // staff u online
+	DepositCents  int       `json:"deposit_cents,omitempty"` // anticipo de la cita, si lo hay
+	DepositStatus string    `json:"deposit_status,omitempty"`
 }
 
 type blockRow struct {
@@ -331,9 +334,9 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 
 	arows, err := a.DB.Query(ctx,
 		`SELECT ap.id, ap.client_id, c.name, ap.service_id, s.name, s.price_cents, ap.staff_id, u.name,
-		        ap.branch_id, ap.starts_at, ap.ends_at, ap.status, ap.notes
+		        ap.branch_id, ap.starts_at, ap.ends_at, ap.status, ap.notes, ap.source, COALESCE(d.amount_cents, 0), COALESCE(d.status, '')
 		 FROM appointments ap JOIN clients c ON c.id = ap.client_id JOIN services s ON s.id = ap.service_id
-		 JOIN users u ON u.id = ap.staff_id
+		 JOIN users u ON u.id = ap.staff_id LEFT JOIN deposits d ON d.appointment_id = ap.id
 		 WHERE ap.business_id = $1 AND ap.branch_id = $2 AND ap.starts_at >= $3 AND ap.starts_at < $4
 		 ORDER BY ap.starts_at, ap.id`, p.BusinessID, branchID, day, next)
 	if err != nil {
@@ -344,7 +347,7 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 	for arows.Next() {
 		var x apptRow
 		if err := arows.Scan(&x.ID, &x.ClientID, &x.ClientName, &x.ServiceID, &x.ServiceName, &x.PriceCents, &x.StaffID, &x.StaffName,
-			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes); err != nil {
+			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes, &x.Source, &x.DepositCents, &x.DepositStatus); err != nil {
 			arows.Close()
 			serverErr(w)
 			return
