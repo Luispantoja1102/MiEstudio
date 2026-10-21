@@ -123,11 +123,14 @@ se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una
 
 ## Ajustes
 
-El menú del panel solo trae lo del día a día (inicio, agenda, cobrar, caja, clientes, servicios, inventario, comisiones y
-reportes). Lo que se configura de vez en cuando vive en **Ajustes** (`/panel/ajustes`): equipo, sucursales, reserva en línea,
-privacidad, pagos (Mercado Pago), suscripción y mi cuenta; cada sección se ve según el rol. El panel de plataforma funciona igual
-(`/plataforma/ajustes`: planes, registro de negocios, salud, actividad, equipo y mi cuenta). Las sucursales ahora están en
-`/panel/ajustes/sucursales`.
+Como en MiConsultorio, el menú trae pocas opciones: **Inicio, Agenda, Clientes, Cobros y Reportes**, y **Ajustes** al pie.
+Cobros se abre con sus pestañas (Cobrar · Caja · Historial · Servicios · Inventario) y Reportes con las suyas (Ventas ·
+Comisiones). Lo que se configura de vez en cuando vive en **Ajustes** (`/panel/ajustes`), con dos columnas: a la izquierda las
+secciones agrupadas con su descripción y a la derecha la que elijas, sin salir de la página (`?s=reserva`); en celular primero va
+la lista y luego la sección, con flecha para volver. Secciones: *Mi negocio* (equipo, sucursales, suscripción y plan), *Agenda y
+clientes* (reservas y página pública, privacidad y ARCO), *Cobros* (Mercado Pago) y *Mi cuenta y esta app* (cuenta, apariencia,
+cerrar sesión); cada una se ve según el rol. El panel de plataforma funciona igual: Resumen, Negocios y Pagos, y en
+`/plataforma/ajustes` planes, registro de negocios, salud, actividad, equipo y cuenta.
 
 ## Cuenta y seguridad
 

@@ -10,13 +10,18 @@
   let { children } = $props();
 
   const SETTINGS_PATHS = ['/plataforma/planes', '/plataforma/salud', '/plataforma/equipo', '/plataforma/actividad', '/plataforma/cuenta'];
-  const items = [
-    ['home', 'Resumen', '/plataforma'],
-    ['scissors', 'Negocios', '/plataforma/negocios'],
-    ['wallet', 'Pagos', '/plataforma/pagos'],
-    // lo que se usa de vez en cuando vive en Ajustes
-    ['settings', 'Ajustes', '/plataforma/ajustes', SETTINGS_PATHS]
+  // Pocas opciones a la vista; lo demás vive en Ajustes (como en MiConsultorio).
+  const groups = [
+    {
+      title: 'Plataforma',
+      items: [
+        ['home', 'Resumen', '/plataforma'],
+        ['scissors', 'Negocios', '/plataforma/negocios'],
+        ['wallet', 'Pagos', '/plataforma/pagos']
+      ]
+    }
   ];
+  const footer = [['settings', 'Ajustes', '/plataforma/ajustes', SETTINGS_PATHS]];
 
   onMount(async () => {
     try {
@@ -37,7 +42,7 @@
 </script>
 
 {#if session.me && isPlatform()}
-  <Shell {items} tag="Plataforma" title={session.me.name} onlogout={logout}>
+  <Shell {groups} {footer} tag="Plataforma" title={session.me.name} onlogout={logout}>
     {#if inSettings}<a class="back" href="/plataforma/ajustes"><Icon name="arrow" size={16} />Ajustes</a>{/if}
     {@render children()}
   </Shell>

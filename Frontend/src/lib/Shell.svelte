@@ -5,7 +5,9 @@
   import ThemeToggle from '$lib/ThemeToggle.svelte';
 
   // items: [icono, etiqueta, ruta (null = próximamente), rutas extra que también la marcan activa]
-  let { items, title = '', tag = '', onlogout, children } = $props();
+  // groups (opcional): [{ title, items }] con títulos de sección; footer: elementos fijos al pie de la barra lateral (Ajustes)
+  let { items = [], groups = null, footer = [], title = '', tag = '', onlogout, children } = $props();
+  const blocks = $derived(groups ?? [{ title: '', items }]);
 
   // las rutas raíz (/panel, /plataforma) solo coinciden exactas; las demás, por prefijo
   const isActive = (href, extra = []) =>
@@ -14,8 +16,8 @@
       : [href, ...extra].some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
 </script>
 
-{#snippet links()}
-  {#each items as [icon, label, href, extra]}
+{#snippet links(list)}
+  {#each list as [icon, label, href, extra]}
     {#if href}
       <a class="item" class:active={isActive(href, extra)} {href} aria-current={isActive(href, extra) ? 'page' : undefined}>
         <Icon name={icon} size={18} />{label}
@@ -29,7 +31,13 @@
 <div class="shell">
   <aside class="side">
     <div class="brand"><Logo />{#if tag}<span class="tag">{tag}</span>{/if}</div>
-    <nav aria-label="Módulos">{@render links()}</nav>
+    <nav aria-label="Módulos">
+      {#each blocks as g}
+        {#if g.title}<p class="group">{g.title}</p>{/if}
+        {@render links(g.items)}
+      {/each}
+    </nav>
+    {#if footer.length}<nav class="foot" aria-label="Ajustes">{@render links(footer)}</nav>{/if}
   </aside>
 
   <div class="main">
@@ -40,7 +48,7 @@
         <button class="btn ghost" onclick={onlogout}><Icon name="logout" size={18} />Salir</button>
       </div>
     </header>
-    <nav class="tabs" aria-label="Módulos">{@render links()}</nav>
+    <nav class="tabs" aria-label="Módulos">{@render links(blocks.flatMap((g) => g.items).concat(footer))}</nav>
 
     <main class="content">{@render children()}</main>
   </div>
@@ -60,6 +68,10 @@
   .brand { display: grid; gap: 6px; justify-items: start; }
   .tag { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
   .side nav { display: grid; gap: 4px; }
+  .side nav:not(.foot) { flex: 1; align-content: start; }
+  .side .foot { padding-top: 12px; border-top: 1px solid var(--border); }
+  .group { margin: 14px 12px 4px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .group:first-child { margin-top: 0; }
   .item {
     display: flex;
     align-items: center;

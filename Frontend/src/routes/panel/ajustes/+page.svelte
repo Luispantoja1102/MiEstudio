@@ -1,34 +1,53 @@
 <script>
+  import { goto } from '$app/navigation';
+  import AccountSettings from '$lib/AccountSettings.svelte';
+  import Appearance from '$lib/Appearance.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
+  import { api } from '$lib/api.js';
+  import { session } from '$lib/session.svelte.js';
+  import Equipo from '../equipo/+page.svelte';
+  import Pagos from '../pagos/+page.svelte';
+  import Privacidad from '../privacidad/+page.svelte';
+  import Reserva from '../reserva/+page.svelte';
+  import Suscripcion from '../suscripcion/+page.svelte';
+  import Sucursales from './sucursales/+page.svelte';
 
   const A = ['admin'];
+  // Agrupado por lo que la persona busca, como en MiConsultorio.
   const groups = [
     {
       title: 'Mi negocio',
       items: [
-        { icon: 'users', title: 'Equipo', text: 'Personas con acceso, roles, comisiones y horarios.', href: '/panel/equipo', roles: A },
-        { icon: 'home', title: 'Sucursales', text: 'Tus locales: nombre, dirección y teléfono.', href: '/panel/ajustes/sucursales', roles: A }
+        { id: 'equipo', label: 'Equipo', desc: 'Agregar personal, roles, comisiones y horarios', icon: 'users', component: Equipo, roles: A },
+        { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales: nombre, dirección y teléfono', icon: 'home', component: Sucursales, roles: A },
+        { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de MiEstudio, cuánto pagas y tus pagos', icon: 'wallet', component: Suscripcion, roles: A }
       ]
     },
     {
-      title: 'Clientes y reservas',
+      title: 'Agenda y clientes',
       items: [
-        { icon: 'globe', title: 'Reserva en línea', text: 'Tu página pública, anticipos y recordatorios por correo.', href: '/panel/reserva', roles: A },
-        { icon: 'shield', title: 'Privacidad', text: 'Solicitudes de tus clientes sobre sus datos (ARCO) y tu aviso.', href: '/panel/privacidad', roles: A }
+        { id: 'reserva', label: 'Reservas y página pública', desc: 'Tu dirección en línea, anticipos y recordatorios por correo', icon: 'globe', component: Reserva, roles: A },
+        { id: 'privacidad', label: 'Privacidad y solicitudes ARCO', desc: 'Lo que tus clientes piden sobre sus datos y tu aviso de privacidad', icon: 'shield', component: Privacidad, roles: A }
       ]
     },
     {
-      title: 'Cobros y plan',
+      title: 'Cobros',
+      items: [{ id: 'pagos', label: 'Cobro con tarjeta (Mercado Pago)', desc: 'Conecta tu cuenta de Mercado Pago y tu terminal', icon: 'card', component: Pagos, roles: A }]
+    },
+    {
+      title: 'Mi cuenta y esta app',
       items: [
-        { icon: 'card', title: 'Pagos', text: 'Conecta Mercado Pago y registra tu terminal.', href: '/panel/pagos', roles: A },
-        { icon: 'wallet', title: 'Suscripción', text: 'Tu plan, vigencia, pagos y facturación de MiEstudio.', href: '/panel/suscripcion', roles: A }
+        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, verificación en dos pasos y sesiones', icon: 'user', component: AccountSettings },
+        { id: 'apariencia', label: 'Apariencia', desc: 'Tema claro u oscuro', icon: 'sun', component: Appearance }
       ]
-    },
-    {
-      title: 'Mi cuenta',
-      items: [{ icon: 'shield', title: 'Mi cuenta', text: 'Contraseña, verificación en dos pasos y sesiones.', href: '/panel/cuenta' }]
     }
   ];
+
+  async function logout() {
+    await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    session.me = null;
+    goto('/');
+  }
 </script>
 
-<SettingsHub intro="Lo que configuras de vez en cuando." {groups} />
+<SettingsHub intro="Tu negocio, tus clientes, tus cobros y tu cuenta." {groups} onlogout={logout} />

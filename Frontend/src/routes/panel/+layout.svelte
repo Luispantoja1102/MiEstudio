@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Icon from '$lib/Icon.svelte';
+  import SectionTabs from '$lib/SectionTabs.svelte';
   import Shell from '$lib/Shell.svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
@@ -9,22 +10,37 @@
 
   let { children } = $props();
 
-  const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta'];
-  // [icono, etiqueta, ruta (null = próximamente), roles permitidos (vacío = todos), rutas extra que la marcan activa]
   const SELL = ['admin', 'cashier', 'reception'];
+  const SETTINGS_PATHS = ['/panel/equipo', '/panel/reserva', '/panel/privacidad', '/panel/pagos', '/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'];
+  const COBROS_PATHS = ['/panel/ventas', '/panel/caja', '/panel/servicios', '/panel/inventario'];
+  const REPORT_PATHS = ['/panel/reportes', '/panel/comisiones'];
+
+  // Una lista corta, como en MiConsultorio: Cobros y Reportes se abren con sus propias pestañas;
+  // lo que no se usa a diario (equipo, sucursales, reserva en línea, pagos, plan, privacidad, cuenta) vive en Ajustes.
+  // [icono, etiqueta, ruta, roles permitidos (vacío = todos), rutas extra que la marcan activa]
   const nav = [
     ['home', 'Inicio', '/panel', []],
     ['calendar', 'Agenda', '/panel/agenda', []],
-    ['receipt', 'Cobrar', '/panel/ventas', SELL],
-    ['wallet', 'Caja', '/panel/caja', SELL],
     ['users', 'Clientes', '/panel/clientes', []],
-    ['scissors', 'Servicios', '/panel/servicios', []],
-    ['package', 'Inventario', '/panel/inventario', []],
-    ['percent', 'Comisiones', '/panel/comisiones', ['admin', 'staff']],
-    ['chart', 'Reportes', '/panel/reportes', ['admin']],
-    // lo que no se usa a diario vive dentro de Ajustes; sus páginas marcan «Ajustes» como activo
-    ['settings', 'Ajustes', '/panel/ajustes', [], SETTINGS_PATHS]
+    ['receipt', 'Cobros', '/panel/ventas', SELL, COBROS_PATHS],
+    ['scissors', 'Catálogo', '/panel/servicios', ['staff'], COBROS_PATHS],
+    ['chart', 'Reportes', '/panel/reportes', ['admin'], REPORT_PATHS],
+    ['percent', 'Comisiones', '/panel/comisiones', ['staff']]
   ];
+  const footer = [['settings', 'Ajustes', '/panel/ajustes', SETTINGS_PATHS.slice(0, -1).concat('/panel/ajustes/sucursales')]];
+  const COBROS_TABS = [
+    { label: 'Cobrar', href: '/panel/ventas', exact: true, roles: SELL },
+    { label: 'Caja', href: '/panel/caja', roles: SELL },
+    { label: 'Historial', href: '/panel/ventas/historial', roles: SELL },
+    { label: 'Servicios', href: '/panel/servicios' },
+    { label: 'Inventario', href: '/panel/inventario' }
+  ];
+  const REPORT_TABS = [
+    { label: 'Ventas', href: '/panel/reportes', roles: ['admin'] },
+    { label: 'Comisiones', href: '/panel/comisiones', roles: ['admin', 'staff'] }
+  ];
+  const under = (paths) => paths.some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
+  const tabs = $derived(under(COBROS_PATHS) ? COBROS_TABS : under(REPORT_PATHS) ? REPORT_TABS : null);
   const items = $derived(
     nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h, , extra]) => [i, l, h, extra])
   );
@@ -33,7 +49,7 @@
   const lapsed = $derived(['trial_expired', 'past_due'].includes(session.me?.business?.billing_state) && !blocked);
   const lapsedAllowed = $derived(['/panel/suscripcion', '/panel/cuenta', '/panel/ajustes'].includes(page.url.pathname));
   // dentro de una página de ajustes se ofrece volver al índice
-  const inSettings = $derived(SETTINGS_PATHS.concat('/panel/ajustes/sucursales').includes(page.url.pathname));
+  const inSettings = $derived(SETTINGS_PATHS.filter((p) => p !== '/panel/ajustes').concat('/panel/ajustes/sucursales').includes(page.url.pathname));
   const trialLeft = $derived.by(() => {
     const b = session.me?.business;
     if (b?.billing_state !== 'trialing' || !b.trial_ends_at) return null;
@@ -57,7 +73,7 @@
 </script>
 
 {#if session.me && !isPlatform()}
-  <Shell {items} title={session.me.business.name} onlogout={logout}>
+  <Shell {items} {footer} title={session.me.business.name} onlogout={logout}>
     {#if blocked}
       <div class="card state">
         {#if session.me.business.status === 'pending'}
@@ -79,6 +95,7 @@
         <p class="banner" role="status">Tu prueba gratis termina {trialLeft === 0 ? 'hoy' : `en ${trialLeft} ${trialLeft === 1 ? 'día' : 'días'}`}. <a href="/panel/suscripcion">Elegir un plan</a></p>
       {/if}
       {#if inSettings}<a class="back" href="/panel/ajustes"><Icon name="arrow" size={16} />Ajustes</a>{/if}
+      {#if tabs}<SectionTabs {tabs} />{/if}
       {@render children()}
     {/if}
   </Shell>
