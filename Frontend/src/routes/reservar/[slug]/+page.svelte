@@ -219,7 +219,7 @@
         <label class="field">Notas (opcional) <input bind:value={form.notes} maxlength="300" /></label>
         <label class="check"><input type="checkbox" bind:checked={form.consent_reminders} /> Quiero recibir un recordatorio por correo antes de mi cita</label>
         {#if form.consent_reminders && !form.email.trim()}<p class="meta">Escribe tu correo para recibir el recordatorio.</p>{/if}
-        <label class="check" style="margin-top: 0.5rem"><input type="checkbox" bind:checked={form.accept_privacy} required /> He leído y acepto el aviso de privacidad</label>
+        <label class="check" style="margin-top: 0.5rem"><input type="checkbox" bind:checked={form.accept_privacy} required /> <span>He leído y acepto el <a href="/aviso/{slug}" target="_blank" rel="noopener">aviso de privacidad</a></span></label>
         <details class="privacy">
           <summary>Aviso de privacidad</summary>
           <p>
@@ -234,7 +234,7 @@
         </div>
       </form>
     {/if}
-    <p class="meta foot">Reserva hasta {plural(info.max_days_ahead, 'día', 'días')} adelante · cancela hasta {plural(info.cancel_min_hours, 'hora', 'horas')} antes.</p>
+    <p class="meta foot"><a href="/aviso/{slug}">Aviso de privacidad</a> · <a href="/arco/{slug}">Ejercer mis derechos</a><br />Reserva hasta {plural(info.max_days_ahead, 'día', 'días')} adelante · cancela hasta {plural(info.cancel_min_hours, 'hora', 'horas')} antes.</p>
   {/if}
 </PublicLayout>
 

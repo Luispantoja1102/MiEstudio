@@ -11,7 +11,7 @@
     ['unas', 'Uñas']
   ];
 
-  let form = $state({ business_name: '', kind: 'barberia', name: '', email: '', password: '' });
+  let form = $state({ business_name: '', kind: 'barberia', name: '', email: '', password: '', accept_terms: false });
   let error = $state('');
   let busy = $state(false);
   let mode = $state('open');
@@ -61,8 +61,12 @@
       <input type="password" bind:value={form.password} minlength="8" maxlength="72" autocomplete="new-password" required />
       <span class="hint">Mínimo 8 caracteres.</span>
     </label>
+    <label class="check" style="margin-bottom: 1rem">
+      <input type="checkbox" bind:checked={form.accept_terms} required />
+      <span>Acepto los <a href="/terminos" target="_blank" rel="noopener">términos</a> y el <a href="/privacidad" target="_blank" rel="noopener">aviso de privacidad</a></span>
+    </label>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button class="btn block lg" disabled={busy || mode === 'closed'}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
+    <button class="btn block lg" disabled={busy || mode === 'closed' || !form.accept_terms}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
   </form>
   <p class="alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
 </AuthLayout>

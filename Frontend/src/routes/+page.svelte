@@ -105,6 +105,7 @@
 
 <footer class="container foot">
   <span>© {new Date().getFullYear()} MiEstudio</span>
+  <span><a href="/privacidad">Aviso de privacidad</a> · <a href="/terminos">Términos</a></span>
 </footer>
 
 <style>

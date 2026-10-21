@@ -540,7 +540,7 @@ type manageRow struct {
 	ID, BizID       int64
 	Status          string
 	Starts, Ends    time.Time
-	Business        string
+	Business, Slug  string
 	Branch, Address string
 	Service, Staff  string
 	ClientName      string
@@ -553,10 +553,10 @@ func (a *API) byToken(ctx context.Context, token string) (*manageRow, error) {
 	}
 	m := &manageRow{}
 	err := a.DB.QueryRow(ctx,
-		`SELECT ap.id, ap.business_id, ap.status, ap.starts_at, ap.ends_at, b.name, br.name, br.address, s.name, u.name, c.name
+		`SELECT ap.id, ap.business_id, ap.status, ap.starts_at, ap.ends_at, b.name, b.slug, br.name, br.address, s.name, u.name, c.name
 		   FROM appointments ap JOIN businesses b ON b.id = ap.business_id JOIN branches br ON br.id = ap.branch_id
 		   JOIN services s ON s.id = ap.service_id JOIN users u ON u.id = ap.staff_id JOIN clients c ON c.id = ap.client_id
-		  WHERE ap.public_token = $1`, token).Scan(&m.ID, &m.BizID, &m.Status, &m.Starts, &m.Ends, &m.Business, &m.Branch, &m.Address, &m.Service, &m.Staff, &m.ClientName)
+		  WHERE ap.public_token = $1`, token).Scan(&m.ID, &m.BizID, &m.Status, &m.Starts, &m.Ends, &m.Business, &m.Slug, &m.Branch, &m.Address, &m.Service, &m.Staff, &m.ClientName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -621,6 +621,7 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		"ends_at":          m.Ends.UTC().Format(time.RFC3339),
 		"timezone":         loc.String(),
 		"business":         m.Business,
+		"slug":             m.Slug,
 		"branch":           m.Branch,
 		"address":          m.Address,
 		"service":          m.Service,

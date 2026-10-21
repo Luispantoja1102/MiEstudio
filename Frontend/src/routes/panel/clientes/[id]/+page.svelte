@@ -1,10 +1,11 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/state';
+  import { goto } from '$app/navigation';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { formatDate } from '$lib/format.js';
-  import { canSeeNotes } from '$lib/session.svelte.js';
+  import { canSeeNotes, session } from '$lib/session.svelte.js';
 
   const id = page.params.id;
 
@@ -55,6 +56,20 @@
       error = err.message;
     }
   }
+
+  async function erase() {
+    if (!confirm('¿Borrar los datos personales de este cliente? Se quitan nombre, teléfono, correo y notas. No se puede deshacer; las ventas se conservan sin sus datos.')) return;
+    error = '';
+    busy = true;
+    try {
+      await api(`/api/clients/${id}/erase`, { method: 'POST' });
+      goto('/panel/clientes');
+    } catch (err) {
+      error = err.message;
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <a class="back" href="/panel/clientes"><Icon name="arrow" size={16} />Clientes</a>
@@ -77,6 +92,17 @@
       {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}
     </div>
   </form>
+
+  {#if session.me.role === 'admin'}
+    <section class="card" style="margin-top: 1.25rem">
+      <h2 style="font-size: 1.15rem">Privacidad de este cliente</h2>
+      <p class="meta">Entrega una copia de sus datos si te la pide, o bórralos cuando lo solicite. Las ventas se conservan sin sus datos personales.</p>
+      <div class="form-actions">
+        <a class="btn ghost sm" href={`/api/clients/${id}/export`} download>Descargar sus datos</a>
+        <button class="btn ghost sm" disabled={busy} onclick={erase}>Borrar sus datos personales</button>
+      </div>
+    </section>
+  {/if}
 
   {#if canSeeNotes()}
     <section class="notes">

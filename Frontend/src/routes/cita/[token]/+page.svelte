@@ -129,9 +129,11 @@
       {/if}
     </div>
   {/if}
+  {#if a?.slug}<p class="meta foot"><a href="/aviso/{a.slug}">Aviso de privacidad</a> · <a href="/arco/{a.slug}">Ejercer mis derechos</a></p>{/if}
 </PublicLayout>
 
 <style>
   .notice { margin: 1rem 0; padding: 1rem; border-radius: var(--radius-sm); background: var(--surface-2); }
   .meta { color: var(--muted); font-size: 0.88rem; }
+  .foot { text-align: center; margin-top: 1.5rem; }
 </style>

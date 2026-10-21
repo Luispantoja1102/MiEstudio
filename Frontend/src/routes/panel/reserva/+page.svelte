@@ -33,11 +33,11 @@
     saved = false;
     busy = true;
     try {
-      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text } = s;
+      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email } = s;
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
-          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text }
+          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email }
       });
       saved = true;
       await load();
@@ -109,6 +109,11 @@
     </div>
 
     <label class="check"><input type="checkbox" bind:checked={s.show_prices} /> Mostrar precios en la página</label>
+
+    <label class="field" style="margin-top: 1rem">Correo para solicitudes de privacidad (opcional)
+      <input type="email" bind:value={s.privacy_email} maxlength="200" placeholder="privacidad@tunegocio.mx" />
+      <span class="hint">Se muestra en tu aviso de privacidad. Las solicitudes también llegan a tu panel, en Privacidad.</span>
+    </label>
 
     <h3 style="margin-top: 1.5rem">Anticipo</h3>
     <label class="field">Porcentaje del precio por adelantado

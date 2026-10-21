@@ -130,6 +130,11 @@ se devuelve el anticipo (y si Mercado Pago no puede, la cita no se cancela); una
   misma exista o no la cuenta. Los administradores de plataforma no lo usan: su clave se restablece con `npm run admin`.
 - **Verificación en dos pasos (TOTP):** en *Mi cuenta* con QR y 8 códigos de respaldo; el administrador de un negocio puede
   quitarla a su equipo (*Equipo → Quitar 2 pasos*) y plataforma a cualquiera. El secreto se guarda cifrado.
+- **Privacidad:** `/privacidad` y `/terminos` (con tus datos de `LEGAL_*`; revisa los textos con tu abogado: son una base, no
+  asesoría legal) y aceptación registrada con su versión al crear la cuenta. Cada negocio tiene su aviso en `/aviso/<negocio>`,
+  un formulario de derechos ARCO en `/arco/<negocio>` (20 días hábiles de plazo, seguimiento por enlace) y las atiende en
+  *Privacidad*. En la ficha de cada cliente se puede descargar todo lo que se guarda de él o borrar sus datos personales
+  (las ventas se conservan sin ellos). Solo hay una cookie técnica de sesión: no hace falta banner de cookies.
 - **Proxy:** declara tus proxies en `TRUSTED_PROXIES` para que los límites usen la IP real.
 
 ## Avisos de nueva versión
