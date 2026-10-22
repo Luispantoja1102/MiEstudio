@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func depositAmount(price, percent int) int {
 
 // depositFor es el anticipo de un servicio para esta reserva (0 = sin anticipo).
 func (a *API) depositFor(ctx context.Context, b *pubBiz, price int) int {
-	if b.Settings.DepositPercent <= 0 || !a.mpConnected(ctx, b.ID) || !a.planOf(ctx, a.DB, b.ID).Deposits {
+	if len(a.depositMethods(ctx, b)) == 0 {
 		return 0
 	}
 	return depositAmount(price, b.Settings.DepositPercent)
@@ -203,6 +204,7 @@ func (a *API) publicInfo(w http.ResponseWriter, r *http.Request) {
 		"max_days_ahead":   b.Settings.MaxDaysAhead,
 		"cancel_min_hours": b.Settings.CancelMinHours,
 		"deposit_percent":  b.Settings.DepositPercent,
+		"deposit_methods":  a.depositMethods(ctx, b), // mp y/o transfer
 		"reminders":        b.Settings.ReminderHours > 0 && a.mailEnabled(),
 		"whatsapp":         b.Settings.ReminderHours > 0 && b.Settings.WhatsAppReminders && a.waEnabled(),
 		"waitlist":         a.mailEnabled(), // la lista de espera avisa por correo
@@ -276,9 +278,9 @@ func (a *API) publicSlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	earliest := now.Add(time.Duration(b.Settings.MinNoticeHours) * time.Hour)
-	out, err := a.computeSlots(ctx, b.ID, svc, serviceID, branchID, onlyStaff, day, b.Loc, earliest)
+	out, err := a.computeSlotsTaken(ctx, b.ID, svc, serviceID, branchID, onlyStaff, day, b.Loc, earliest, true)
 	if err == nil {
-		out, err = a.withoutOthersHolds(ctx, out, svc, q.Get("holder")) // lo que otra visita tiene apartado no se ofrece
+		out, err = a.withoutOthersHolds(ctx, out, svc, q.Get("holder")) // lo que otra visita tiene apartado se ve ocupado
 	}
 	if err != nil {
 		serverErr(w)
@@ -301,6 +303,7 @@ type bookingReq struct {
 	ConsentMarketing bool   `json:"consent_marketing"` // promociones y felicitación de cumpleaños
 	ConsentWhatsApp  bool   `json:"consent_whatsapp"`  // recordatorio por WhatsApp
 	Holder           string `json:"holder"`            // identificador de quien apartó el horario (opcional)
+	PaymentMethod    string `json:"payment_method"`    // cómo paga el anticipo: mp | transfer
 }
 
 // findOrCreateClient identifica a quien reserva por teléfono (o correo) sin revelar nada de lo que ya hay guardado.
@@ -454,7 +457,20 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deposit := a.depositFor(ctx, b, price)
-	res, ferr := a.createOnlineAppointment(ctx, b, req, digits, start, staffID, deposit, svcName, svc)
+	method := ""
+	if deposit > 0 {
+		methods := a.depositMethods(ctx, b)
+		switch {
+		case req.PaymentMethod == "" && len(methods) == 1:
+			method = methods[0]
+		case slices.Contains(methods, req.PaymentMethod):
+			method = req.PaymentMethod
+		default:
+			writeErr(w, http.StatusBadRequest, "elige cómo pagar el anticipo")
+			return
+		}
+	}
+	res, ferr := a.createOnlineAppointment(ctx, b, req, digits, start, staffID, deposit, method, svcName, svc)
 	if ferr != nil {
 		if !writeFail(w, ferr) {
 			serverErr(w)
@@ -475,12 +491,13 @@ type bookingResult struct {
 	ManagePath   string `json:"manage_path"`
 	DepositCents int    `json:"deposit_cents,omitempty"`
 	PayURL       string `json:"pay_url,omitempty"`
+	PayMethod    string `json:"pay_method,omitempty"` // transfer: se paga por fuera y se sube el comprobante en la página de la cita
 }
 
 const maxActiveBookingsPerPhone = 3
 
 // createOnlineAppointment guarda la cita de una reserva en línea.
-func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookingReq, digits string, start time.Time, staffID int64, deposit int, svcName string, svc *svcInfo) (*bookingResult, error) {
+func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookingReq, digits string, start time.Time, staffID int64, deposit int, method, svcName string, svc *svcInfo) (*bookingResult, error) {
 	end := start.Add(svc.Duration)
 	token := newPublicToken()
 	tx, err := a.DB.Begin(ctx)
@@ -514,7 +531,11 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	}
 	status, holdUntil := "scheduled", (*time.Time)(nil)
 	if deposit > 0 {
-		h := a.now().Add(holdMinutes * time.Minute)
+		hold := holdMinutes * time.Minute
+		if method == "transfer" {
+			hold = time.Duration(b.Settings.TransferHoldHours) * time.Hour // da tiempo de transferir y mandar el comprobante
+		}
+		h := a.now().Add(hold)
 		status, holdUntil = "pending_payment", &h
 	}
 	var apptID int64
@@ -534,8 +555,8 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 		// la referencia lleva el id del anticipo; se fija en cuanto se conoce
 		var depID int64
 		if err := tx.QueryRow(ctx,
-			`INSERT INTO deposits (business_id, appointment_id, amount_cents, external_ref, created_at) VALUES ($1, $2, $3, 'tmp-' || $4, $5) RETURNING id`,
-			b.ID, apptID, deposit, token, a.now()).Scan(&depID); err != nil {
+			`INSERT INTO deposits (business_id, appointment_id, amount_cents, external_ref, created_at, method) VALUES ($1, $2, $3, 'tmp-' || $4, $5, $6) RETURNING id`,
+			b.ID, apptID, deposit, token, a.now(), method).Scan(&depID); err != nil {
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE deposits SET external_ref = 'mie-dep:' || id WHERE id = $1`, depID); err != nil {
@@ -549,12 +570,18 @@ func (a *API) createOnlineAppointment(ctx context.Context, b *pubBiz, req bookin
 	}
 	res := &bookingResult{Token: token, Status: status, StartsAt: start.UTC().Format(time.RFC3339), EndsAt: end.UTC().Format(time.RFC3339),
 		ManagePath: "/cita/" + token}
-	if deposit > 0 {
+	switch {
+	case deposit > 0 && method == "transfer":
+		res.DepositCents, res.PayMethod = deposit, "transfer"
+		a.inboxAppt(ctx, apptID, "booking_transfer", "Reserva por transferencia: falta el comprobante")
+	case deposit > 0:
 		payURL, err := a.startDeposit(ctx, b, apptID, token, deposit, svcName, *holdUntil)
 		if err != nil {
 			return nil, err
 		}
 		res.DepositCents, res.PayURL = deposit, payURL
+	default:
+		a.inboxAppt(ctx, apptID, "booking", "Nueva reserva en línea")
 	}
 	return res, nil
 }
@@ -619,7 +646,7 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
-	if dep != nil && m.Status == "pending_payment" {
+	if dep != nil && dep.Method != "transfer" && m.Status == "pending_payment" {
 		// el cliente suele volver de Mercado Pago a esta página: se confirma el pago sin esperar al aviso automático
 		if _, err := a.settleDeposit(ctx, dep.ID); err == nil {
 			if m, err = a.byToken(ctx, r.PathValue("token")); err != nil || m == nil {
@@ -660,8 +687,18 @@ func (a *API) publicAppointment(w http.ResponseWriter, r *http.Request) {
 		"cancel_deadline":  m.Starts.Add(-time.Duration(st.CancelMinHours) * time.Hour).UTC().Format(time.RFC3339),
 	}
 	if dep != nil {
-		d := map[string]any{"amount_cents": dep.Amount, "status": dep.Status}
-		if dep.Status == "pending" && m.Status == "pending_payment" {
+		d := map[string]any{"amount_cents": dep.Amount, "status": dep.Status, "method": dep.Method}
+		if dep.Method == "transfer" && dep.Status == "pending" && m.Status == "pending_payment" {
+			t := transferDetails(st, m.ID)
+			t["proof_uploaded"] = dep.ProofAt != nil
+			t["reject_reason"] = dep.RejectReason
+			d["transfer"] = t
+			var hold *time.Time
+			a.DB.QueryRow(ctx, `SELECT hold_expires_at FROM appointments WHERE id = $1`, m.ID).Scan(&hold)
+			if hold != nil {
+				d["hold_expires_at"] = hold.UTC().Format(time.RFC3339)
+			}
+		} else if dep.Status == "pending" && m.Status == "pending_payment" {
 			var payURL string
 			var hold *time.Time
 			a.DB.QueryRow(ctx, `SELECT d.pay_url, ap.hold_expires_at FROM deposits d JOIN appointments ap ON ap.id = d.appointment_id WHERE d.id = $1`, dep.ID).Scan(&payURL, &hold)
@@ -721,6 +758,7 @@ func (a *API) publicCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	a.DB.Exec(ctx, `UPDATE deposits SET status = 'expired' WHERE appointment_id = $1 AND status = 'pending'`, m.ID)
 	a.notify(ctx, m.ID, "cancellation", false)
+	a.inboxAppt(ctx, m.ID, "cancelled", "Cita cancelada por el cliente")
 	writeJSON(w, http.StatusOK, map[string]any{"status": "cancelled"})
 }
 
@@ -767,9 +805,78 @@ func (a *API) publicConfirm(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "esta cita ya no se puede confirmar")
 		return
 	}
-	if _, err := a.DB.Exec(ctx, `UPDATE appointments SET confirmed_at = COALESCE(confirmed_at, now()) WHERE id = $1`, m.ID); err != nil {
+	tag, err := a.DB.Exec(ctx, `UPDATE appointments SET confirmed_at = now() WHERE id = $1 AND confirmed_at IS NULL`, m.ID)
+	if err != nil {
 		serverErr(w)
 		return
 	}
+	if tag.RowsAffected() > 0 {
+		a.inboxAppt(ctx, m.ID, "confirmed", "El cliente confirmó su asistencia")
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// publicMonth es GET /api/public/{slug}/month: los días de un mes con al menos un horario libre, para marcarlos en el calendario.
+// Una sola consulta por mes; no dice por quién ni para qué están ocupados los demás.
+func (a *API) publicMonth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !a.allow(w, "pub-month:"+clientIP(r), 60, time.Minute) {
+		return
+	}
+	b, err := a.publicBusiness(ctx, r.PathValue("slug"))
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if b == nil {
+		notFound(w)
+		return
+	}
+	q := r.URL.Query()
+	serviceID, _ := strconv.ParseInt(q.Get("service_id"), 10, 64)
+	branchID, _ := strconv.ParseInt(q.Get("branch_id"), 10, 64)
+	onlyStaff, _ := strconv.ParseInt(q.Get("staff_id"), 10, 64)
+	first, err := time.ParseInLocation("2006-01", q.Get("month"), b.Loc)
+	if err != nil || serviceID <= 0 || branchID <= 0 {
+		writeErr(w, http.StatusBadRequest, "indica el servicio, la sucursal y el mes (AAAA-MM)")
+		return
+	}
+	a.sweepHolds(ctx)
+	svc, _, _, err := a.onlineService(ctx, b.ID, serviceID)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	okBranch, err := activeBranch(ctx, a.DB, b.ID, branchID)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if svc == nil || !okBranch {
+		notFound(w)
+		return
+	}
+	now := a.now()
+	earliest := now.Add(time.Duration(b.Settings.MinNoticeHours) * time.Hour)
+	days := []string{}
+	for d := first; d.Month() == first.Month(); d = d.AddDate(0, 0, 1) {
+		if !b.withinHorizon(d, now) {
+			continue
+		}
+		offers, err := a.computeSlots(ctx, b.ID, svc, serviceID, branchID, onlyStaff, d, b.Loc, earliest)
+		if err == nil {
+			offers, err = a.withoutOthersHolds(ctx, offers, svc, q.Get("holder"))
+		}
+		if err != nil {
+			serverErr(w)
+			return
+		}
+		for _, o := range offers {
+			if len(o.Starts) > 0 {
+				days = append(days, d.Format(dateLayout))
+				break
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"month": q.Get("month"), "days": days})
 }

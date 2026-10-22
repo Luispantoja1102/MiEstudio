@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import PublicLayout from '$lib/PublicLayout.svelte';
   import { money, plural } from '$lib/format.js';
+  import BookingCalendar from '$lib/BookingCalendar.svelte';
   import { addDays, fmtTime, longDate } from '$lib/time.js';
 
   const slug = page.params.slug;
@@ -27,6 +28,31 @@
   let busy = $state(false);
   let form = $state({ name: '', phone: '', email: '', notes: '', accept_privacy: false, consent_reminders: false, consent_marketing: false, consent_whatsapp: false });
   let done = $state(null);
+  // calendario mensual: los días con horario libre se marcan con una sola consulta por mes
+  let monthKey = $state('');
+  let available = $state(null);
+  let monthSeq = 0;
+  $effect(() => {
+    const ym = monthKey;
+    if (step !== 3 || !service || !branchId || !ym) return;
+    const mine = ++monthSeq;
+    available = null;
+    const q = new URLSearchParams({ service_id: service.id, branch_id: branchId, month: ym, holder });
+    if (staffId) q.set('staff_id', staffId);
+    call(`/api/public/${slug}/month?${q}`).then(
+      (r) => {
+        if (mine !== monthSeq) return;
+        available = r.days;
+        // si el día mostrado no tiene lugar, se salta al primero que sí lo tiene (en el mismo mes)
+        if (!r.days.includes(date) && r.days.length && date.slice(0, 7) === ym) {
+          date = r.days[0];
+          loadSlots();
+        }
+      },
+      () => mine === monthSeq && (available = [])
+    );
+  });
+  let payMethod = $state(''); // mp | transfer: cómo se paga el anticipo cuando hay más de una forma
   // el horario elegido se aparta unos minutos para esta visita: otra persona no lo ve libre mientras se llenan los datos
   const holder = crypto.randomUUID();
   let holdLeft = $state(0); // segundos que le quedan al apartado
@@ -97,8 +123,17 @@
     return [...seen.values()].sort((a, b) => a.iso.localeCompare(b.iso));
   });
 
+  // todos los horarios del día en orden: los libres se eligen; los ocupados solo dicen «Ocupado» (sin por quién ni para qué)
+  const timeGrid = $derived.by(() => {
+    const free = merged.map((m) => ({ ...m, busy: false }));
+    const freeIso = new Set(free.map((m) => m.iso));
+    const busy = new Set();
+    for (const s of slots) if (!staffId || String(s.staff_id) === String(staffId)) for (const iso of s.taken ?? []) if (!freeIso.has(iso)) busy.add(iso);
+    return [...free, ...[...busy].map((iso) => ({ iso, staffId: 0, who: '', busy: true }))].sort((a, b) => a.iso.localeCompare(b.iso));
+  });
+
   const canSubmit = $derived(
-    !busy && picked && form.name.trim().length >= 2 && form.phone.replace(/\D/g, '').length >= 10 && form.accept_privacy &&
+    !busy && picked && !(service?.deposit_cents && info?.deposit_methods?.length > 1 && !payMethod) && form.name.trim().length >= 2 && form.phone.replace(/\D/g, '').length >= 10 && form.accept_privacy &&
       ((!form.consent_reminders && !form.consent_marketing) || form.email.trim())
   );
 
@@ -143,8 +178,14 @@
     try {
       const r = await call(`/api/public/${slug}/bookings`, {
         service_id: service.id, branch_id: Number(branchId), staff_id: picked.staffId, starts_at: picked.iso,
-        ...form, holder
+        ...form, holder, payment_method: payMethod || (info.deposit_methods?.length === 1 ? info.deposit_methods[0] : '')
       });
+      if (r.pay_method === 'transfer') {
+        // el anticipo se paga por transferencia: la página de la cita muestra los datos y recibe el comprobante
+        location.href = r.manage_path;
+        done = r;
+        return;
+      }
       if (r.pay_url) {
         // la cita queda apartada unos minutos; el pago se hace en Mercado Pago y se regresa al enlace de la cita
         done = r;
@@ -250,10 +291,8 @@
       </div>
     {:else if step === 3}
       <div class="card">
-        <label class="field">Fecha
-          <input type="date" bind:value={date} min={info.today} max={lastDay} onchange={loadSlots} />
-        </label>
-        <p class="meta">{longDate(date)} · horario de {tz}</p>
+        <BookingCalendar value={date} min={info.today} max={lastDay} {available} onmonth={(m) => (monthKey = m)} onpick={(d) => ((date = d), loadSlots())} />
+        <p class="meta daymeta">{longDate(date).charAt(0).toUpperCase() + longDate(date).slice(1)} · horario de {tz}</p>
         <div aria-live="polite">
           {#if loadingSlots}
             <p class="meta">Buscando horarios…</p>
@@ -283,11 +322,15 @@
               {/if}
             {/if}
           {:else}
-            <div class="chips">
-              {#each merged as m (m.iso + m.staffId)}
-                <button class="chip" aria-pressed={picked?.iso === m.iso && picked?.staffId === m.staffId} onclick={() => pick(m)}>
-                  {fmtTime(m.iso, tz)}{#if staffId && info.staff.length > 1}<small> · {m.who}</small>{/if}
-                </button>
+            <div class="times" role="group" aria-label="Horarios del día">
+              {#each timeGrid as m (m.iso + m.staffId)}
+                {#if m.busy}
+                  <span class="time busy" title="Ocupado" aria-label="{fmtTime(m.iso, tz)}, ocupado">{fmtTime(m.iso, tz)}<small>Ocupado</small></span>
+                {:else}
+                  <button class="time" aria-pressed={picked?.iso === m.iso && picked?.staffId === m.staffId} onclick={() => pick(m)}>
+                    {fmtTime(m.iso, tz)}
+                  </button>
+                {/if}
               {/each}
             </div>
           {/if}
@@ -305,6 +348,15 @@
           {longDate(picked.iso.slice(0, 10))} · {fmtTime(picked.iso, tz)} · {picked.staffId ? picked.who : staffName}
           {#if service.deposit_cents}<br /><span class="meta">Para apartarla se pide un anticipo de {money(service.deposit_cents)}, que se descuenta de tu cuenta.</span>{/if}
         </p>
+        {#if service.deposit_cents && info.deposit_methods?.length > 1}
+          <fieldset class="paymeth">
+            <legend>¿Cómo pagas el anticipo?</legend>
+            <label class="check"><input type="radio" name="paym" value="mp" bind:group={payMethod} /> Tarjeta o Mercado Pago</label>
+            <label class="check"><input type="radio" name="paym" value="transfer" bind:group={payMethod} /> Transferencia (subes tu comprobante)</label>
+          </fieldset>
+        {:else if service.deposit_cents && info.deposit_methods?.[0] === 'transfer'}
+          <p class="meta" style="margin: 0 0 1rem">El anticipo se paga por transferencia: al reservar verás los datos y podrás subir tu comprobante.</p>
+        {/if}
         <label class="field">Nombre <input bind:value={form.name} autocomplete="name" required maxlength="120" /></label>
         <label class="field">Teléfono <input type="tel" bind:value={form.phone} autocomplete="tel" inputmode="tel" required maxlength="30" placeholder="10 dígitos" /></label>
         <label class="field">Correo (opcional)
@@ -327,7 +379,7 @@
         </details>
         <div class="form-actions">
           <button type="button" class="btn ghost" onclick={() => (step = 3)}>Atrás</button>
-          <button class="btn" disabled={!canSubmit}>{busy ? 'Reservando…' : service.deposit_cents ? `Reservar y pagar ${money(service.deposit_cents)}` : 'Confirmar reserva'}</button>
+          <button class="btn" disabled={!canSubmit}>{busy ? 'Reservando…' : service.deposit_cents ? (payMethod === 'transfer' || (!payMethod && info.deposit_methods?.[0] === 'transfer') ? `Reservar y pagar ${money(service.deposit_cents)} por transferencia` : `Reservar y pagar ${money(service.deposit_cents)}`) : 'Confirmar reserva'}</button>
         </div>
       </form>
     {/if}
@@ -358,4 +410,16 @@
   .meta { color: var(--muted); font-size: 0.88rem; }
   .holdnote { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: 0.9rem; }
   .holdnote b { font-variant-numeric: tabular-nums; }
+  .paymeth { margin: 0 0 1rem; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); display: grid; gap: 6px; }
+  .paymeth legend { padding: 0 6px; font-size: 0.9rem; font-weight: 500; }
+  .daymeta { margin: 1rem 0 0.6rem; font-weight: 500; }
+  .times { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .time { display: grid; gap: 1px; place-items: center; min-height: 48px; padding: 4px 6px; font: inherit; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .time small { font-size: 0.68rem; font-weight: 500; color: var(--muted); }
+  .time:hover:not(.busy) { border-color: var(--accent); background: var(--accent-soft); }
+  .time:active:not(.busy) { transform: scale(0.96); }
+  .time[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
+  .time[aria-pressed='true'] small { color: inherit; opacity: 0.85; }
+  .time.busy { color: var(--muted); background: var(--surface-2); border-color: transparent; cursor: not-allowed; }
+  .time.busy { text-decoration: none; }
 </style>

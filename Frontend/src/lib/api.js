@@ -4,9 +4,10 @@ import { goto } from '$app/navigation';
 // Las peticiones que cambian datos llevan este encabezado, que un formulario de otro sitio no puede añadir.
 export async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'X-Requested-With': 'miestudio' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const form = typeof FormData !== 'undefined' && body instanceof FormData; // archivos: el navegador pone el encabezado
+  if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body !== undefined ? JSON.stringify(body) : undefined });
+  const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : form ? body : JSON.stringify(body) });
   const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
   if (!res.ok) {
     // sesión vencida, cerrada desde otro lugar o usuario dado de baja

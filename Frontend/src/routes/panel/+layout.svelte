@@ -4,6 +4,7 @@
   import Icon from '$lib/Icon.svelte';
   import SectionTabs from '$lib/SectionTabs.svelte';
   import Shell from '$lib/Shell.svelte';
+  import NotificationBell from '$lib/NotificationBell.svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
   import { homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
@@ -80,6 +81,7 @@
 
 {#if session.me && !isPlatform()}
   <Shell {items} {footer} title={session.me.business.name} onlogout={logout}>
+    {#snippet tools()}{#if ['admin', 'reception'].includes(session.me.role)}<NotificationBell />{/if}{/snippet}
     {#if blocked}
       <div class="card state">
         {#if session.me.business.status === 'pending'}

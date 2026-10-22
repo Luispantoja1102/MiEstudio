@@ -3,6 +3,9 @@
   import { api } from '$lib/api.js';
   import { longDate } from '$lib/time.js';
   import SlotPicker from '$lib/SlotPicker.svelte';
+  import TransferPanel from '$lib/TransferPanel.svelte';
+  import { money, toCents, toPesos } from '$lib/format.js';
+  import { session } from '$lib/session.svelte.js';
 
   let { branchId, date: initialDate, tz, ondone } = $props();
 
@@ -21,10 +24,25 @@
   let error = $state('');
   let busy = $state(false);
   let timer;
+  // anticipo por transferencia: se aparta el horario hasta que llegue el comprobante
+  let transfer = $state(null);
+  let wantDeposit = $state(false);
+  let depositPesos = $state('');
+  let created = $state(null); // cita apartada: se muestran los datos para pagar
+  const isAdmin = session.me?.role === 'admin';
 
   onMount(async () => {
     services = (await api('/api/services')).filter((s) => s.active);
     staffOptions = (await api('/api/agenda?' + new URLSearchParams({ branch_id: branchId, date }))).staff;
+    try {
+      const t = await api('/api/transfer-info');
+      transfer = t.enabled ? t : null;
+    } catch {}
+  });
+
+  // al elegir servicio se propone el porcentaje de anticipo del negocio (o la mitad si no hay)
+  $effect(() => {
+    if (service && wantDeposit && !depositPesos) depositPesos = toPesos(Math.max(100, Math.round((service.price_cents * (transfer?.deposit_percent || 50)) / 100)));
   });
 
   const service = $derived(services.find((s) => String(s.id) === String(serviceId)));
@@ -54,10 +72,17 @@
     error = '';
     busy = true;
     try {
-      await api('/api/appointments', {
+      const cents = wantDeposit ? toCents(depositPesos) : 0;
+      if (wantDeposit && (Number.isNaN(cents) || cents <= 0)) throw new Error('Escribe el monto del anticipo, por ejemplo 100');
+      const r = await api('/api/appointments', {
         method: 'POST',
-        body: { client_id: client.id, service_id: Number(serviceId), staff_id: picked.staffId, branch_id: branchId, starts_at: picked.startsAt, notes }
+        body: { client_id: client.id, service_id: Number(serviceId), staff_id: picked.staffId, branch_id: branchId, starts_at: picked.startsAt, notes, ...(wantDeposit ? { deposit_cents: cents } : {}) }
       });
+      if (wantDeposit) {
+        // la cita quedó apartada: se muestran los datos de pago para que el cliente transfiera
+        created = { id: r.id, deposit_cents: cents, client_name: client.name, manage_path: r.manage_path, proof_at: null };
+        return;
+      }
       ondone();
     } catch (err) {
       error = err.message;
@@ -68,6 +93,13 @@
   }
 </script>
 
+{#if created}
+  <div class="stack">
+    <p class="okmsg">Cita apartada. Pasa los datos de pago al cliente y, cuando mande el comprobante, adjúntalo aquí o desde la agenda.</p>
+    <TransferPanel appt={created} canReview={isAdmin} canView={true} onchange={ondone} />
+    <div class="form-actions"><button class="btn ghost" onclick={ondone}>Listo, cerrar</button></div>
+  </div>
+{:else}
 <div class="stack">
   <div>
     <span class="lbl">Cliente</span>
@@ -122,11 +154,24 @@
     <input bind:value={notes} maxlength="1000" placeholder="Ej. trae foto de referencia" />
   </label>
 
+  {#if transfer && service?.price_cents}
+    <div class="dep">
+      <label class="check"><input type="checkbox" bind:checked={wantDeposit} />Pedir anticipo por transferencia</label>
+      {#if wantDeposit}
+        <label class="field" style="margin: 0.6rem 0 0">Monto del anticipo (pesos)
+          <input inputmode="decimal" bind:value={depositPesos} />
+          <span class="hint">Servicio de {money(service.price_cents)}. El horario queda apartado {transfer.hold_hours} h mientras llega el comprobante.</span>
+        </label>
+      {/if}
+    </div>
+  {/if}
+
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="form-actions">
-    <button class="btn" disabled={!client || !picked || busy} onclick={submit}>{busy ? 'Agendando…' : 'Agendar cita'}</button>
+    <button class="btn" disabled={!client || !picked || busy} onclick={submit}>{busy ? 'Agendando…' : wantDeposit ? 'Apartar y pedir anticipo' : 'Agendar cita'}</button>
   </div>
 </div>
+{/if}
 
 <style>
   .stack { display: grid; gap: 1.1rem; }
@@ -134,5 +179,7 @@
   .pick { display: flex; justify-content: space-between; width: 100%; min-height: 44px; align-items: center; padding: 0 0.9rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
   .pick:hover { border-color: var(--accent); }
   .pick small { color: var(--muted); }
+  .dep { padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+  .okmsg { margin: 0; padding: 0.7rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 0.9rem; }
   .link { margin-top: 6px; padding: 0; font: inherit; font-size: 0.9rem; color: var(--accent); background: none; border: 0; cursor: pointer; text-align: left; }
 </style>

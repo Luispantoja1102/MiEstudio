@@ -6,6 +6,32 @@
   import { fmtTime, longDate } from '$lib/time.js';
 
   const token = page.params.token;
+  let copied = $state('');
+  async function copy(text, key) {
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = key;
+      setTimeout(() => (copied = ''), 1600);
+    } catch {}
+  }
+  async function sendProof(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    busy = true;
+    error = '';
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const res = await fetch(`/api/public-appointments/${token}/proof`, { method: 'POST', body });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'No se pudo subir el comprobante');
+      await load();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      busy = false;
+    }
+  }
   const call = async (path, method = 'GET') => {
     const res = await fetch(path, { method });
     const data = await res.json().catch(() => ({}));
@@ -112,7 +138,32 @@
         {a.business} · {a.branch}{#if a.address}<br /><span class="meta">{a.address}</span>{/if}
       </p>
 
-      {#if a.status === 'pending_payment' && a.deposit}
+      {#if a.status === 'pending_payment' && a.deposit?.transfer}
+        {@const t = a.deposit.transfer}
+        <div class="notice transfer">
+          <p><b>Para apartar tu cita transfiere {money(a.deposit.amount_cents)}</b> y sube tu comprobante.</p>
+          <dl>
+            <div><dt>Banco</dt><dd>{t.bank}</dd></div>
+            <div><dt>Titular</dt><dd>{t.holder}</dd></div>
+            <div><dt>CLABE</dt><dd>{t.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')} <button class="mini" onclick={() => copy(t.clabe, 'clabe')}>{copied === 'clabe' ? 'Copiada' : 'Copiar'}</button></dd></div>
+            <div><dt>Concepto</dt><dd>{t.reference}</dd></div>
+          </dl>
+          {#if t.reject_reason}<p class="bad">No pudimos aceptar tu comprobante: {t.reject_reason}. Sube otro, por favor.</p>{/if}
+          {#if t.proof_uploaded}
+            <p class="okline">Recibimos tu comprobante. El negocio lo revisará y confirmará tu cita; te avisaremos en esta página.</p>
+          {/if}
+          <div class="form-actions">
+            <label class="btn" class:ghost={t.proof_uploaded}>
+              {busy ? 'Subiendo…' : t.proof_uploaded ? 'Subir otro comprobante' : 'Subir mi comprobante'}
+              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onchange={sendProof} disabled={busy} />
+            </label>
+            {#if t.whatsapp}
+              <a class="btn ghost" target="_blank" rel="noopener" href={`https://wa.me/${t.whatsapp}?text=${encodeURIComponent(`Hola, te envío mi comprobante de transferencia para la cita ${t.reference} (${a.business}).`)}`}>Enviar por WhatsApp</a>
+            {/if}
+          </div>
+          <p class="meta" style="margin-top: 0.6rem">Foto JPG, PNG o PDF de hasta 5 MB.{#if a.deposit.hold_expires_at} Tu horario está apartado hasta el {new Date(a.deposit.hold_expires_at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })} h{/if}</p>
+        </div>
+      {:else if a.status === 'pending_payment' && a.deposit}
         <div class="notice">
           <p>Falta pagar el anticipo de <b>{money(a.deposit.amount_cents)}</b> para confirmar tu cita. Tu horario está apartado unos minutos.</p>
           {#if a.deposit.pay_url}<a class="btn" href={a.deposit.pay_url}>Pagar anticipo</a>{/if}
@@ -156,4 +207,12 @@
   .notice { margin: 1rem 0; padding: 1rem; border-radius: var(--radius-sm); background: var(--surface-2); }
   .meta { color: var(--muted); font-size: 0.88rem; }
   .foot { text-align: center; margin-top: 1.5rem; }
+  .transfer dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 0.9rem 0; }
+  .transfer dt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .transfer dd { margin: 2px 0 0; font-weight: 600; word-break: break-all; }
+  .mini { margin-left: 6px; padding: 2px 10px; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+  .bad { color: var(--danger); font-weight: 500; }
+  .okline { font-weight: 500; }
+  label.btn { cursor: pointer; }
+  label.btn input { display: none !important; }
 </style>

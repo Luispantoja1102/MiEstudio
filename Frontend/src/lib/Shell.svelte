@@ -6,8 +6,10 @@
 
   // items: [icono, etiqueta, ruta (null = próximamente), rutas extra que también la marcan activa]
   // groups (opcional): [{ title, items }] con títulos de sección; footer: elementos fijos al pie de la barra lateral (Ajustes)
-  let { items = [], groups = null, footer = [], title = '', tag = '', onlogout, children } = $props();
+  let { items = [], groups = null, footer = [], title = '', tag = '', onlogout, tools, children } = $props();
   const blocks = $derived(groups ?? [{ title: '', items }]);
+  // el logo vuelve al inicio del panel (nunca a la página pública, que parece haber cerrado la sesión)
+  const home = $derived(blocks[0]?.items?.[0]?.[2] || '/panel');
 
   // las rutas raíz (/panel, /plataforma) solo coinciden exactas; las demás, por prefijo
   const isActive = (href, extra = []) =>
@@ -44,7 +46,7 @@
 
 <div class="shell">
   <aside class="side">
-    <div class="brand"><Logo />{#if tag}<span class="tag">{tag}</span>{/if}</div>
+    <div class="brand"><Logo href={home} />{#if tag}<span class="tag">{tag}</span>{/if}</div>
     <nav aria-label="Módulos">
       {#each blocks as g}
         {#if g.title}<p class="group">{g.title}</p>{/if}
@@ -58,6 +60,7 @@
     <header class="top">
       <span class="biz">{title}</span>
       <div class="tools">
+        {@render tools?.()}
         <ThemeToggle />
         <button class="btn ghost exit" onclick={onlogout}><Icon name="logout" size={18} />Salir</button>
       </div>

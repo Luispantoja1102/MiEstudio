@@ -1,5 +1,7 @@
 <script>
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import Icon from '$lib/Icon.svelte';
   import Modal from '$lib/Modal.svelte';
   import NewAppointment from '$lib/NewAppointment.svelte';
@@ -118,8 +120,17 @@
   const lane = (a) => `left: calc(${(a.lane / a.lanes) * 100}% + 2px); width: calc(${100 / a.lanes}% - 4px)`;
 
   const listItems = $derived([...appts].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
-  const STATE = { pending_payment: ['Espera anticipo', 'clay'], completed: ['Cobrada', 'muted'], no_show: ['No asistió', 'muted'], cancelled: ['Cancelada', 'muted'] };
-  const mark = (a) => (a.status !== 'scheduled' ? null : a.arrived_at ? 'Llegó' : a.confirmed_at ? 'Confirmada' : null);
+  const STATE = { completed: ['Cobrada', 'muted'], no_show: ['No asistió', 'muted'], cancelled: ['Cancelada', 'muted'] };
+  // lo que dice una cita además de su estado: llegó, confirmada o qué falta de su anticipo por transferencia
+  const mark = (a) => {
+    if (a.status === 'pending_payment') {
+      if (a.deposit_method === 'transfer') return a.proof_at ? 'Revisar comprobante' : 'Falta comprobante';
+      return 'Espera anticipo';
+    }
+    if (a.status !== 'scheduled') return null;
+    return a.refund_due ? 'Devolver anticipo' : a.arrived_at ? 'Llegó' : a.confirmed_at ? 'Confirmada' : null;
+  };
+  const needsAction = (a) => (a.status === 'pending_payment' && a.deposit_method === 'transfer' && !!a.proof_at) || a.refund_due;
 
   function openDetail(a) {
     detail = a;
@@ -136,11 +147,33 @@
     }
   }
 
+  // un aviso de la campana abre la cita: ?cita=ID&date=AAAA-MM-DD
+  $effect(() => {
+    const id = Number(page.url.searchParams.get('cita'));
+    const d = page.url.searchParams.get('date');
+    if (id && branchId) openFromLink(id, d);
+  });
+  async function openFromLink(id, d) {
+    await goto('/panel/agenda', { replaceState: true, noScroll: true, keepFocus: true });
+    if (d) date = d;
+    view = 'day';
+    who = 0;
+    await load();
+    const a = (data?.appointments ?? []).find((x) => x.id === id);
+    if (a) openDetail(a);
+  }
+
   const done = async () => {
     newOpen = blockOpen = detailOpen = false;
     await load();
   };
 </script>
+
+{#snippet body(a, showStaff)}
+  <span class="t">{fmtTime(a.starts_at, tz)}</span>
+  <span class="n">{a.client_name}</span>
+  <span class="m">{#if showStaff}{a.staff_name} · {/if}{a.service_name}{#if mark(a)}<em>{mark(a)}</em>{/if}</span>
+{/snippet}
 
 <div class="page-head">
   <div>
@@ -156,17 +189,17 @@
 </div>
 
 <div class="toolbar">
-  <div class="viewswitch" role="group" aria-label="Vista">
-    {#each VIEWS as [v, label]}<button class="chip" aria-pressed={view === v} onclick={() => setView(v)}>{label}</button>{/each}
+  <div class="seg" role="group" aria-label="Vista">
+    {#each VIEWS as [v, label]}<button aria-pressed={view === v} onclick={() => setView(v)}>{label}</button>{/each}
   </div>
   <div class="nav">
-    <button class="btn ghost sm icon" onclick={() => go(shift(view, date, -1))} aria-label="Anterior"><span class="flip"><Icon name="arrow" size={16} /></span></button>
-    <button class="btn ghost sm" onclick={() => go(todayIn(tz))}>Hoy</button>
-    <button class="btn ghost sm icon" onclick={() => go(shift(view, date, 1))} aria-label="Siguiente"><Icon name="arrow" size={16} /></button>
-    <input type="date" bind:value={date} onchange={load} aria-label="Fecha" style="width: auto; margin: 0" />
+    <button class="nb" onclick={() => go(shift(view, date, -1))} aria-label="Anterior"><span class="flip"><Icon name="arrow" size={16} /></span></button>
+    <button class="nb today" onclick={() => go(todayIn(tz))}>Hoy</button>
+    <button class="nb" onclick={() => go(shift(view, date, 1))} aria-label="Siguiente"><Icon name="arrow" size={16} /></button>
+    <input class="dateinput" type="date" bind:value={date} onchange={load} aria-label="Fecha" />
   </div>
   {#if branches.length > 1}
-    <select bind:value={branchId} onchange={load} aria-label="Sucursal" style="width: auto; margin: 0">
+    <select class="branchsel" bind:value={branchId} onchange={load} aria-label="Sucursal">
       {#each branches as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
     </select>
   {/if}
@@ -174,10 +207,10 @@
 </div>
 
 {#if staffAll.length > 1}
-  <div class="chips people" role="group" aria-label="Persona">
-    <button class="chip" aria-pressed={who === 0} onclick={() => (who = 0)}>Todos</button>
+  <div class="people" role="group" aria-label="Persona">
+    <button aria-pressed={who === 0} onclick={() => (who = 0)}>Todos</button>
     {#each staffAll as s (s.id)}
-      <button class="chip" aria-pressed={who === s.id} onclick={() => (who = s.id)}><i class="dot" style="background: {color(s.id)}"></i>{s.name}</button>
+      <button aria-pressed={who === s.id} onclick={() => (who = s.id)}><i class="dot" style="background: {color(s.id)}"></i>{s.name}</button>
     {/each}
   </div>
 {/if}
@@ -204,7 +237,7 @@
                 <b>{a.client_name}</b>
                 <span class="meta">{a.service_name}{#if !who}{' · ' + a.staff_name}{/if}</span>
                 {#if STATE[a.status] || a.deposit_status === 'paid' || mark(a)}
-                  <span class="badge {STATE[a.status]?.[1] ?? ''}">{STATE[a.status]?.[0] ?? mark(a) ?? 'Anticipo pagado'}</span>
+                  <span class="badge {STATE[a.status]?.[1] ?? (needsAction(a) ? 'warn' : '')}">{STATE[a.status]?.[0] ?? mark(a) ?? 'Anticipo pagado'}</span>
                 {/if}
               </span>
             </button>
@@ -215,7 +248,7 @@
     {/if}
 
   {:else if view === 'day'}
-    <div class="wrap">
+    <div class="wrap cal">
       <div class="grid" style="grid-template-columns: 52px repeat({shown.length}, minmax(170px, 1fr))">
         <div class="corner"></div>
         {#each shown as s (s.id)}<div class="colhead"><i class="dot" style="background: {color(s.id)}"></i>{s.name}</div>{/each}
@@ -235,9 +268,9 @@
               </button>
             {/each}
             {#each apptsOn(date).filter((a) => a.staff_id === s.id) as a (a.id)}
-              <button class="appt {a.status}" class:online={a.source === 'online'} class:arrived={a.status === 'scheduled' && a.arrived_at} style="top: {top(a.starts_at)}px; height: {span(a.starts_at, a.ends_at)}px" onclick={() => openDetail(a)}>
-                <b>{fmtTime(a.starts_at, tz)}</b> {a.client_name}
-                <small>{a.service_name}{#if mark(a)} · {mark(a)}{/if}{#if a.deposit_status === 'paid'} · anticipo ✓{:else if a.status === 'pending_payment'} · esperando anticipo{/if}</small>
+              <button class="appt {a.status}" class:online={a.source === 'online'} class:arrived={a.status === 'scheduled' && a.arrived_at} class:action={needsAction(a)}
+                style="top: {top(a.starts_at)}px; height: {span(a.starts_at, a.ends_at)}px; --who: {color(a.staff_id)}" onclick={() => openDetail(a)}>
+                {@render body(a, false)}
               </button>
             {/each}
           </div>
@@ -246,7 +279,7 @@
     </div>
 
   {:else if view === 'week'}
-    <div class="wrap">
+    <div class="wrap cal">
       <div class="grid" style="grid-template-columns: 52px repeat(7, minmax(128px, 1fr))">
         <div class="corner"></div>
         {#each weekDays as d (d)}
@@ -269,10 +302,9 @@
               </button>
             {/each}
             {#each laneAppts(d) as a (a.id)}
-              <button class="appt tight {a.status}" class:online={a.source === 'online'} class:arrived={a.status === 'scheduled' && a.arrived_at}
+              <button class="appt tight {a.status}" class:online={a.source === 'online'} class:arrived={a.status === 'scheduled' && a.arrived_at} class:action={needsAction(a)}
                 style="top: {top(a.starts_at)}px; height: {span(a.starts_at, a.ends_at)}px; {lane(a)}; --who: {color(a.staff_id)}" onclick={() => openDetail(a)}>
-                <b>{fmtTime(a.starts_at, tz)}</b> {a.client_name}
-                <small>{#if !who}{a.staff_name} · {/if}{a.service_name}{#if mark(a)} · {mark(a)}{/if}</small>
+                {@render body(a, !who)}
               </button>
             {/each}
           </div>
@@ -281,14 +313,14 @@
     </div>
 
   {:else}
-    <div class="month">
+    <div class="month cal">
       {#each ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as n}<div class="mh">{n}</div>{/each}
       {#each monthDays as d (d)}
         {@const list = apptsOn(d)}
         <button class="cell" class:out={!inMonth(d)} class:today={d === today} onclick={() => openDay(d)} aria-label="{d}: {list.length} citas">
           <span class="num">{Number(d.slice(8))}</span>
           {#each list.slice(0, 3) as a (a.id)}
-            <span class="mini" class:cancelled={a.status === 'cancelled'}><i class="dot" style="background: {color(a.staff_id)}"></i><b>{fmtTime(a.starts_at, tz)}</b> {a.client_name}</span>
+            <span class="mini" class:cancelled={a.status === 'cancelled'} class:action={needsAction(a)}><i class="dot" style="background: {color(a.staff_id)}"></i><b>{fmtTime(a.starts_at, tz)}</b><span>{a.client_name}</span></span>
           {/each}
           {#if list.length > 3}<span class="more">+{list.length - 3} más</span>{/if}
         </button>
@@ -308,97 +340,117 @@
 </Modal>
 
 <style>
+  /* Toda la agenda usa una sola familia (Inter) con cifras de ancho fijo, para que horas y fechas se lean parejas */
+  .cal, .seg, .nav, .people, .daylist { font-family: var(--font-body, 'Inter', system-ui, sans-serif); font-variant-numeric: tabular-nums lining-nums; }
+
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 0.9rem; }
-  .viewswitch { display: flex; gap: 6px; }
-  .viewswitch .chip { margin: 0; }
+  .seg { display: inline-flex; padding: 4px; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+  .seg button { min-height: 34px; padding: 0 16px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .seg button:hover { color: var(--text); }
+  .seg button:active { transform: scale(0.96); }
+  .seg button[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); }
+
   .nav { display: flex; align-items: center; gap: 6px; }
-  .people { margin-bottom: 1rem; }
-  .people .chip { display: inline-flex; align-items: center; gap: 7px; }
-  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .icon { width: 40px; padding: 0; }
+  .nb { display: inline-grid; place-items: center; min-width: 40px; height: 40px; padding: 0 14px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .nb:not(.today) { padding: 0; }
+  .nb:hover { background: var(--surface-2); border-color: var(--muted); }
+  .nb:active { transform: scale(0.95); }
   .flip { display: inline-flex; transform: rotate(180deg); }
+  .dateinput, .branchsel { width: auto; height: 40px; min-height: 40px; margin: 0; padding: 0 14px; font-size: 0.88rem; border-radius: 999px; }
+
+  .people { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+  .people button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .people button:hover { border-color: var(--muted); }
+  .people button:active { transform: scale(0.96); }
+  .people button[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 85%, transparent); }
 
   .daylist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .daylist li { display: flex; align-items: center; gap: 8px; padding-right: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .daylist li.cancelled { opacity: 0.55; }
   .daylist .row { flex: 1; min-width: 0; display: grid; grid-template-columns: 3.4rem 1fr; gap: 10px; align-items: center; padding: 0.8rem 0.5rem 0.8rem 0.85rem; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; cursor: pointer; }
-  .daylist .when { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .daylist .when { font-size: 1.1rem; font-weight: 700; }
   .daylist .what { display: grid; gap: 2px; justify-items: start; min-width: 0; }
-  .daylist .meta { font-size: 0.88rem; color: var(--muted); }
+  .daylist .meta { font-size: 0.86rem; color: var(--muted); }
 
-  .wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  /* rejilla de horas: día y semana */
+  .wrap { overflow: auto; max-height: 74vh; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
   .grid { display: grid; min-width: min-content; }
   .corner, .colhead { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--border); }
   .corner { left: 0; z-index: 4; }
-  .colhead { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0.7rem 0.5rem; font-weight: 600; border-left: 1px solid var(--border); }
-  .dayhead { flex-direction: column; gap: 0; font: inherit; color: var(--text); border-top: 0; border-right: 0; cursor: pointer; }
-  .dayhead span { font-size: 0.78rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-  .dayhead b { font-family: var(--font-heading); font-size: 1.3rem; line-height: 1.2; }
-  .dayhead.today b { color: var(--accent-contrast); background: var(--accent); border-radius: 999px; padding: 0 0.6rem; }
+  .colhead { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; padding: 0 0.5rem; font-size: 0.9rem; font-weight: 600; border-left: 1px solid var(--border); }
+  .dayhead { flex-direction: column; gap: 2px; justify-content: center; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text); border-top: 0; border-right: 0; cursor: pointer; }
+  .dayhead span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+  .dayhead b { display: grid; place-items: center; min-width: 30px; height: 30px; font-size: 1.05rem; font-weight: 700; border-radius: 999px; }
+  .dayhead.today b { color: var(--accent-contrast); background: var(--accent); }
+  .dayhead.today span { color: var(--accent); }
   .dayhead:hover { background: var(--surface-2); }
 
   .axis { position: sticky; left: 0; z-index: 2; background: var(--surface); }
-  .axis span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .axis span { position: absolute; right: 8px; transform: translateY(-50%); font-size: 0.72rem; font-weight: 500; color: var(--muted); }
   .axis span:first-child { transform: none; }
 
   .col {
     position: relative;
     border-left: 1px solid var(--border);
-    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour) - 1px), var(--border) calc(var(--hour) - 1px), var(--border) var(--hour));
+    background-image:
+      repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour) - 1px), color-mix(in srgb, var(--border) 90%, transparent) calc(var(--hour) - 1px), color-mix(in srgb, var(--border) 90%, transparent) var(--hour)),
+      repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour) / 2 - 1px), color-mix(in srgb, var(--border) 35%, transparent) calc(var(--hour) / 2 - 1px), color-mix(in srgb, var(--border) 35%, transparent) calc(var(--hour) / 2));
   }
-  .todaycol { background-color: color-mix(in srgb, var(--accent-soft) 35%, transparent); }
-  .closed { position: absolute; left: 0; right: 0; background: var(--surface-2); opacity: 0.85; pointer-events: none; }
-  .off { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: var(--muted); }
+  .todaycol { background-color: color-mix(in srgb, var(--accent-soft) 30%, transparent); }
+  .closed { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--surface-2) 90%, transparent); pointer-events: none; }
+  .off { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 0.78rem; color: var(--muted); }
 
-  .appt, .block {
-    position: absolute;
-    left: 4px;
-    right: 4px;
-    z-index: 1;
-    overflow: hidden;
-    padding: 5px 8px;
-    font: inherit;
-    font-size: 0.8rem;
-    line-height: 1.25;
-    text-align: left;
-    color: var(--text);
-    border-radius: 6px;
-    cursor: pointer;
+  /* citas y bloqueos: misma estructura (hora, nombre, detalle) y escala en todas las vistas */
+  .appt, .block { position: absolute; left: 4px; right: 4px; z-index: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1px; padding: 6px 9px; font: inherit; line-height: 1.25; text-align: left; color: var(--text); border-radius: 9px; cursor: pointer; }
+  .appt {
+    --who: var(--accent);
+    background: color-mix(in srgb, var(--who) 15%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--who) 48%, var(--surface));
+    transition: filter 0.18s var(--ease), transform 0.12s var(--ease), box-shadow 0.18s var(--ease);
   }
-  .appt { background: var(--accent-soft); border: 1px solid var(--accent); transition: filter var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease); }
-  .appt.tight { padding: 3px 6px; font-size: 0.75rem; background: color-mix(in srgb, var(--who, var(--accent)) 16%, var(--surface)); border-color: var(--who, var(--accent)); }
-  .appt small { display: block; font-size: 0.75rem; color: var(--muted); }
-  .appt.arrived { background: var(--accent); color: var(--accent-contrast); }
-  .appt.arrived small { color: inherit; opacity: 0.85; }
-  .appt.completed { background: var(--surface-2); border-color: var(--muted); }
-  .appt.no_show { background: var(--warn-soft); border-color: var(--warn); }
-  .appt.pending_payment { background: var(--warn-soft); border-color: var(--warn); border-style: dashed; }
-  .appt.online { box-shadow: inset 0 0 0 1px var(--accent); } /* reservada en línea: borde doble */
-  .appt.cancelled { opacity: 0.55; text-decoration: line-through; background: var(--surface); border-color: var(--border); }
+  .appt .t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em; color: color-mix(in srgb, var(--who) 70%, var(--text)); }
+  .appt .n { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appt .m { font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appt .m em { margin-left: 6px; font-style: normal; font-weight: 700; color: var(--text); }
+  .appt.tight { padding: 4px 7px; }
+  .appt.tight .n { font-size: 0.78rem; }
+  .appt.arrived { background: var(--who); border-color: var(--who); color: #fff; }
+  .appt.arrived .t, .appt.arrived .m, .appt.arrived .m em { color: rgba(255, 255, 255, 0.9); }
+  .appt.completed { background: var(--surface-2); border-color: var(--border); }
+  .appt.completed .t { color: var(--muted); }
+  .appt.no_show { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 45%, var(--surface)); }
+  .appt.pending_payment { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--who) 70%, var(--surface)); }
+  .appt.action { border-style: solid; border-color: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 22%, transparent); }
+  .appt.online { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--who) 30%, transparent); }
+  .appt.action.online { box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 22%, transparent); }
+  .appt.cancelled { opacity: 0.5; background: var(--surface); border-color: var(--border); }
+  .appt.cancelled .n { text-decoration: line-through; }
   .appt:hover { filter: brightness(0.97); }
   .appt:active { transform: scale(0.99); }
-  .block {
-    color: var(--muted);
-    border: 1px dashed var(--muted);
-    background: repeating-linear-gradient(45deg, transparent 0 6px, var(--surface-2) 6px 12px);
-  }
+  .block { color: var(--muted); font-size: 0.78rem; border: 1px dashed var(--muted); background: repeating-linear-gradient(45deg, transparent 0 6px, var(--surface-2) 6px 12px); }
+  .block b { font-weight: 700; font-size: 0.72rem; }
 
+  /* mes */
   .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-  .mh { padding: 0.55rem 0.5rem; text-align: center; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border); }
-  .cell { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-height: 108px; padding: 6px; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; overflow: hidden; }
+  .mh { padding: 0.65rem 0.5rem; text-align: center; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .cell { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-height: 112px; padding: 8px; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; overflow: hidden; transition: background-color 0.18s var(--ease); }
   .cell:nth-child(7n + 7) { border-right: 0; }
   .cell:hover { background: var(--surface-2); }
   .cell.out { color: var(--muted); background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
-  .num { align-self: flex-start; min-width: 26px; padding: 1px 6px; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 999px; text-align: center; }
+  .num { align-self: flex-start; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; font-size: 0.88rem; font-weight: 700; border-radius: 999px; }
   .cell.today .num { background: var(--accent); color: var(--accent-contrast); }
-  .mini { display: flex; align-items: center; gap: 5px; font-size: 0.74rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mini b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .mini { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 0.74rem; line-height: 1.35; }
+  .mini b { flex: none; font-weight: 700; }
+  .mini span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mini.cancelled { opacity: 0.5; text-decoration: line-through; }
-  .more { font-size: 0.74rem; font-weight: 600; color: var(--accent); }
+  .mini.action span { font-weight: 700; color: var(--warn); }
+  .more { font-size: 0.74rem; font-weight: 700; color: var(--accent); }
 
   @media (max-width: 699px) {
-    .cell { min-height: 76px; padding: 4px; }
+    .cell { min-height: 78px; padding: 5px; }
     .mini { display: none; }
-    .mini:nth-of-type(-n + 1) { display: flex; }
+    .mini:first-of-type { display: flex; }
+    .seg button { padding: 0 12px; }
   }
 </style>

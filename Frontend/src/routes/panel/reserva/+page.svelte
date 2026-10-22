@@ -33,11 +33,13 @@
     saved = false;
     busy = true;
     try {
-      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme } = s;
+      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme, transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours } = s;
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
-          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available, ...(meta.is_owner ? { public_theme: public_theme || 'auto' } : {}) }
+          deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available,
+          transfer_enabled: !!transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours: +transfer_hold_hours || 12,
+          ...(meta.is_owner ? { public_theme: public_theme || 'auto' } : {}) }
       });
       saved = true;
       await load();
@@ -117,15 +119,37 @@
 
     <h3 style="margin-top: 1.5rem">Anticipo</h3>
     <label class="field">Porcentaje del precio por adelantado
-      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!meta.mp_connected} />
+      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!meta.mp_connected && !s.transfer_enabled} />
       <span class="hint">
         {#if meta.mp_connected}
           0 = sin anticipo. Se cobra con Mercado Pago al reservar y se descuenta al cobrar la cita. Si el cliente cancela a tiempo, se le devuelve.
+        {:else if s.transfer_enabled}
+          0 = sin anticipo. El cliente transfiere y sube su comprobante; tú confirmas la cita al verlo. Se descuenta al cobrar la cita.
         {:else}
-          Para pedir anticipo primero <a href="/panel/pagos">conecta tu cuenta de Mercado Pago</a>.
+          Para pedir anticipo <a href="/panel/pagos">conecta tu cuenta de Mercado Pago</a> o activa las transferencias aquí abajo.
         {/if}
       </span>
     </label>
+
+    <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} /> Aceptar anticipo por transferencia</label>
+    {#if s.transfer_enabled}
+      <div class="transfer">
+        <p class="hint" style="margin: 0 0 0.9rem">Estos datos los ve quien reserva. Cuando suba su comprobante recibirás un aviso en la campana y tú confirmas la cita.</p>
+        <div class="form-grid">
+          <label class="field">Banco <input bind:value={s.transfer_bank} maxlength="60" placeholder="Ej. BBVA" /></label>
+          <label class="field">Titular de la cuenta <input bind:value={s.transfer_holder} maxlength="100" placeholder="Nombre o razón social" /></label>
+          <label class="field">CLABE (18 dígitos) <input bind:value={s.transfer_clabe} inputmode="numeric" maxlength="24" placeholder="000000000000000000" /></label>
+          <label class="field">WhatsApp para comprobantes (opcional)
+            <input type="tel" bind:value={s.transfer_whatsapp} maxlength="30" placeholder="664 123 4567" />
+            <span class="hint">Si tu cliente prefiere mandarlo por WhatsApp, lo ve aquí. Tú lo adjuntas desde la agenda.</span>
+          </label>
+          <label class="field">Horas para mandar el comprobante
+            <input type="number" min="1" max="168" bind:value={s.transfer_hold_hours} />
+            <span class="hint">Mientras tanto el horario queda apartado. Si no llega, se libera solo.</span>
+          </label>
+        </div>
+      </div>
+    {/if}
 
     {#if meta.is_owner}
     <h3 style="margin-top: 1.5rem">Apariencia de tu página pública</h3>
@@ -208,4 +232,5 @@
   h3 { font-size: 1.1rem; }
   .grow span { display: block; }
   .item-row input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--accent); }
+  .transfer { margin: 0.5rem 0 1rem; padding: 1.1rem 1.1rem 0.2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
 </style>

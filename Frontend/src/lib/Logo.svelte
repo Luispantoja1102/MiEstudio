@@ -1,12 +1,13 @@
 <script>
-  // onDark: papel sobre tinta, para el panel de marca que siempre es oscuro
-  let { onDark = false } = $props();
+  // href: a dónde lleva el logo. Dentro de la plataforma debe volver al panel, no a la página de inicio.
+  // onDark se conserva por compatibilidad: el logo es el mismo sobre cualquier fondo (cuadro blanco, bigote azul).
+  let { href = '/', onDark = false } = $props();
 </script>
 
-<a class="logo" class:on-dark={onDark} href="/" aria-label="Barbella, inicio">
+<a class="logo" class:on-dark={onDark} {href} aria-label="Barbella, inicio">
   <span class="mark" aria-hidden="true">
-    <svg viewBox="0 0 56 56" width="30" height="30" fill="none">
-      <path d="M28 26c-4-6-12-8-21-3 1 10 12 14 21 6 9 8 20 4 21-6-9-5-17-3-21 3Z" fill="currentColor" />
+    <svg viewBox="3 7 50 34" width="26" height="18" fill="none">
+      <path d="M28 26c-4-6-12-8-21-3 1 10 12 14 21 6 9 8 20 4 21-6-9-5-17-3-21 3Z" fill="#1c2f5c" />
       <circle cx="28" cy="13" r="4.5" fill="#c07a65" />
     </svg>
   </span>
@@ -18,13 +19,12 @@
   .mark {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
-    background: var(--accent);
-    color: var(--accent-contrast);
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px rgba(28, 47, 92, 0.16), 0 1px 2px rgba(10, 20, 45, 0.12);
   }
-  .on-dark { color: #f8f6f2; }
-  .on-dark .mark { background: #f8f6f2; color: #1c2f5c; }
   .word { font-family: var(--font-heading); font-weight: 700; font-size: 1.3rem; letter-spacing: -0.01em; }
+  .on-dark { color: #f8f6f2; }
 </style>

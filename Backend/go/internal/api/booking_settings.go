@@ -24,18 +24,28 @@ type bookingSettings struct {
 	PrivacyEmail      string `json:"privacy_email"`          // correo para solicitudes de privacidad (se muestra en el aviso)
 	PublicTheme       string `json:"public_theme,omitempty"` // auto | light | ivory | dark: tema de las páginas públicas del negocio
 	WhatsAppReminders bool   `json:"whatsapp_reminders"`     // además del correo, recordar por WhatsApp a quien lo aceptó
+
+	// anticipo por transferencia: datos que se muestran a quien reserva
+	TransferEnabled   bool   `json:"transfer_enabled"`
+	TransferBank      string `json:"transfer_bank"`
+	TransferHolder    string `json:"transfer_holder"`
+	TransferClabe     string `json:"transfer_clabe"`
+	TransferWhatsApp  string `json:"transfer_whatsapp"`   // número al que se puede enviar el comprobante
+	TransferHoldHours int    `json:"transfer_hold_hours"` // cuánto se aparta el horario mientras llega el comprobante
 }
 
 func defaultBookingSettings() bookingSettings {
-	return bookingSettings{MinNoticeHours: 2, MaxDaysAhead: 30, CancelMinHours: 2, ReminderHours: 24, ShowPrices: true, PublicTheme: "auto"}
+	return bookingSettings{MinNoticeHours: 2, MaxDaysAhead: 30, CancelMinHours: 2, ReminderHours: 24, ShowPrices: true, PublicTheme: "auto", TransferHoldHours: 12}
 }
 
 func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSettings, error) {
 	s := defaultBookingSettings()
 	err := q.QueryRow(ctx,
-		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme
+		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme,
+		        transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours
 		 FROM booking_settings WHERE business_id = $1`, bizID).
-		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders, &s.PublicTheme)
+		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders, &s.PublicTheme,
+			&s.TransferEnabled, &s.TransferBank, &s.TransferHolder, &s.TransferClabe, &s.TransferWhatsApp, &s.TransferHoldHours)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil
 	}
@@ -100,6 +110,16 @@ func validBookingSettings(s bookingSettings) string {
 		return "el correo de privacidad no es válido"
 	case !validPublicTheme(s.PublicTheme):
 		return "el tema de la página pública no es válido"
+	case s.TransferEnabled && (strings.TrimSpace(s.TransferBank) == "" || strings.TrimSpace(s.TransferHolder) == ""):
+		return "para pedir transferencias escribe el banco y el titular de la cuenta"
+	case s.TransferEnabled && !validClabe(s.TransferClabe):
+		return "la CLABE debe tener 18 dígitos"
+	case utf8.RuneCountInString(s.TransferBank) > 60 || utf8.RuneCountInString(s.TransferHolder) > 100:
+		return "el banco o el titular son demasiado largos"
+	case s.TransferWhatsApp != "" && normalizePhone(s.TransferWhatsApp) == "":
+		return "el WhatsApp para comprobantes no es válido"
+	case s.TransferHoldHours < 1 || s.TransferHoldHours > 168:
+		return "el tiempo para enviar el comprobante debe ser de 1 a 168 horas"
 	case utf8.RuneCountInString(s.WelcomeText) > 500:
 		return "el mensaje de bienvenida es demasiado largo (máximo 500 caracteres)"
 	}
@@ -115,6 +135,17 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
 	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
+	s.TransferBank, s.TransferHolder = strings.TrimSpace(s.TransferBank), strings.TrimSpace(s.TransferHolder)
+	s.TransferClabe = strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, s.TransferClabe)
+	s.TransferWhatsApp = strings.TrimSpace(s.TransferWhatsApp)
+	if s.TransferHoldHours == 0 {
+		s.TransferHoldHours = 12 // clientes que no envían el campo
+	}
 	// sin el campo (otros administradores, clientes antiguos) el tema no cambia; solo el titular puede cambiarlo
 	cur, err := loadBookingSettings(r.Context(), a.DB, p.BusinessID)
 	if err != nil {
@@ -139,20 +170,24 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, errPlanDeposits)
 		return
 	}
-	// un anticipo solo se puede cobrar si hay una cuenta de Mercado Pago conectada
-	if s.DepositPercent > 0 && !a.mpConnected(r.Context(), p.BusinessID) {
+	// un anticipo solo se puede cobrar con Mercado Pago conectado o con transferencias activadas
+	if s.DepositPercent > 0 && !s.TransferEnabled && !a.mpConnected(r.Context(), p.BusinessID) {
 		writeJSON(w, http.StatusConflict, map[string]string{
-			"error": "para cobrar anticipo conecta primero tu cuenta de Mercado Pago (Pagos)", "code": "mp_required"})
+			"error": "para cobrar anticipo conecta primero tu cuenta de Mercado Pago (Pagos) o activa las transferencias", "code": "mp_required"})
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme,
+		   transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		 ON CONFLICT (business_id) DO UPDATE SET enabled = EXCLUDED.enabled, min_notice_hours = EXCLUDED.min_notice_hours,
 		   max_days_ahead = EXCLUDED.max_days_ahead, cancel_min_hours = EXCLUDED.cancel_min_hours, deposit_percent = EXCLUDED.deposit_percent,
 		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email,
-		   whatsapp_reminders = EXCLUDED.whatsapp_reminders, public_theme = EXCLUDED.public_theme`,
-		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders, s.PublicTheme); err != nil {
+		   whatsapp_reminders = EXCLUDED.whatsapp_reminders, public_theme = EXCLUDED.public_theme,
+		   transfer_enabled = EXCLUDED.transfer_enabled, transfer_bank = EXCLUDED.transfer_bank, transfer_holder = EXCLUDED.transfer_holder,
+		   transfer_clabe = EXCLUDED.transfer_clabe, transfer_whatsapp = EXCLUDED.transfer_whatsapp, transfer_hold_hours = EXCLUDED.transfer_hold_hours`,
+		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders, s.PublicTheme,
+		s.TransferEnabled, s.TransferBank, s.TransferHolder, s.TransferClabe, s.TransferWhatsApp, s.TransferHoldHours); err != nil {
 		serverErr(w)
 		return
 	}
@@ -166,4 +201,26 @@ func validPublicTheme(t string) bool {
 		return true
 	}
 	return false
+}
+
+// validClabe: 18 dígitos (no se valida el dígito de control: lo que se muestra al cliente lo escribe el titular).
+func validClabe(c string) bool {
+	if len(c) != 18 {
+		return false
+	}
+	for _, r := range c {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// waDigits deja el número listo para wa.me: con lada de país (52 si solo trae los 10 dígitos de México).
+func waDigits(raw string) string {
+	d := normalizePhone(raw)
+	if len(d) == 10 {
+		return "52" + d
+	}
+	return d
 }

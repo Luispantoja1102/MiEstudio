@@ -81,12 +81,19 @@ type staffSlots struct {
 	StaffID   int64    `json:"staff_id"`
 	StaffName string   `json:"staff_name"`
 	Starts    []string `json:"starts"`
+	// horarios del día que ya están ocupados (solo la página pública los muestra; nunca por quién ni para qué)
+	Taken []string `json:"taken,omitempty"`
 }
 
 // computeSlots calcula los horarios libres de un servicio en un día, por persona.
 // earliest es la primera hora que se puede ofrecer (ahora, o ahora más el aviso mínimo de la reserva en línea).
 // onlyPublic limita a los servicios y personas que se ofrecen en línea.
 func (a *API) computeSlots(ctx context.Context, bizID int64, svc *svcInfo, serviceID, branchID, onlyStaff int64, day time.Time, loc *time.Location, earliest time.Time) ([]staffSlots, error) {
+	return a.computeSlotsTaken(ctx, bizID, svc, serviceID, branchID, onlyStaff, day, loc, earliest, false)
+}
+
+// computeSlotsTaken es computeSlots; con withTaken también devuelve los horarios del día que están ocupados.
+func (a *API) computeSlotsTaken(ctx context.Context, bizID int64, svc *svcInfo, serviceID, branchID, onlyStaff int64, day time.Time, loc *time.Location, earliest time.Time, withTaken bool) ([]staffSlots, error) {
 	rows, err := a.DB.Query(ctx,
 		`SELECT u.id, u.name FROM users u
 		 WHERE u.business_id = $1 AND u.active AND u.bookable AND ($3 = 0 OR u.id = $3)
@@ -124,12 +131,21 @@ func (a *API) computeSlots(ctx context.Context, bizID int64, svc *svcInfo, servi
 	out := []staffSlots{}
 	for _, x := range people {
 		free := freeSlots(loc, day, hours[x.id], svc.Duration, svc.Buffer, busy[x.id], earliest)
-		if len(free) == 0 {
-			continue
-		}
 		s := staffSlots{StaffID: x.id, StaffName: x.name, Starts: make([]string, len(free))}
+		isFree := map[time.Time]bool{}
 		for i, t := range free {
 			s.Starts[i] = t.Format(time.RFC3339)
+			isFree[t] = true
+		}
+		if withTaken {
+			for _, t := range freeSlots(loc, day, hours[x.id], svc.Duration, svc.Buffer, nil, earliest) {
+				if !isFree[t] {
+					s.Taken = append(s.Taken, t.Format(time.RFC3339))
+				}
+			}
+		}
+		if len(free) == 0 && len(s.Taken) == 0 {
+			continue
 		}
 		out = append(out, s)
 	}
@@ -251,8 +267,13 @@ type apptRow struct {
 	Source        string     `json:"source"`                  // staff u online
 	DepositCents  int        `json:"deposit_cents,omitempty"` // anticipo de la cita, si lo hay
 	DepositStatus string     `json:"deposit_status,omitempty"`
-	ConfirmedAt   *time.Time `json:"confirmed_at"` // el cliente (o el negocio) confirmó que va
-	ArrivedAt     *time.Time `json:"arrived_at"`   // ya llegó al negocio
+	ConfirmedAt   *time.Time `json:"confirmed_at"`             // el cliente (o el negocio) confirmó que va
+	ArrivedAt     *time.Time `json:"arrived_at"`               // ya llegó al negocio
+	DepositMethod string     `json:"deposit_method,omitempty"` // mp | transfer
+	ProofAt       *time.Time `json:"proof_at"`                 // llegó el comprobante de la transferencia
+	RejectReason  string     `json:"reject_reason,omitempty"`
+	RefundDue     bool       `json:"refund_due,omitempty"`  // hay que devolver el anticipo por transferencia
+	ManagePath    string     `json:"manage_path,omitempty"` // enlace privado de la cita del cliente (si lo tiene)
 }
 
 type blockRow struct {
@@ -354,7 +375,7 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 	arows, err := a.DB.Query(ctx,
 		`SELECT ap.id, ap.client_id, c.name, ap.service_id, s.name, s.price_cents, ap.staff_id, u.name,
 		        ap.branch_id, ap.starts_at, ap.ends_at, ap.status, ap.notes, ap.source, COALESCE(d.amount_cents, 0), COALESCE(d.status, ''),
-		        ap.confirmed_at, ap.arrived_at
+		        ap.confirmed_at, ap.arrived_at, COALESCE(d.method, ''), d.proof_at, COALESCE(d.reject_reason, ''), COALESCE(d.refund_due, false), COALESCE('/cita/' || ap.public_token, '')
 		 FROM appointments ap JOIN clients c ON c.id = ap.client_id JOIN services s ON s.id = ap.service_id
 		 JOIN users u ON u.id = ap.staff_id LEFT JOIN deposits d ON d.appointment_id = ap.id
 		 WHERE ap.business_id = $1 AND ap.branch_id = $2 AND ap.starts_at >= $3 AND ap.starts_at < $4
@@ -367,7 +388,7 @@ func (a *API) agendaDay(w http.ResponseWriter, r *http.Request) {
 	for arows.Next() {
 		var x apptRow
 		if err := arows.Scan(&x.ID, &x.ClientID, &x.ClientName, &x.ServiceID, &x.ServiceName, &x.PriceCents, &x.StaffID, &x.StaffName,
-			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes, &x.Source, &x.DepositCents, &x.DepositStatus, &x.ConfirmedAt, &x.ArrivedAt); err != nil {
+			&x.BranchID, &x.StartsAt, &x.EndsAt, &x.Status, &x.Notes, &x.Source, &x.DepositCents, &x.DepositStatus, &x.ConfirmedAt, &x.ArrivedAt, &x.DepositMethod, &x.ProofAt, &x.RejectReason, &x.RefundDue, &x.ManagePath); err != nil {
 			arows.Close()
 			serverErr(w)
 			return
@@ -451,6 +472,8 @@ func (a *API) createAppointment(w http.ResponseWriter, r *http.Request) {
 		BranchID  int64  `json:"branch_id"`
 		StartsAt  string `json:"starts_at"`
 		Notes     string `json:"notes"`
+		// anticipo por transferencia pedido desde la agenda: la cita queda apartada hasta que llegue el comprobante
+		DepositCents int `json:"deposit_cents"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -498,6 +521,10 @@ func (a *API) createAppointment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.DepositCents != 0 {
+		a.createAppointmentWithTransfer(w, r, req.ClientID, req.ServiceID, req.StaffID, req.BranchID, start, end, end.Add(svc.Buffer), strings.TrimSpace(req.Notes), req.DepositCents)
+		return
+	}
 	var id int64
 	err = a.DB.QueryRow(ctx,
 		`INSERT INTO appointments (business_id, branch_id, client_id, staff_id, service_id, starts_at, ends_at, blocked_until, notes)
@@ -743,6 +770,20 @@ func (a *API) markAppointment(column string) http.HandlerFunc {
 		if req.On != nil && !*req.On {
 			set = "NULL"
 		}
+		if column == "arrived_at" && (req.On == nil || *req.On) {
+			// «ya llegó» solo el día de la cita y desde una hora antes: no se marca con días de anticipación
+			var starts time.Time
+			if err := a.DB.QueryRow(r.Context(), `SELECT starts_at FROM appointments WHERE id = $1 AND business_id = $2`, id, p.BusinessID).Scan(&starts); err != nil {
+				notFound(w)
+				return
+			}
+			loc := a.businessLoc(r.Context(), p.BusinessID)
+			now := a.now()
+			if now.In(loc).Format(dateLayout) != starts.In(loc).Format(dateLayout) || now.Before(starts.Add(-time.Hour)) {
+				writeErr(w, http.StatusConflict, "«ya llegó» se marca el día de la cita, desde una hora antes")
+				return
+			}
+		}
 		// column viene de las dos rutas de arriba, nunca de la solicitud
 		tag, err := a.DB.Exec(r.Context(),
 			`UPDATE appointments SET `+column+` = `+set+` WHERE id = $1 AND business_id = $2 AND status = 'scheduled'`, id, p.BusinessID)
@@ -756,4 +797,70 @@ func (a *API) markAppointment(column string) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// createAppointmentWithTransfer agenda una cita pidiendo un anticipo por transferencia: queda apartada («pending_payment»)
+// hasta que se suba el comprobante y el titular confirme.
+func (a *API) createAppointmentWithTransfer(w http.ResponseWriter, r *http.Request, clientID, serviceID, staffID, branchID int64, start, end, blockedUntil time.Time, notes string, deposit int) {
+	p := auth.FromContext(r.Context())
+	ctx := r.Context()
+	st, err := loadBookingSettings(ctx, a.DB, p.BusinessID)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	if !a.planOf(ctx, a.DB, p.BusinessID).Deposits {
+		writeFail(w, errPlanDeposits)
+		return
+	}
+	if !st.TransferEnabled {
+		writeErr(w, http.StatusConflict, "activa las transferencias en Ajustes → Reservas en línea para pedir un anticipo así")
+		return
+	}
+	var price int
+	if err := a.DB.QueryRow(ctx, `SELECT price_cents FROM services WHERE id = $1 AND business_id = $2`, serviceID, p.BusinessID).Scan(&price); err != nil {
+		serverErr(w)
+		return
+	}
+	if deposit < 100 || deposit > price {
+		writeErr(w, http.StatusBadRequest, "el anticipo debe ser de al menos $1 y no mayor al precio del servicio")
+		return
+	}
+	token := newPublicToken()
+	hold := a.now().Add(time.Duration(st.TransferHoldHours) * time.Hour)
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	defer tx.Rollback(ctx)
+	var id int64
+	err = tx.QueryRow(ctx,
+		`INSERT INTO appointments (business_id, branch_id, client_id, staff_id, service_id, starts_at, ends_at, blocked_until, notes, public_token, status, hold_expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending_payment', $11) RETURNING id`,
+		p.BusinessID, branchID, clientID, staffID, serviceID, start, end, blockedUntil, notes, token, hold).Scan(&id)
+	if isExclusionViolation(err) {
+		writeErr(w, http.StatusConflict, "ese horario ya está ocupado")
+		return
+	}
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	var depID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO deposits (business_id, appointment_id, amount_cents, external_ref, created_at, method) VALUES ($1, $2, $3, 'tmp-' || $4, $5, 'transfer') RETURNING id`,
+		p.BusinessID, id, deposit, token, a.now()).Scan(&depID); err != nil {
+		serverErr(w)
+		return
+	}
+	if _, err := tx.Exec(ctx, `UPDATE deposits SET external_ref = 'mie-dep:' || id WHERE id = $1`, depID); err != nil {
+		serverErr(w)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		serverErr(w)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "manage_path": "/cita/" + token, "status": "pending_payment"})
 }

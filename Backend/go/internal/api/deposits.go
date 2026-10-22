@@ -49,14 +49,17 @@ type depositRow struct {
 	Amount            int
 	Status, Ref       string
 	PaymentID         string
+	Method            string // mp | transfer
+	ProofAt           *time.Time
+	RejectReason      string
 }
 
 func loadDeposit(ctx context.Context, q queryer, where string, arg any) (*depositRow, error) {
 	d := &depositRow{}
 	var pid *string
 	err := q.QueryRow(ctx,
-		`SELECT id, business_id, appointment_id, amount_cents, status, external_ref, mp_payment_id FROM deposits WHERE `+where, arg).
-		Scan(&d.ID, &d.BizID, &d.ApptID, &d.Amount, &d.Status, &d.Ref, &pid)
+		`SELECT id, business_id, appointment_id, amount_cents, status, external_ref, mp_payment_id, method, proof_at, reject_reason FROM deposits WHERE `+where, arg).
+		Scan(&d.ID, &d.BizID, &d.ApptID, &d.Amount, &d.Status, &d.Ref, &pid, &d.Method, &d.ProofAt, &d.RejectReason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -155,6 +158,9 @@ func (a *API) settleDeposit(ctx context.Context, depID int64) (string, error) {
 	if d.Status != "pending" && d.Status != "expired" {
 		return d.Status, nil
 	}
+	if d.Method == "transfer" {
+		return d.Status, nil // una transferencia la confirma el titular a mano; no hay nada que preguntarle a Mercado Pago
+	}
 	token, err := a.mpToken(ctx, d.BizID)
 	if err != nil {
 		return d.Status, err
@@ -202,6 +208,7 @@ func (a *API) settleDeposit(ctx context.Context, depID int64) (string, error) {
 			return d.Status, err
 		}
 		a.refundExtras(ctx, token, paid[1:])
+		a.inboxAppt(ctx, d.ApptID, "deposit_paid", "Anticipo pagado")
 		return "paid", nil
 	} else if depStatus == "paid" || depStatus == "applied" || depStatus == "kept" || depStatus == "refunded" {
 		return depStatus, nil // otro proceso ya lo resolvió
@@ -238,6 +245,14 @@ func (a *API) refundDeposit(ctx context.Context, apptID int64) error {
 	if d == nil || d.Status != "paid" {
 		return nil
 	}
+	if d.Method == "transfer" {
+		// una transferencia no se devuelve sola: se avisa al negocio para que la regrese y lo marque
+		if _, err := a.DB.Exec(ctx, `UPDATE deposits SET refund_due = true WHERE id = $1`, d.ID); err != nil {
+			return err
+		}
+		a.inboxAppt(ctx, apptID, "refund_due", "Devuelve el anticipo por transferencia")
+		return nil
+	}
 	token, err := a.mpToken(ctx, d.BizID)
 	if err != nil {
 		return err
@@ -259,7 +274,7 @@ func (a *API) keepDeposit(ctx context.Context, apptID int64) {
 func (a *API) sweepHolds(ctx context.Context) {
 	now := a.now()
 	rows, err := a.DB.Query(ctx,
-		`SELECT ap.id, ap.hold_expires_at, d.id FROM appointments ap LEFT JOIN deposits d ON d.appointment_id = ap.id
+		`SELECT ap.id, ap.hold_expires_at, d.id, COALESCE(d.method, 'mp'), d.proof_at IS NOT NULL FROM appointments ap LEFT JOIN deposits d ON d.appointment_id = ap.id
 		  WHERE ap.status = 'pending_payment' AND ap.hold_expires_at < $1 ORDER BY ap.hold_expires_at LIMIT 10`, now)
 	if err != nil {
 		return
@@ -268,16 +283,29 @@ func (a *API) sweepHolds(ctx context.Context) {
 		appt  int64
 		until time.Time
 		dep   *int64
+		by    string // mp | transfer
+		proof bool   // ya llegó el comprobante: lo revisa el titular, no se libera solo
 	}
 	var holds []hold
 	for rows.Next() {
 		var h hold
-		if rows.Scan(&h.appt, &h.until, &h.dep) == nil {
+		if rows.Scan(&h.appt, &h.until, &h.dep, &h.by, &h.proof) == nil {
 			holds = append(holds, h)
 		}
 	}
 	rows.Close()
 	for _, h := range holds {
+		if h.by == "transfer" {
+			if h.proof {
+				continue
+			}
+			tag, _ := a.DB.Exec(ctx, `UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND status = 'pending_payment'`, h.appt)
+			a.DB.Exec(ctx, `UPDATE deposits SET status = 'expired' WHERE id = $1 AND status = 'pending'`, *h.dep)
+			if tag.RowsAffected() > 0 {
+				a.inboxAppt(ctx, h.appt, "expired", "Reserva vencida: no llegó el comprobante")
+			}
+			continue
+		}
 		if h.dep != nil {
 			st, err := a.settleDeposit(ctx, *h.dep)
 			if st == "paid" || st == "refunded" {

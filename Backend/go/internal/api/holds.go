@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -61,10 +62,13 @@ func (a *API) withoutOthersHolds(ctx context.Context, offers []staffSlots, svc *
 			}
 			if free {
 				kept = append(kept, st)
+			} else {
+				o.Taken = append(o.Taken, st) // lo aparta otra visita: para esta se ve ocupado
 			}
 		}
-		if len(kept) > 0 {
+		if len(kept) > 0 || len(o.Taken) > 0 {
 			o.Starts = kept
+			sort.Strings(o.Taken)
 			out = append(out, o)
 		}
 	}
