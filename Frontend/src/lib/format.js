@@ -69,7 +69,7 @@ export const BILLING = {
   suspended: ['Suspendido', 'bad']
 };
 
-export const PLANS = { esencial: 'Esencial', profesional: 'Profesional', estudio: 'Estudio' };
+export const PLANS = { basico: 'Básico', crecimiento: 'Crecimiento', pro: 'Pro' };
 export const PAY_METHODS = { transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', mercadopago: 'Mercado Pago', courtesy: 'Cortesía' };
 
 // precio de lista en pesos (los planes vienen en pesos enteros)

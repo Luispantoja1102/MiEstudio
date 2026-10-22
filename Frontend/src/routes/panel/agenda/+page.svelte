@@ -10,13 +10,13 @@
   import { api } from '$lib/api.js';
   import { addDays, clockToMin, fmtTime, minToClock, minutesOfDay, todayIn } from '$lib/time.js';
   import { dayHead, gaps, rangeFor, rangeLabel, shift, weekday, withLanes } from '$lib/agenda.js';
-  import { session } from '$lib/session.svelte.js';
+  import { hasPos, session } from '$lib/session.svelte.js';
 
   const PX = 1.4; // píxeles por minuto
   const tz = session.me.business.timezone || 'America/Tijuana';
   const role = session.me.role;
   const canBook = ['admin', 'reception', 'staff'].includes(role);
-  const sells = ['admin', 'cashier', 'reception'].includes(role);
+  const sells = ['admin', 'cashier', 'reception'].includes(role) && hasPos();
   const VIEWS = [['day', 'Día'], ['week', 'Semana'], ['month', 'Mes'], ['list', 'Lista']];
   const KEY = 'miestudio-agenda-view';
 

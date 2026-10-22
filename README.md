@@ -184,8 +184,8 @@ cerrar sesión); cada una se ve según el rol. El panel de plataforma funciona i
 
 ## Planes, suscripciones y panel de plataforma
 
-- **Planes** (`internal/api/plans.go`): Esencial, Profesional y Estudio, con topes de personas en agenda y sucursales y
-  funciones (anticipos, terminal). Edita ahí precios y topes. Al registrarse, el negocio arranca 14 días de prueba en Profesional.
+- **Planes** (`internal/api/plans.go`): Básico (solo agenda y citas, sin cobros), Crecimiento (todo incluido, una sucursal) y Pro (varias sucursales), con topes de personas en agenda y sucursales, el acceso a cobros (caja, ventas, inventario, reportes) y
+  funciones (anticipos, terminal). Edita ahí precios y topes. Al registrarse, el negocio arranca 14 días de prueba en Crecimiento (todo incluido).
 - **Estados de cobro:** en prueba, prueba vencida, activo, pago atrasado (3 días de gracia tras el vencimiento) y suspendido.
   Con la prueba vencida o el pago atrasado la cuenta entra pero solo para renovar (`/panel/suscripcion`); la página pública de
   reservas y los recordatorios se pausan. Los datos nunca se borran.

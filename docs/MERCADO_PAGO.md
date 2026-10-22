@@ -76,7 +76,7 @@ El comprador de prueba paga siempre con estas tarjetas; **nunca uses tarjetas re
 ## 3. Anticipos de reserva (Checkout Pro) — con cuentas de prueba
 
 **Preparar:**
-1. Arranca todo (`npm run dev`) con `API_PUBLIC_URL` y `APP_URL` configurados. Entra a `/panel` con un negocio de plan **Profesional o Estudio** (los anticipos no están en Esencial).
+1. Arranca todo (`npm run dev`) con `API_PUBLIC_URL` y `APP_URL` configurados. Entra a `/panel` con un negocio de plan **Crecimiento o Pro** (los anticipos no están en Básico).
 2. *Ajustes → Cobro con tarjeta (Mercado Pago)* → **Conectar con Mercado Pago**. En la ventana que abre, inicia sesión con el **vendedor de prueba** y autoriza. Debe regresar al panel diciendo que está conectado.
 3. *Ajustes → Reservas y página pública*: enciende la reserva, **Anticipo = 30 %**, y asegúrate de que haya un servicio en línea con precio y horario.
 

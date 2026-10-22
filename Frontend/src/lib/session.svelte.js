@@ -7,6 +7,8 @@ export async function loadSession() {
   return session.me;
 }
 
+// ¿el plan del negocio incluye cobros (caja, ventas, inventario, reportes)? Básico solo trae agenda y citas.
+export const hasPos = () => session.me?.business?.plan_features?.pos !== false;
 export const isAdmin = () => session.me?.role === 'admin';
 export const canSeeNotes = () => ['admin', 'staff'].includes(session.me?.role);
 export const isPlatform = (me = session.me) => me?.role === 'platform_admin' || me?.role === 'platform_support';

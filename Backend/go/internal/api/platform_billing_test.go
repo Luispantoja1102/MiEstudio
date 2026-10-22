@@ -40,12 +40,12 @@ func TestRecordPaymentExtendsAndActivates(t *testing.T) {
 	f := newPB(t)
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	f.a.Now = func() time.Time { return now }
-	r := f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "plan": "profesional", "method": "transfer", "note": "SPEI 123"})
+	r := f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "plan": "crecimiento", "method": "transfer", "note": "SPEI 123"})
 	if r.Status != 201 {
 		t.Fatalf("pago: %d %v", r.Status, r.Body)
 	}
 	status, plan, end, _ := f.row(t)
-	if status != "active" || plan != "profesional" || end == nil || !end.Equal(now.AddDate(0, 1, 0)) {
+	if status != "active" || plan != "crecimiento" || end == nil || !end.Equal(now.AddDate(0, 1, 0)) {
 		t.Fatalf("negocio: %s %s %v", status, plan, end)
 	}
 	// renovar antes de vencer suma al periodo vigente (no pierde días)
@@ -64,8 +64,8 @@ func TestRecordPaymentExtendsAndActivates(t *testing.T) {
 		t.Fatalf("tras vencer empieza hoy: %v", end3)
 	}
 	// un plan distinto en el pago cambia el plan
-	f.pay(t, map[string]any{"amount_cents": 1499000, "months": 12, "plan": "estudio", "method": "transfer"})
-	if _, plan, _, _ := f.row(t); plan != "estudio" {
+	f.pay(t, map[string]any{"amount_cents": 1499000, "months": 12, "plan": "pro", "method": "transfer"})
+	if _, plan, _, _ := f.row(t); plan != "pro" {
 		t.Fatalf("plan: %s", plan)
 	}
 }
@@ -165,7 +165,7 @@ func TestOverviewCountsMRRAndAttention(t *testing.T) {
 	mk("cortesia", "active", nil, nil)
 	f.a.DB.Exec(ctx, `UPDATE businesses SET status = 'active', current_period_end = $2 WHERE id = $1`, f.biz, now.Add(20*day))
 	ins := func(id int64, cents, months int, method string, created time.Time) {
-		f.a.DB.Exec(ctx, `INSERT INTO payments (business_id, amount_cents, method, plan, months, period_start, period_end, created_at) VALUES ($1, $2, $3, 'profesional', $4, $5, $5, $5)`, id, cents, method, months, created)
+		f.a.DB.Exec(ctx, `INSERT INTO payments (business_id, amount_cents, method, plan, months, period_start, period_end, created_at) VALUES ($1, $2, $3, 'crecimiento', $4, $5, $5, $5)`, id, cents, method, months, created)
 	}
 	ins(paid, 79900, 1, "transfer", now.Add(-2*day))
 	ins(annual, 799000, 12, "transfer", now.Add(-3*day))
@@ -216,15 +216,15 @@ func TestListFiltersByStateAndPlan(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
 	f.a.Now = func() time.Time { return now }
-	f.a.DB.Exec(ctx, `UPDATE businesses SET status = 'active', current_period_end = $1, plan = 'estudio'`, now.Add(-10*24*time.Hour))
-	f.a.DB.Exec(ctx, `INSERT INTO businesses (name, slug, kind, status, trial_ends_at, plan) VALUES ('Otro', 'otro', 'spa', 'trial', $1, 'esencial')`, now.Add(5*24*time.Hour))
+	f.a.DB.Exec(ctx, `UPDATE businesses SET status = 'active', current_period_end = $1, plan = 'pro'`, now.Add(-10*24*time.Hour))
+	f.a.DB.Exec(ctx, `INSERT INTO businesses (name, slug, kind, status, trial_ends_at, plan) VALUES ('Otro', 'otro', 'spa', 'trial', $1, 'basico')`, now.Add(5*24*time.Hour))
 	count := func(q string) int {
 		r := f.a.do(t, "GET", "/api/platform/businesses?"+q, f.plat, nil)
 		var out []any
 		jsonUnmarshal(r.Raw, &out)
 		return len(out)
 	}
-	for q, want := range map[string]int{"state=past_due": 1, "state=trialing": 1, "state=active": 0, "plan=estudio": 1, "plan=esencial": 1, "plan=profesional": 0, "state=past_due&plan=esencial": 0, "": 2} {
+	for q, want := range map[string]int{"state=past_due": 1, "state=trialing": 1, "state=active": 0, "plan=pro": 1, "plan=basico": 1, "plan=crecimiento": 0, "state=past_due&plan=basico": 0, "": 2} {
 		if got := count(q); got != want {
 			t.Errorf("filtro %q: %d, esperaba %d", q, got, want)
 		}
@@ -236,19 +236,19 @@ func TestPlansEndpointAndPatchPlanAndPeriod(t *testing.T) {
 	r := f.a.do(t, "GET", "/api/platform/plans", f.support, nil)
 	var plans []map[string]any
 	jsonUnmarshal(r.Raw, &plans)
-	if r.Status != 200 || len(plans) != 3 || plans[0]["id"] != "esencial" || plans[1]["businesses"] != float64(1) {
+	if r.Status != 200 || len(plans) != 3 || plans[0]["id"] != "basico" || plans[1]["businesses"] != float64(1) {
 		t.Fatalf("planes: %d %v", r.Status, plans)
 	}
 	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.plat, map[string]any{"plan": "gratis"}); r.Status != 400 {
 		t.Fatalf("plan inválido: %d", r.Status)
 	}
-	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.plat, map[string]any{"plan": "estudio", "status": "active", "current_period_end": "2027-01-31"}); r.Status != 204 {
+	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.plat, map[string]any{"plan": "pro", "status": "active", "current_period_end": "2027-01-31"}); r.Status != 204 {
 		t.Fatalf("cambiar plan y periodo: %d", r.Status)
 	}
-	if status, plan, end, _ := f.row(t); status != "active" || plan != "estudio" || end == nil || end.Format("2006-01-02") != "2027-01-31" {
+	if status, plan, end, _ := f.row(t); status != "active" || plan != "pro" || end == nil || end.Format("2006-01-02") != "2027-01-31" {
 		t.Fatalf("resultado: %s %s %v", status, plan, end)
 	}
-	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.support, map[string]any{"plan": "esencial"}); r.Status != 403 {
+	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.support, map[string]any{"plan": "basico"}); r.Status != 403 {
 		t.Fatalf("soporte no cambia planes: %d", r.Status)
 	}
 }

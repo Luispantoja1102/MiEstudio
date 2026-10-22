@@ -33,6 +33,7 @@
       <ul>
         <li>Personas en agenda: <b>{lim(p.max_staff)}</b></li>
         <li>Sucursales: <b>{p.max_branches}</b></li>
+        <li>Caja, ventas e inventario: <b>{p.pos ? 'Sí' : 'No'}</b></li>
         <li>Anticipos en la reserva: <b>{p.deposits ? 'Sí' : 'No'}</b></li>
         <li>Cobro con terminal: <b>{p.terminal ? 'Sí' : 'No'}</b></li>
         <li>Soporte: <b>{p.support}</b></li>

@@ -78,7 +78,7 @@ func TestLapsedTrialLocksTenantButKeepsAccountAndBilling(t *testing.T) {
 	}
 	me := a.do(t, "GET", "/api/me", admin, nil)
 	biz := me.Body["business"].(map[string]any)
-	if me.Status != 200 || biz["billing_state"] != "trial_expired" || biz["plan"] != "profesional" {
+	if me.Status != 200 || biz["billing_state"] != "trial_expired" || biz["plan"] != "crecimiento" {
 		t.Fatalf("/api/me debe seguir sirviendo con el estado: %d %v", me.Status, me.Body)
 	}
 	if r := a.do(t, "POST", "/api/auth/logout-all", admin, nil); r.Status != 204 {
@@ -137,7 +137,7 @@ func TestLapsedBusinessStopsServingBookingPage(t *testing.T) {
 func TestPlanLimitsStaffBranchesAndFeatures(t *testing.T) {
 	a := newTestAPI(t)
 	admin := a.mustRegister(t, "Barbería", "a@x.com")
-	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'esencial'`)
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
 	mk := func(email string, bookable bool) resp {
 		return a.do(t, "POST", "/api/team", admin, map[string]any{"name": "P", "email": email, "password": "supersecreta1", "role": "staff", "bookable": bookable})
 	}
@@ -169,21 +169,19 @@ func TestPlanLimitsStaffBranchesAndFeatures(t *testing.T) {
 	if r := a.do(t, "PATCH", path("/api/team/", p1), admin, map[string]any{"active": true}); r.Status != 403 {
 		t.Fatalf("reactivar con el plan lleno: %d", r.Status)
 	}
-	// sucursales: Esencial permite 1 (la que se crea al registrarse)
+	// sucursales: Básico permite 1 (la que se crea al registrarse)
 	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 2"}); r.Status != 403 || r.Body["code"] != "plan_limit" {
-		t.Fatalf("segunda sucursal en Esencial: %d %v", r.Status, r.Body)
+		t.Fatalf("segunda sucursal en Básico: %d %v", r.Status, r.Body)
 	}
-	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'profesional'`)
-	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 2"}); r.Status != 201 {
-		t.Fatalf("Profesional permite 2: %d", r.Status)
+	// Crecimiento incluye todo pero sigue en una sucursal: las sucursales son del plan Pro
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'crecimiento'`)
+	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 2"}); r.Status != 403 || r.Body["code"] != "plan_limit" {
+		t.Fatalf("segunda sucursal en Crecimiento: %d %v", r.Status, r.Body)
 	}
-	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 3"}); r.Status != 403 {
-		t.Fatalf("tercera en Profesional: %d", r.Status)
-	}
-	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'estudio'`)
-	for i := 3; i <= 10; i++ {
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'pro'`)
+	for i := 2; i <= 10; i++ {
 		if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": fmt.Sprintf("Sucursal %d", i)}); r.Status != 201 {
-			t.Fatalf("Estudio permite 10 (sucursal %d): %d", i, r.Status)
+			t.Fatalf("Pro permite 10 (sucursal %d): %d", i, r.Status)
 		}
 	}
 	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 11"}); r.Status != 403 {
@@ -193,15 +191,15 @@ func TestPlanLimitsStaffBranchesAndFeatures(t *testing.T) {
 
 func TestDepositAndTerminalNeedPlanFeature(t *testing.T) {
 	d := newDeposit(t)
-	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'esencial'`)
+	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
 	r := d.a.do(t, "PUT", "/api/booking/settings", d.admin, map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2, "reminder_hours": 24, "deposit_percent": 30})
 	if r.Status != 403 || r.Body["code"] != "plan_feature" {
 		t.Fatalf("anticipo en Esencial: %d %v", r.Status, r.Body)
 	}
 	// un negocio que bajó de plan con un anticipo ya configurado deja de pedirlo
-	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'profesional'`)
+	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'crecimiento'`)
 	d.settings(t, 30)
-	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'esencial'`)
+	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
 	token := d.mustBook(t, at(monday, "10:00"), nil)
 	if d.apptStatus(t, token) != "scheduled" {
 		t.Fatal("sin el plan, la reserva no pide anticipo")
@@ -212,5 +210,54 @@ func TestDepositAndTerminalNeedPlanFeature(t *testing.T) {
 	st := d.a.do(t, "GET", path("/api/payments/point/status?branch_id=", d.branch), d.admin, nil)
 	if st.Body["code"] != "plan_feature" || st.Body["ok"] != false {
 		t.Fatalf("estado de la terminal: %v", st.Body)
+	}
+}
+
+func TestBasicPlanIsAppointmentsOnlyAndGrowthIncludesCobros(t *testing.T) {
+	a := newTestAPI(t)
+	admin := a.mustRegister(t, "Barbería", "dueno@x.com")
+	a.addMember(t, admin, "caja@x.com", "cashier")
+	caja := login(t, a, "caja@x.com")
+	cobros := []struct{ method, url string }{
+		{"GET", "/api/cash/current?branch_id=1"}, {"POST", "/api/cash/open"}, {"GET", "/api/sales"}, {"POST", "/api/sales"},
+		{"GET", "/api/packages"}, {"POST", "/api/packages"}, {"GET", "/api/reports/sales"}, {"GET", "/api/reports/commissions"},
+		{"GET", "/api/commission-rules"}, {"POST", "/api/products"},
+	}
+	// un negocio nuevo empieza en Crecimiento: todo incluido
+	me := a.do(t, "GET", "/api/me", admin, nil).Body["business"].(map[string]any)
+	if f := me["plan_features"].(map[string]any); me["plan"] != "crecimiento" || f["pos"] != true || f["deposits"] != true {
+		t.Fatalf("plan inicial: %v %v", me["plan"], f)
+	}
+	if r := a.do(t, "GET", "/api/cash/current?branch_id=1", caja, nil); r.Status == 403 && r.Body["code"] == "plan_feature" {
+		t.Fatal("Crecimiento incluye caja")
+	}
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
+	f := a.do(t, "GET", "/api/me", admin, nil).Body["business"].(map[string]any)["plan_features"].(map[string]any)
+	if f["pos"] != false || f["deposits"] != false || f["terminal"] != false {
+		t.Fatalf("Básico no incluye cobros: %v", f)
+	}
+	for i, c := range cobros {
+		who := map[string]string{"administrador": admin}
+		if i < 5 { // las primeras rutas también son de caja; el resto, solo de administración
+			who["cajero"] = caja
+		}
+		for name, tok := range who {
+			if r := a.do(t, c.method, c.url, tok, map[string]any{}); r.Status != 403 || r.Body["code"] != "plan_feature" {
+				t.Errorf("%s en %s %s con Básico: %d %v", name, c.method, c.url, r.Status, r.Body)
+			}
+		}
+	}
+	// lo que sí incluye: catálogo de servicios, equipo, clientes y citas
+	for _, u := range []string{"/api/services", "/api/clients", "/api/team", "/api/branches"} {
+		if r := a.do(t, "GET", u, admin, nil); r.Status != 200 {
+			t.Errorf("Básico debe permitir %s: %d", u, r.Status)
+		}
+	}
+	if r := a.do(t, "POST", "/api/services", admin, map[string]any{"name": "Corte", "duration_min": 30, "price_cents": 15000}); r.Status != 201 {
+		t.Errorf("Básico crea servicios: %d %v", r.Status, r.Body)
+	}
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'crecimiento'`)
+	if r := a.do(t, "GET", "/api/sales", admin, nil); r.Status != 200 {
+		t.Errorf("Crecimiento incluye ventas: %d", r.Status)
 	}
 }

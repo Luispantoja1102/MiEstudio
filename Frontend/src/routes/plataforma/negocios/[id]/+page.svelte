@@ -117,6 +117,7 @@
       <div class="usage">
         <span class:over={data.limits.max_staff !== null && data.usage.staff > data.limits.max_staff}>Agenda: {data.usage.staff} / {limitOf(data.limits.max_staff)}</span>
         <span class:over={data.usage.branches > data.limits.max_branches}>Sucursales: {data.usage.branches} / {data.limits.max_branches}</span>
+        <span>Cobros: {data.limits.pos ? 'sí' : 'no'}</span>
         <span>Anticipos: {data.limits.deposits ? 'sí' : 'no'}</span>
         <span>Terminal: {data.limits.terminal ? 'sí' : 'no'}</span>
       </div>

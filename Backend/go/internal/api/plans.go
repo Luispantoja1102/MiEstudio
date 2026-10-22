@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
+
+	"miestudio/backend-go/internal/auth"
 )
 
 const (
@@ -21,6 +24,7 @@ type Plan struct {
 	PriceYear   int    `json:"price_year"`
 	MaxStaff    *int   `json:"max_staff"`    // personas activas que atienden (aparecen en la agenda)
 	MaxBranches int    `json:"max_branches"` // sucursales activas
+	POS         bool   `json:"pos"`          // cobros: caja, ventas, paquetes, inventario, comisiones y reportes
 	Deposits    bool   `json:"deposits"`     // anticipos en la reserva en línea
 	Terminal    bool   `json:"terminal"`     // cobro con terminal de Mercado Pago
 	Support     string `json:"support"`
@@ -29,12 +33,12 @@ type Plan struct {
 func ptr(n int) *int { return &n }
 
 var planCatalog = []Plan{
-	{ID: "esencial", Name: "Esencial", Description: "Para empezar: un local y poco equipo", PriceMonth: 399, PriceYear: 3990,
-		MaxStaff: ptr(2), MaxBranches: 1, Deposits: false, Terminal: false, Support: "correo"},
-	{ID: "profesional", Name: "Profesional", Description: "Para negocios en crecimiento", PriceMonth: 799, PriceYear: 7990,
-		MaxStaff: ptr(6), MaxBranches: 2, Deposits: true, Terminal: true, Support: "prioritario"},
-	{ID: "estudio", Name: "Estudio", Description: "Para varias sucursales y equipos grandes", PriceMonth: 1499, PriceYear: 14990,
-		MaxStaff: nil, MaxBranches: 10, Deposits: true, Terminal: true, Support: "dedicado"},
+	{ID: "basico", Name: "Básico", Description: "Solo agenda y citas, sin cobros", PriceMonth: 399, PriceYear: 3990,
+		MaxStaff: ptr(2), MaxBranches: 1, POS: false, Deposits: false, Terminal: false, Support: "correo"},
+	{ID: "crecimiento", Name: "Crecimiento", Description: "Todo incluido: citas, caja, ventas, anticipos y más", PriceMonth: 799, PriceYear: 7990,
+		MaxStaff: ptr(6), MaxBranches: 1, POS: true, Deposits: true, Terminal: true, Support: "prioritario"},
+	{ID: "pro", Name: "Pro", Description: "Todo, con varias sucursales y equipos grandes", PriceMonth: 1499, PriceYear: 14990,
+		MaxStaff: nil, MaxBranches: 10, POS: true, Deposits: true, Terminal: true, Support: "dedicado"},
 }
 
 func planByID(id string) (Plan, bool) {
@@ -117,6 +121,7 @@ func planLimit(code, msg string) error {
 	return &httpFail{403, msg, code}
 }
 
+var errPlanPOS = &httpFail{403, "Tu plan no incluye cobros (caja, ventas, inventario y reportes). Cambia a Crecimiento o Pro para usarlos.", "plan_feature"}
 var errPlanTerminal = &httpFail{403, "Tu plan no incluye el cobro con terminal. Cambia de plan para usarlo.", "plan_feature"}
 var errPlanDeposits = &httpFail{403, "Tu plan no incluye anticipos en la reserva en línea. Cambia de plan para usarlos.", "plan_feature"}
 
@@ -139,4 +144,22 @@ func (a *API) checkBranchRoom(ctx context.Context, bizID int64) error {
 		return planLimit("plan_limit", fmt.Sprintf("Tu plan %s permite hasta %d sucursal(es). Cambia de plan para agregar más.", plan.Name, plan.MaxBranches))
 	}
 	return nil
+}
+
+// posOnly deja pasar solo a los negocios cuyo plan incluye cobros (caja, ventas, paquetes, inventario, comisiones, reportes).
+func (a *API) posOnly(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p := auth.FromContext(r.Context())
+		if !a.planOf(r.Context(), a.DB, p.BusinessID).POS {
+			writeFail(w, errPlanPOS)
+			return
+		}
+		h(w, r)
+	}
+}
+
+// planFeatures es lo que la interfaz necesita saber del plan para mostrar u ocultar secciones.
+func (a *API) planFeatures(ctx context.Context, bizID int64) map[string]any {
+	pl := a.planOf(ctx, a.DB, bizID)
+	return map[string]any{"pos": pl.POS, "deposits": pl.Deposits, "terminal": pl.Terminal, "max_branches": pl.MaxBranches, "max_staff": pl.MaxStaff, "name": pl.Name}
 }

@@ -5,7 +5,7 @@
   import { fmtTime, longDate } from '$lib/time.js';
   import SlotPicker from '$lib/SlotPicker.svelte';
   import TransferPanel from '$lib/TransferPanel.svelte';
-  import { session } from '$lib/session.svelte.js';
+  import { hasPos, session } from '$lib/session.svelte.js';
 
   let { appt, tz, date, canBook, ondone } = $props();
 
@@ -14,7 +14,7 @@
   const DEPOSIT = { pending: 'sin pagar', paid: 'pagado', applied: 'aplicado en la venta', refunded: 'devuelto', kept: 'conservado por inasistencia', expired: 'vencido' };
   const isAdmin = session.me?.role === 'admin';
   // quien cobra (administración, caja, recepción) completa la cita cobrándola; el personal solo la marca atendida
-  const sells = ['admin', 'cashier', 'reception'].includes(session.me?.role);
+  const sells = ['admin', 'cashier', 'reception'].includes(session.me?.role) && hasPos();
   const dayOf = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: tz });
   // «ya llegó» solo se marca el día de la cita y desde una hora antes (no días antes)
   const canArrive = $derived(dayOf(appt.starts_at) === dayOf(Date.now()) && Date.now() >= new Date(appt.starts_at).getTime() - 60 * 60000);

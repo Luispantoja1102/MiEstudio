@@ -5,13 +5,13 @@
   import { api } from '$lib/api.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { formatDay, money, plural } from '$lib/format.js';
-  import { session } from '$lib/session.svelte.js';
+  import { hasPos, session } from '$lib/session.svelte.js';
   import { fmtTime, longDate, addDays, todayIn } from '$lib/time.js';
 
   const me = session.me;
   const tz = me.business.timezone || 'America/Tijuana';
   const role = me.role;
-  const sells = ['admin', 'cashier', 'reception'].includes(role);
+  const sells = ['admin', 'cashier', 'reception'].includes(role) && hasPos();
   const today = todayIn(tz);
 
   let loading = $state(true);
@@ -31,8 +31,8 @@
       const [ag, c, st, sy] = await Promise.all([
         api('/api/agenda?' + new URLSearchParams({ branch_id: id, date: today })),
         sells ? api(`/api/cash/current?branch_id=${id}`).catch(() => null) : null,
-        role === 'admin' ? api(`/api/reports/sales?from=${today}&to=${today}&branch_id=${id}`).catch(() => null) : null,
-        role === 'admin' ? api(`/api/reports/sales?from=${addDays(today, -1)}&to=${addDays(today, -1)}&branch_id=${id}`).catch(() => null) : null
+        role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${today}&to=${today}&branch_id=${id}`).catch(() => null) : null,
+        role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${addDays(today, -1)}&to=${addDays(today, -1)}&branch_id=${id}`).catch(() => null) : null
       ]);
       staff = ag.staff;
       appts = ag.appointments.filter((a) => a.status !== 'cancelled' && (role !== 'staff' || a.staff_id === me.id));

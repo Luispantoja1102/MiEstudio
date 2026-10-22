@@ -287,7 +287,8 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 		out["business"] = map[string]any{
 			"id": p.BusinessID, "name": bizName, "kind": kind, "status": status, "trial_ends_at": trialEnds, "timezone": tz,
 			"plan": plan, "billing_state": p.BillingState, "current_period_end": periodEnd,
-			"is_owner": isOwner,
+			"is_owner":      isOwner,
+			"plan_features": a.planFeatures(r.Context(), p.BusinessID),
 			// el asistente de inicio lo ve solo el titular, y solo mientras no lo termine u omita
 			"setup_pending": isOwner && setupDone == nil,
 		}

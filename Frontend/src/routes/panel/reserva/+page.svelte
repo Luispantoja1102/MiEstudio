@@ -6,6 +6,7 @@
   import { session } from '$lib/session.svelte.js';
 
   let s = $state(null);
+  const canDeposit = session.me?.business?.plan_features?.deposits !== false;
   let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false, whatsapp_available: false, is_owner: false });
   let services = $state([]);
   let error = $state('');
@@ -119,7 +120,7 @@
 
     <h3 style="margin-top: 1.5rem">Anticipo</h3>
     <label class="field">Porcentaje del precio por adelantado
-      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!meta.mp_connected && !s.transfer_enabled} />
+      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!canDeposit || (!meta.mp_connected && !s.transfer_enabled)} />
       <span class="hint">
         {#if meta.mp_connected}
           0 = sin anticipo. Se cobra con Mercado Pago al reservar y se descuenta al cobrar la cita. Si el cliente cancela a tiempo, se le devuelve.
@@ -131,7 +132,8 @@
       </span>
     </label>
 
-    <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} /> Aceptar anticipo por transferencia</label>
+    {#if !canDeposit}<p class="banner" role="status">Los anticipos están incluidos desde el plan Crecimiento. <a href="/panel/suscripcion">Ver planes</a></p>{/if}
+    <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} disabled={!canDeposit} /> Aceptar anticipo por transferencia</label>
     {#if s.transfer_enabled}
       <div class="transfer">
         <p class="hint" style="margin: 0 0 0.9rem">Estos datos los ve quien reserva. Cuando suba su comprobante recibirás un aviso en la campana y tú confirmas la cita.</p>

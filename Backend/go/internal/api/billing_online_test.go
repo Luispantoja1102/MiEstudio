@@ -75,7 +75,7 @@ func TestBillingPageWorksWhileLockedAndIsAdminOnly(t *testing.T) {
 func TestCheckoutUsesServerPriceAndPlatformAccount(t *testing.T) {
 	b := newBO(t)
 	b.lapse()
-	r := b.checkout(t, "profesional", 1)
+	r := b.checkout(t, "crecimiento", 1)
 	if r.Status != 201 || r.Body["amount_cents"] != float64(79900) || r.Body["pay_url"] != "https://mp.test/pay/1" {
 		t.Fatalf("checkout: %d %v", r.Status, r.Body)
 	}
@@ -85,27 +85,27 @@ func TestCheckoutUsesServerPriceAndPlatformAccount(t *testing.T) {
 		pref["back_urls"].(map[string]any)["success"] != fmt.Sprintf("https://app.test/panel/suscripcion?checkout=%d", int(r.Body["id"].(float64))) {
 		t.Fatalf("preferencia: %v", pref)
 	}
-	if r := b.checkout(t, "estudio", 12); r.Body["amount_cents"] != float64(1499000) {
+	if r := b.checkout(t, "pro", 12); r.Body["amount_cents"] != float64(1499000) {
 		t.Fatalf("anual: %v", r.Body)
 	}
-	for name, body := range map[string]map[string]any{"plan": {"plan": "gratis", "months": 1}, "meses": {"plan": "estudio", "months": 6}, "vacío": {}} {
+	for name, body := range map[string]map[string]any{"plan": {"plan": "gratis", "months": 1}, "meses": {"plan": "pro", "months": 6}, "vacío": {}} {
 		if rr := b.a.do(t, "POST", "/api/billing/checkout", b.admin, body); rr.Status != 400 {
 			t.Errorf("%s: %d", name, rr.Status)
 		}
 	}
 	// el precio no se puede mandar desde el navegador
-	b.a.do(t, "POST", "/api/billing/checkout", b.admin, map[string]any{"plan": "esencial", "months": 1, "amount_cents": 1})
+	b.a.do(t, "POST", "/api/billing/checkout", b.admin, map[string]any{"plan": "basico", "months": 1, "amount_cents": 1})
 	var amount int
 	b.a.DB.QueryRow(context.Background(), `SELECT amount_cents FROM subscription_checkouts ORDER BY id DESC LIMIT 1`).Scan(&amount)
 	if amount != 39900 {
 		t.Fatalf("monto guardado: %d", amount)
 	}
 	b.mp.prefFail = true
-	if rr := b.checkout(t, "esencial", 1); rr.Status != 502 {
+	if rr := b.checkout(t, "basico", 1); rr.Status != 502 {
 		t.Fatalf("falla de Mercado Pago: %d", rr.Status)
 	}
 	b.a.PlatformMPToken = ""
-	if rr := b.checkout(t, "esencial", 1); rr.Status != 503 || rr.Body["code"] != "billing_offline" {
+	if rr := b.checkout(t, "basico", 1); rr.Status != 503 || rr.Body["code"] != "billing_offline" {
 		t.Fatalf("sin cuenta de plataforma: %d %v", rr.Status, rr.Body)
 	}
 }
@@ -113,7 +113,7 @@ func TestCheckoutUsesServerPriceAndPlatformAccount(t *testing.T) {
 func TestPaymentUnlocksBusinessOnceAndSendsReceipts(t *testing.T) {
 	b := newBO(t)
 	b.lapse()
-	c := b.checkout(t, "profesional", 1)
+	c := b.checkout(t, "crecimiento", 1)
 	id := c.Body["id"].(float64)
 	ref := b.ref(t, id)
 	// monto distinto, sin aprobar o de otra referencia: nada
@@ -135,7 +135,7 @@ func TestPaymentUnlocksBusinessOnceAndSendsReceipts(t *testing.T) {
 		t.Fatalf("desbloqueado: %d", r.Status)
 	}
 	status, plan, end, _ := b.row(t)
-	if status != "active" || plan != "profesional" || end == nil || !end.After(b.a.now().AddDate(0, 0, 27)) {
+	if status != "active" || plan != "crecimiento" || end == nil || !end.After(b.a.now().AddDate(0, 0, 27)) {
 		t.Fatalf("negocio: %s %s %v", status, plan, end)
 	}
 	var n int
@@ -164,7 +164,7 @@ func TestPlatformWebhookSettlesAndVerifiesSignature(t *testing.T) {
 	b := newBO(t)
 	b.a.PlatformWebhookSecret = "secreto"
 	b.lapse()
-	c := b.checkout(t, "esencial", 1)
+	c := b.checkout(t, "basico", 1)
 	ref := b.ref(t, c.Body["id"].(float64))
 	pid := b.mp.pay(ref, 399, "approved")
 	send := func(url, sig string) int {
@@ -203,7 +203,7 @@ func TestPlatformWebhookSettlesAndVerifiesSignature(t *testing.T) {
 func TestDuplicatePaymentIsRefundedAndOtherBusinessCannotSeeCheckout(t *testing.T) {
 	b := newBO(t)
 	b.lapse()
-	c := b.checkout(t, "esencial", 1)
+	c := b.checkout(t, "basico", 1)
 	id := c.Body["id"].(float64)
 	ref := b.ref(t, id)
 	p1 := b.mp.pay(ref, 399, "approved")
@@ -221,7 +221,7 @@ func TestDuplicatePaymentIsRefundedAndOtherBusinessCannotSeeCheckout(t *testing.
 func TestConcurrentSettleCreditsOnce(t *testing.T) {
 	b := newBO(t)
 	b.lapse()
-	c := b.checkout(t, "profesional", 1)
+	c := b.checkout(t, "crecimiento", 1)
 	id := int64(c.Body["id"].(float64))
 	b.mp.pay(b.ref(t, c.Body["id"].(float64)), 799, "approved")
 	var wg sync.WaitGroup

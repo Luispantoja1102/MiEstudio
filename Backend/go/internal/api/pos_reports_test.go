@@ -105,6 +105,7 @@ func TestSalesReportTotals(t *testing.T) {
 		t.Errorf("2 nov (solo hay una venta cancelada): %+v", v)
 	}
 	// otra sucursal
+	p.a.DB.Exec(t.Context(), `UPDATE businesses SET plan = 'pro'`) // varias sucursales son del plan Pro
 	branch2 := id(p.a.do(t, "POST", "/api/branches", p.admin, map[string]any{"name": "Centro"}))
 	if v = report(t, p, p.admin, fmt.Sprintf("from=2026-11-01&to=2026-11-03&branch_id=%d", branch2)); v.Sales != 0 {
 		t.Errorf("filtro por sucursal: %+v", v)

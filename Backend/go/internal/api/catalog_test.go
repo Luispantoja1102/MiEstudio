@@ -255,6 +255,7 @@ func TestBranches(t *testing.T) {
 	a := newTestAPI(t)
 	admin := a.mustRegister(t, "N", "a@x.com")
 	first := list[branch](t, a, "/api/branches", admin)[0]
+	a.DB.Exec(t.Context(), `UPDATE businesses SET plan = 'pro'`) // varias sucursales son del plan Pro
 
 	if r := a.do(t, "PATCH", path("/api/branches/", first.ID), admin, map[string]any{"active": false}); r.Status != 400 {
 		t.Fatalf("desactivar la única sucursal: esperaba 400, obtuvo %d", r.Status)

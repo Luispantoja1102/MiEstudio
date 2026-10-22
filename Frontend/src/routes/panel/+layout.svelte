@@ -7,7 +7,7 @@
   import NotificationBell from '$lib/NotificationBell.svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
-  import { homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
+  import { hasPos, homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
 
   let { children } = $props();
 
@@ -46,9 +46,15 @@
     { label: 'Comisiones', href: '/panel/comisiones', roles: ['admin', 'staff'] }
   ];
   const under = (paths) => paths.some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
-  const tabs = $derived(under(COBROS_PATHS) ? COBROS_TABS : under(REPORT_PATHS) ? REPORT_TABS : under(AGENDA_PATHS) ? AGENDA_TABS : null);
+  // Básico solo trae agenda y citas: sin caja, ventas, inventario, comisiones ni reportes (el catálogo de servicios sí)
+  const POS_PATHS = ['/panel/ventas', '/panel/caja', '/panel/inventario', '/panel/reportes', '/panel/comisiones'];
+  const posBlocked = $derived(!hasPos() && under(POS_PATHS));
+  const tabs = $derived(!hasPos() && under(COBROS_PATHS) ? null : under(COBROS_PATHS) ? COBROS_TABS : under(REPORT_PATHS) ? REPORT_TABS : under(AGENDA_PATHS) ? AGENDA_TABS : null);
   const items = $derived(
-    nav.filter(([, , , roles]) => !roles.length || roles.includes(session.me?.role)).map(([i, l, h, , extra]) => [i, l, h, extra])
+    nav
+      .filter(([, , href]) => hasPos() || !['/panel/ventas', '/panel/reportes', '/panel/comisiones'].includes(href))
+      .filter(([, label, , roles]) => !roles.length || roles.includes(session.me?.role) || (!hasPos() && label === 'Catálogo' && ['admin', 'reception'].includes(session.me?.role)))
+      .map(([i, l, h, , extra]) => [i, l, h, extra])
   );
   const blocked = $derived(['pending', 'suspended'].includes(session.me?.business?.status));
   // suscripción vencida: la cuenta entra, pero solo para renovar (y ver su cuenta)
@@ -104,7 +110,15 @@
       {/if}
       {#if inSettings}<a class="back" href="/panel/ajustes"><Icon name="arrow" size={16} />Ajustes</a>{/if}
       {#if tabs}<SectionTabs {tabs} />{/if}
-      {@render children()}
+      {#if posBlocked}
+        <div class="card state">
+          <h1>Esto es de los planes Crecimiento y Pro</h1>
+          <p>Tu plan Básico incluye la agenda y las citas. Para cobrar en caja, llevar inventario y ver reportes de ventas pasa a Crecimiento.</p>
+          {#if session.me.role === 'admin'}<p style="margin-top: 1rem"><a class="btn" href="/panel/suscripcion">Ver planes</a></p>{/if}
+        </div>
+      {:else}
+        {@render children()}
+      {/if}
     {/if}
   </Shell>
 {/if}
