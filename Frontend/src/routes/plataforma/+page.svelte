@@ -65,6 +65,18 @@
     {/each}
   </div>
 
+  {#if d.usage_30d}
+    <section aria-label="Uso en los últimos 30 días">
+      <h2>Uso en 30 días</h2>
+      <div class="stats usage">
+        <div class="card stat"><span class="label">Citas creadas</span><span class="value">{d.usage_30d.appointments}</span></div>
+        <div class="card stat"><span class="label">Reservas en línea</span><span class="value">{d.usage_30d.online_bookings}</span></div>
+        <div class="card stat"><span class="label">Ventas cobradas</span><span class="value">{d.usage_30d.sales}</span></div>
+        <div class="card stat"><span class="label">Negocios con actividad</span><span class="value">{d.usage_30d.active_businesses}</span><span class="hint">de {d.total}</span></div>
+      </div>
+    </section>
+  {/if}
+
   <section>
     <h2>Requieren atención {#if d.attention.length}<span class="badge warn">{d.attention.length}</span>{/if}</h2>
     {#if d.attention.length === 0}

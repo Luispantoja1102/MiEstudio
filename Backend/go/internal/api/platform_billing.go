@@ -13,8 +13,6 @@ import (
 	"miestudio/backend-go/internal/auth"
 )
 
-func planExists(id string) bool { _, ok := planByID(id); return ok }
-
 // ---------- pagos ----------
 
 type paymentRow struct {
@@ -122,7 +120,7 @@ func (a *API) platformRecordPayment(w http.ResponseWriter, r *http.Request) {
 	case req.Method == "courtesy" && req.AmountCents != 0, req.Method != "courtesy" && (req.AmountCents <= 0 || req.AmountCents > 100_000_000):
 		writeErr(w, http.StatusBadRequest, "el monto debe ser mayor que cero (una cortesía va en cero)")
 		return
-	case req.Plan != "" && !planExists(req.Plan):
+	case req.Plan != "" && !a.planExists(r.Context(), req.Plan):
 		writeErr(w, http.StatusBadRequest, "plan inválido")
 		return
 	case len(req.Note) > 300:
@@ -184,8 +182,9 @@ func (a *API) platformPlans(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	out := make([]planOut, 0, len(planCatalog))
-	for _, p := range planCatalog {
+	plans := a.plans(r.Context())
+	out := make([]planOut, 0, len(plans))
+	for _, p := range plans {
 		out = append(out, planOut{Plan: p, Businesses: counts[p.ID][0], Paying: counts[p.ID][1]})
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -262,6 +261,16 @@ func (a *API) platformOverview(w http.ResponseWriter, r *http.Request) {
 		// estados de cobro
 		"counts": counts, "attention": attention, "recent": recent,
 	}
+	// uso de la plataforma en los últimos 30 días (sin datos de clientes: solo conteos)
+	since := now.AddDate(0, 0, -30)
+	var appts, online, salesN, activeBiz int
+	a.DB.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM appointments WHERE created_at >= $1 AND status <> 'cancelled'),
+		(SELECT count(*) FROM appointments WHERE created_at >= $1 AND source = 'online'),
+		(SELECT count(*) FROM sales WHERE created_at >= $1 AND status = 'paid'),
+		(SELECT count(*) FROM businesses b WHERE EXISTS (SELECT 1 FROM appointments x WHERE x.business_id = b.id AND x.created_at >= $1)
+		                                       OR EXISTS (SELECT 1 FROM sales y WHERE y.business_id = b.id AND y.created_at >= $1))`, since).Scan(&appts, &online, &salesN, &activeBiz)
+	out["usage_30d"] = map[string]int{"appointments": appts, "online_bookings": online, "sales": salesN, "active_businesses": activeBiz}
 	if isAdmin {
 		var mrr, paid int
 		// ingreso mensual recurrente: lo que cada negocio activo y de pago paga al mes según su último pago

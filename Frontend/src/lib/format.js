@@ -33,6 +33,8 @@ export const PLATFORM_ROLES = { platform_admin: 'Administrador', platform_suppor
 export const formatDay = (iso) => (iso ? new Date(iso).toLocaleDateString('es-MX', { dateStyle: 'medium' }) : '—');
 
 export const ACTIONS = {
+  plan_changed: 'Plan editado (precio o límites)',
+  plan_reset: 'Plan restablecido a su configuración original',
   business_profile_changed: 'Datos del negocio actualizados',
   demo_business_created: 'Negocio de demostración creado',
   mp_connected: 'Mercado Pago conectado',

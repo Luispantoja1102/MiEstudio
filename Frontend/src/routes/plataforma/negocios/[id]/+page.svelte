@@ -123,6 +123,15 @@
       </div>
     {/if}
 
+    {#if data.metrics}
+      <dl class="metrics" aria-label="Uso en los últimos 30 días">
+        <div><dt>Citas (30 días)</dt><dd>{data.metrics.appointments_30d}</dd></div>
+        <div><dt>Reservas en línea</dt><dd>{data.metrics.online_bookings_30d}</dd></div>
+        <div><dt>Ventas</dt><dd>{data.metrics.sales_30d}</dd></div>
+        <div><dt>Última cita creada</dt><dd class="small">{data.metrics.last_appointment_at ? formatDay(data.metrics.last_appointment_at) : 'Nunca'}</dd></div>
+      </dl>
+    {/if}
+
     {#if write}
       <div class="form-actions">
         {#if b.status === 'pending'}<button class="btn" onclick={() => patch({ status: 'trial' }, 'Negocio aprobado: inició su prueba de 14 días.')}>Aprobar</button>{/if}
@@ -139,6 +148,13 @@
           <button type="button" class="btn ghost sm" onclick={() => (suspending = false)}>Cancelar</button>
         </form>
       {/if}
+    {/if}
+  </section>
+
+  {#if write}
+    <section class="card">
+      <h2>Plan y fechas</h2>
+      <p class="meta">Cambia el plan o ajusta cuándo termina la prueba o el periodo pagado.</p>
       <div class="grid3">
         <div>
           <label class="field" style="margin: 0">Plan
@@ -155,8 +171,8 @@
           <button class="btn ghost sm" disabled={!periodDate} onclick={() => patch({ current_period_end: periodDate, status: 'active' }, 'Vigencia actualizada.')}>Guardar</button>
         </div>
       </div>
-    {/if}
-  </section>
+    </section>
+  {/if}
 
   {#if write}
     <section class="card">
@@ -253,4 +269,8 @@
   .usage .over { color: var(--danger); font-weight: 600; }
   .reset { display: flex; gap: 8px; flex: 1 1 100%; flex-wrap: wrap; margin-top: 0.75rem; }
   .reset input { margin: 0; flex: 1 1 240px; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 1rem 0; padding: 14px 16px; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .metrics dt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .metrics dd { margin: 4px 0 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-family: var(--font-body, inherit); }
+  .metrics dd.small { font-size: 1rem; padding-top: 6px; }
 </style>

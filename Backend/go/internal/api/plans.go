@@ -41,7 +41,8 @@ var planCatalog = []Plan{
 		MaxStaff: nil, MaxBranches: 10, POS: true, Deposits: true, Terminal: true, Support: "dedicado"},
 }
 
-func planByID(id string) (Plan, bool) {
+// defaultPlan es el plan tal como lo define el código, sin los ajustes de la plataforma.
+func defaultPlan(id string) (Plan, bool) {
 	for _, p := range planCatalog {
 		if p.ID == id {
 			return p, true
@@ -49,6 +50,45 @@ func planByID(id string) (Plan, bool) {
 	}
 	return Plan{}, false
 }
+
+// plans devuelve el catálogo vigente: lo definido en el código con los ajustes que la plataforma haya guardado encima.
+func (a *API) plans(ctx context.Context) []Plan {
+	out := make([]Plan, len(planCatalog))
+	copy(out, planCatalog)
+	rows, err := a.DB.Query(ctx, `SELECT plan_id, description, price_month, price_year, max_staff, max_branches, pos, deposits, terminal, support FROM plan_settings`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var o Plan
+		if rows.Scan(&id, &o.Description, &o.PriceMonth, &o.PriceYear, &o.MaxStaff, &o.MaxBranches, &o.POS, &o.Deposits, &o.Terminal, &o.Support) != nil {
+			continue
+		}
+		for i := range out {
+			if out[i].ID == id {
+				o.ID, o.Name = out[i].ID, out[i].Name
+				if o.Description == "" {
+					o.Description = out[i].Description
+				}
+				out[i] = o
+			}
+		}
+	}
+	return out
+}
+
+func (a *API) planByID(ctx context.Context, id string) (Plan, bool) {
+	for _, p := range a.plans(ctx) {
+		if p.ID == id {
+			return p, true
+		}
+	}
+	return Plan{}, false
+}
+
+func (a *API) planExists(ctx context.Context, id string) bool { _, ok := defaultPlan(id); return ok }
 
 // PriceCents es lo que cuesta el plan por 1 o 12 meses, en centavos.
 func (p Plan) PriceCents(months int) int {
@@ -93,10 +133,10 @@ func usableSQL(alias, nowArg string) string {
 func (a *API) planOf(ctx context.Context, q queryer, bizID int64) Plan {
 	var id string
 	q.QueryRow(ctx, `SELECT plan FROM businesses WHERE id = $1`, bizID).Scan(&id)
-	if p, ok := planByID(id); ok {
+	if p, ok := a.planByID(ctx, id); ok {
 		return p
 	}
-	return planCatalog[1]
+	return a.plans(ctx)[1]
 }
 
 // Uso actual frente a los topes del plan.
@@ -167,5 +207,5 @@ func (a *API) planFeatures(ctx context.Context, bizID int64) map[string]any {
 // publicPlans es GET /api/plans: el catálogo de planes para la página de inicio, sin datos de ningún negocio.
 func (a *API) publicPlans(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=300")
-	writeJSON(w, http.StatusOK, planCatalog)
+	writeJSON(w, http.StatusOK, a.plans(r.Context()))
 }

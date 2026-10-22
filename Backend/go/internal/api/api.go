@@ -242,6 +242,8 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("GET /api/platform/stats", a.platform(a.platformOverview, both...))
 	mux.Handle("GET /api/platform/overview", a.platform(a.platformOverview, both...))
 	mux.Handle("GET /api/platform/plans", a.platform(a.platformPlans, both...))
+	mux.Handle("PUT /api/platform/plans/{id}", a.platform(a.platformPutPlan, write))
+	mux.Handle("DELETE /api/platform/plans/{id}", a.platform(a.platformResetPlan, write))
 	mux.Handle("GET /api/platform/payments", a.platform(a.platformPayments, write))
 	mux.Handle("GET /api/platform/health", a.platform(a.platformHealth, write))
 	mux.Handle("POST /api/platform/businesses/{id}/payments", a.platform(a.platformRecordPayment, write))

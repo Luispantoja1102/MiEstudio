@@ -60,7 +60,7 @@ func scanBiz(row pgx.Row, now time.Time) (bizRow, error) {
 	if err != nil {
 		return b, err
 	}
-	if pl, ok := planByID(b.Plan); ok {
+	if pl, ok := defaultPlan(b.Plan); ok {
 		b.PlanName = pl.Name
 	}
 	b.BillingState = BillingState(b.Status, b.TrialEndsAt, b.CurrentPeriodEnd, now)
@@ -132,8 +132,8 @@ func (a *API) platformGetBusiness(w http.ResponseWriter, r *http.Request) {
 		}
 		team = append(team, m)
 	}
-	out := map[string]any{"business": b, "team": team, "usage": a.usageOf(r.Context(), a.DB, id)}
-	if pl, ok := planByID(b.Plan); ok {
+	out := map[string]any{"business": b, "team": team, "usage": a.usageOf(r.Context(), a.DB, id), "metrics": a.businessMetrics(r.Context(), id)}
+	if pl, ok := a.planByID(r.Context(), b.Plan); ok {
 		out["limits"] = pl
 	}
 	// el dinero solo lo ve quien administra la plataforma
@@ -206,7 +206,7 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 	case req.Name != nil && !validName(strings.TrimSpace(*req.Name)):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
 		return
-	case req.Plan != nil && !planExists(*req.Plan):
+	case req.Plan != nil && !a.planExists(r.Context(), *req.Plan):
 		writeErr(w, http.StatusBadRequest, "plan inválido")
 		return
 	case req.SuspendedReason != nil && len(*req.SuspendedReason) > 300:
@@ -481,4 +481,18 @@ func (a *API) platformPutSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	a.logActivity(r.Context(), actor(r), 0, "settings_changed", map[string]any{"registration_mode": req.RegistrationMode})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// businessMetrics son los conteos de uso de un negocio en los últimos 30 días y su última actividad (sin datos de clientes).
+func (a *API) businessMetrics(ctx context.Context, id int64) map[string]any {
+	since := a.now().AddDate(0, 0, -30)
+	var appts, online, salesN int
+	var lastAppt, lastSale *time.Time
+	a.DB.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM appointments WHERE business_id = $1 AND created_at >= $2 AND status <> 'cancelled'),
+		(SELECT count(*) FROM appointments WHERE business_id = $1 AND created_at >= $2 AND source = 'online'),
+		(SELECT count(*) FROM sales WHERE business_id = $1 AND created_at >= $2 AND status = 'paid'),
+		(SELECT max(created_at) FROM appointments WHERE business_id = $1),
+		(SELECT max(created_at) FROM sales WHERE business_id = $1)`, id, since).Scan(&appts, &online, &salesN, &lastAppt, &lastSale)
+	return map[string]any{"appointments_30d": appts, "online_bookings_30d": online, "sales_30d": salesN, "last_appointment_at": lastAppt, "last_sale_at": lastSale}
 }

@@ -61,10 +61,10 @@ func (a *API) getBilling(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 		return
 	}
-	cur, _ := planByID(plan)
+	cur, _ := a.planByID(ctx, plan)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"plan": cur, "billing_state": p.BillingState, "trial_ends_at": trialEnds, "current_period_end": periodEnd,
-		"plans": planCatalog, "usage": a.usageOf(ctx, a.DB, p.BusinessID), "payments": a.paymentsOf(ctx, p.BusinessID, 24),
+		"plans": a.plans(ctx), "usage": a.usageOf(ctx, a.DB, p.BusinessID), "payments": a.paymentsOf(ctx, p.BusinessID, 24),
 		"online": a.onlineBillingEnabled(), "grace_days": pastDueGraceDays,
 	})
 }
@@ -87,7 +87,7 @@ func (a *API) startCheckout(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
-	plan, ok := planByID(req.Plan)
+	plan, ok := a.planByID(ctx, req.Plan)
 	if !ok || (req.Months != 1 && req.Months != 12) {
 		writeErr(w, http.StatusBadRequest, "elige un plan y 1 o 12 meses")
 		return
@@ -307,7 +307,7 @@ func (a *API) notifyPayment(ctx context.Context, bizID int64, p paymentRow) {
 	}
 	var name string
 	a.DB.QueryRow(ctx, `SELECT name FROM businesses WHERE id = $1`, bizID).Scan(&name)
-	plan, _ := planByID(p.Plan)
+	plan, _ := a.planByID(ctx, p.Plan)
 	until := p.PeriodEnd.Format("2006-01-02")
 	for _, to := range a.teamRecipients(ctx) {
 		a.sendBackground(mail.Message{To: to, Subject: "Pago recibido: " + name,
