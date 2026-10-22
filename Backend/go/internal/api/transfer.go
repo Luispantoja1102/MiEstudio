@@ -181,10 +181,16 @@ func (a *API) getProof(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
+	// un comprobante es un archivo de un desconocido: nunca se ejecuta ni se interpreta como página
 	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "private, no-store")
-	w.Header().Set("Content-Disposition", "inline")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	if ctype == "application/pdf" {
+		w.Header().Set("Content-Disposition", `attachment; filename="comprobante.pdf"`)
+	} else {
+		w.Header().Set("Content-Disposition", "inline")
+	}
 	w.Write(data)
 }
 

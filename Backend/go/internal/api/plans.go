@@ -163,3 +163,9 @@ func (a *API) planFeatures(ctx context.Context, bizID int64) map[string]any {
 	pl := a.planOf(ctx, a.DB, bizID)
 	return map[string]any{"pos": pl.POS, "deposits": pl.Deposits, "terminal": pl.Terminal, "max_branches": pl.MaxBranches, "max_staff": pl.MaxStaff, "name": pl.Name}
 }
+
+// publicPlans es GET /api/plans: el catálogo de planes para la página de inicio, sin datos de ningún negocio.
+func (a *API) publicPlans(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	writeJSON(w, http.StatusOK, planCatalog)
+}

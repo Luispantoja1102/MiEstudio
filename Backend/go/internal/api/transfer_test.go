@@ -341,3 +341,14 @@ func (o *onlineFixture) latestToken(t *testing.T) string {
 }
 
 var _ = http.StatusOK
+
+func httpGet(t *testing.T, a *API, path, token string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest("GET", path, nil)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	rec := httptest.NewRecorder()
+	a.Routes().ServeHTTP(rec, req)
+	return rec
+}

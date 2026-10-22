@@ -94,6 +94,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/public-appointments/{token}/confirm", a.publicConfirm)
 	mux.HandleFunc("POST /api/public-appointments/{token}/proof", a.publicProof)
 	mux.HandleFunc("POST /api/public-appointments/{token}/reminders-off", a.publicRemindersOff)
+	mux.HandleFunc("GET /api/plans", a.publicPlans)
 	mux.HandleFunc("GET /api/public/{slug}", a.publicInfo)
 	mux.HandleFunc("GET /api/public/{slug}/privacy", a.publicPrivacy)
 	mux.HandleFunc("POST /api/public/{slug}/arco", a.publicArco)
