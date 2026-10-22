@@ -33,6 +33,13 @@ export const PLATFORM_ROLES = { platform_admin: 'Administrador', platform_suppor
 export const formatDay = (iso) => (iso ? new Date(iso).toLocaleDateString('es-MX', { dateStyle: 'medium' }) : '—');
 
 export const ACTIONS = {
+  business_profile_changed: 'Datos del negocio actualizados',
+  demo_business_created: 'Negocio de demostración creado',
+  mp_connected: 'Mercado Pago conectado',
+  mp_disconnected: 'Mercado Pago desconectado',
+  mp_terminal_registered: 'Terminal de Mercado Pago registrada',
+  transfer_confirmed: 'Pago por transferencia confirmado',
+  transfer_rejected: 'Comprobante de transferencia rechazado',
   business_registered: 'Negocio registrado',
   business_created_by_platform: 'Negocio dado de alta por la plataforma',
   business_updated: 'Negocio actualizado',

@@ -46,7 +46,7 @@
 <style>
   .plans { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .plan h2 { margin-bottom: 0.2rem; }
-  .price { font-family: var(--font-heading); font-size: 2.2rem; margin: 0.5rem 0 0; }
+  .price { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 2.2rem; margin: 0.5rem 0 0; }
   .price small { font-size: 1rem; color: var(--muted); font-family: var(--font-body); }
   ul { padding-left: 1.1rem; margin: 1rem 0; }
   li { margin-bottom: 0.3rem; }

@@ -102,14 +102,19 @@
 {/if}
 
 <style>
-  .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  /* seis indicadores: 2 columnas en el celular, 3 en pantallas medianas y 6 en pantallas anchas */
+  .stats { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 760px) { .stats { gap: 16px; grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1180px) { .stats { grid-template-columns: repeat(6, 1fr); } }
   .money { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 16px; }
   .stat { display: grid; gap: 4px; color: var(--text); text-decoration: none; }
   a.stat:hover { border-color: var(--accent); }
   .ico { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
   .label { color: var(--muted); font-size: 0.9rem; }
-  .value { font-family: var(--font-heading); font-size: 2.2rem; line-height: 1.1; }
-  .big .value { font-size: 2.6rem; color: var(--accent); }
+  /* cifras con la misma familia y números alineados que el resto de la plataforma, no con la tipografía de títulos */
+  .value { font-family: var(--font-body, inherit); font-size: 2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums lining-nums; }
+  .big .value { font-size: 2.5rem; color: var(--accent); }
+  @media (max-width: 759px) { .stat.card { padding: 1rem; } .ico { width: 34px; height: 34px; margin-bottom: 4px; } .value { font-size: 1.6rem; } }
   .hint { color: var(--muted); font-size: 0.82rem; }
   section { margin-top: 2.5rem; }
   section h2 { font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }

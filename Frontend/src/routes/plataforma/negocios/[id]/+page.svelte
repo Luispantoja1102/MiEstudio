@@ -104,7 +104,7 @@
     <h2>Suscripción</h2>
     <p class="meta">
       Plan <b>{PLANS[b.plan]}</b> ·
-      {#if b.status === 'trial'}prueba hasta {formatDay(b.trial_ends_at)}{#if b.trial_days_left !== null} ({plural(b.trial_days_left, 'día', 'días')}){/if}
+      {#if b.status === 'trial'}prueba hasta {formatDay(b.trial_ends_at)}{#if b.trial_days_left !== null}{' '}({plural(b.trial_days_left, 'día', 'días')}){/if}
       {:else if b.current_period_end}vigente hasta {formatDay(b.current_period_end)}
       {:else if b.status === 'active'}activo sin vencimiento (cortesía)
       {:else}sin periodo pagado{/if}
