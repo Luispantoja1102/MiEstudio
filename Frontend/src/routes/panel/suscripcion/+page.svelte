@@ -156,7 +156,7 @@
   .plan { display: grid; gap: 8px; align-content: start; }
   .plan.current { border-color: var(--accent); }
   .plan h3 { margin: 0.4rem 0 0; font-size: 1.4rem; }
-  .price { font-family: var(--font-heading); font-size: 2.1rem; margin: 0.25rem 0 0; }
+  .price { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 2rem; margin: 0.25rem 0 0; }
   .price small { font-size: 1rem; font-family: var(--font-body); color: var(--muted); }
   ul { padding-left: 1.1rem; margin: 0.5rem 0 1rem; font-size: 0.92rem; }
   .meta { color: var(--muted); font-size: 0.88rem; margin: 0; }

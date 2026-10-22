@@ -382,8 +382,8 @@
   .dayhead { flex-direction: column; gap: 2px; justify-content: center; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text); border-top: 0; border-right: 0; cursor: pointer; }
   .dayhead span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
   .dayhead b { display: grid; place-items: center; min-width: 30px; height: 30px; font-size: 1.05rem; font-weight: 700; border-radius: 999px; }
-  .dayhead.today b { color: var(--accent-contrast); background: var(--accent); }
-  .dayhead.today span { color: var(--accent); }
+  .dayhead.today b { color: var(--side-mark-ink); background: var(--side-mark); }
+  .dayhead.today span { color: var(--clay); }
   .dayhead:hover { background: var(--surface-2); }
 
   .axis { position: sticky; left: 0; z-index: 2; background: var(--surface); }
@@ -413,7 +413,9 @@
   .appt .n { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .appt .m { font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .appt .m em { margin-left: 6px; font-style: normal; font-weight: 700; color: var(--text); }
-  .appt.tight { padding: 4px 7px; }
+  /* citas cortas de la semana: hora y nombre en la misma línea y el detalle debajo, para que quepan en 30 minutos */
+  .appt.tight { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 6px; align-content: start; padding: 4px 7px; }
+  .appt.tight .m { grid-column: 1 / -1; }
   .appt.tight .n { font-size: 0.78rem; }
   .appt.arrived { background: var(--who); border-color: var(--who); color: #fff; }
   .appt.arrived .t, .appt.arrived .m, .appt.arrived .m em { color: rgba(255, 255, 255, 0.9); }
@@ -439,7 +441,7 @@
   .cell:hover { background: var(--surface-2); }
   .cell.out { color: var(--muted); background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
   .num { align-self: flex-start; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; font-size: 0.88rem; font-weight: 700; border-radius: 999px; }
-  .cell.today .num { background: var(--accent); color: var(--accent-contrast); }
+  .cell.today .num { background: var(--side-mark); color: var(--side-mark-ink); }
   .mini { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 0.74rem; line-height: 1.35; }
   .mini b { flex: none; font-weight: 700; }
   .mini span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

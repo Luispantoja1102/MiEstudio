@@ -608,7 +608,7 @@
   .tip { margin: 0.5rem 0; padding: 0.6rem 0.8rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .tip legend { padding: 0 6px; font-size: 0.85rem; font-weight: 500; }
   .due { display: flex; justify-content: space-between; align-items: baseline; margin: 0.75rem 0; padding: 0.75rem 1rem; background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-sm); }
-  .due strong { font-family: var(--font-heading); font-size: 1.8rem; }
+  .due strong { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.7rem; }
 
   .prow { padding: 0.7rem 0.8rem; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .prow-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }

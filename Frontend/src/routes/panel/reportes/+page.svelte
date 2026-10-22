@@ -111,7 +111,7 @@
   .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .kpis .card { display: grid; gap: 2px; }
   .label { color: var(--muted); font-size: 0.9rem; }
-  .value { font-family: var(--font-heading); font-size: 2rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .value { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.9rem; line-height: 1.15; }
   small { color: var(--muted); }
   section { margin-top: 2rem; }
   section h2 { font-size: 1.35rem; }

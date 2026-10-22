@@ -196,7 +196,7 @@
   .slots li.done { opacity: 0.7; }
   @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-  .when { font-family: var(--font-heading); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+  .when { font-family: var(--font-body, inherit); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
   .what { display: grid; min-width: 0; line-height: 1.35; }
   .what .meta { font-size: 0.88rem; color: var(--muted); }
   .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: baseline; }

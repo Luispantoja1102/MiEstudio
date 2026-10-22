@@ -123,8 +123,8 @@
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    color: #fff;
-    background: var(--danger);
+    color: var(--side-mark-ink);
+    background: var(--side-mark);
     border: 2px solid var(--bg);
     border-radius: 999px;
   }
