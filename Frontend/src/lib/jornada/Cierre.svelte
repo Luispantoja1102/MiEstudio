@@ -5,9 +5,10 @@
 
   // Respaldo por si no carga el catálogo; la fuente es GET /api/plans
   let plans = $state([
-    { id: 'basico', name: 'Básico', description: 'Solo agenda y citas, sin cobros', price_month: 399, price_year: 3990, max_staff: 2, max_branches: 1, pos: false, deposits: false, terminal: false, support: 'correo' },
-    { id: 'crecimiento', name: 'Crecimiento', description: 'Todo incluido: citas, caja, ventas, anticipos y más', price_month: 799, price_year: 7990, max_staff: 6, max_branches: 1, pos: true, deposits: true, terminal: true, support: 'prioritario' },
-    { id: 'pro', name: 'Pro', description: 'Todo, con varias sucursales y equipos grandes', price_month: 1499, price_year: 14990, max_staff: null, max_branches: 10, pos: true, deposits: true, terminal: true, support: 'dedicado' }
+    { id: 'individual', name: 'Individual', description: 'Para quien trabaja solo: agenda, citas y anticipo por transferencia', price_month: 150, price_year: 1500, max_staff: 1, max_branches: 1, pos: false, deposits: true, deposits_mp: false, terminal: false, support: 'correo' },
+    { id: 'basico', name: 'Básico', description: 'Agenda y citas, con anticipo por transferencia', price_month: 350, price_year: 3500, max_staff: 2, max_branches: 1, pos: false, deposits: true, deposits_mp: false, terminal: false, support: 'correo' },
+    { id: 'crecimiento', name: 'Crecimiento', description: 'Todo incluido: citas, caja, ventas, anticipos y más', price_month: 700, price_year: 7000, max_staff: 6, max_branches: 1, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'prioritario' },
+    { id: 'pro', name: 'Pro', description: 'Todo, con varias sucursales y equipos grandes', price_month: 1200, price_year: 12000, max_staff: null, max_branches: 10, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'dedicado' }
   ]);
   let yearly = $state(false);
   onMount(async () => {
@@ -21,11 +22,12 @@
   const money = (n) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
   const rows = (p) => [
     [true, 'Agenda y reserva en línea'],
-    [true, p.max_staff === null ? 'Equipo sin límite' : `Hasta ${p.max_staff} personas`],
+    [true, p.max_staff === null ? 'Equipo sin límite' : p.max_staff === 1 ? '1 persona' : `Hasta ${p.max_staff} personas`],
     [true, p.max_branches === 1 ? '1 sucursal' : `Hasta ${p.max_branches} sucursales`],
     [p.pos, 'Caja, ventas, paquetes e inventario'],
     [p.pos, 'Comisiones y reportes'],
-    [p.deposits, 'Anticipos con Mercado Pago o transferencia'],
+    [p.deposits, 'Anticipo por transferencia, con comprobante'],
+    [p.deposits_mp, 'Anticipo con Mercado Pago'],
     [p.terminal, 'Cobro con terminal Mercado Pago'],
     [true, `Soporte ${p.support}`]
   ];
@@ -120,12 +122,13 @@
   .periodo button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 600; color: var(--tinta-suave); cursor: pointer; }
   .periodo button[aria-pressed='true'] { background: var(--tinta); color: var(--ticket); }
   .periodo button:focus-visible { outline: 3px solid var(--bermellon); outline-offset: 2px; }
-  .lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--tinta); }
+  .lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--tinta); }
   .plan { display: flex; flex-direction: column; padding: 28px 28px 0; }
   .plan + .plan { border-left: 1px solid rgb(20 20 22 / 0.18); }
   .plan.fuerte { background: #fff; box-shadow: inset 0 0 0 2px var(--tinta); border-radius: 0 0 14px 14px; padding-bottom: 28px; }
   h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.9rem; font-weight: 650; }
-  h3 span { font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
+  h3 { flex-wrap: wrap; }
+  h3 span { order: -1; flex-basis: 100%; margin-bottom: -6px; font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
   .desc { margin: 8px 0 22px; min-height: 2.8em; color: var(--tinta-suave); line-height: 1.4; }
   .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
   .precio small { font-family: var(--texto); font-stretch: 100%; font-size: 1rem; font-weight: 500; margin-left: 4px; }
@@ -170,6 +173,10 @@
     .cabeza { grid-template-columns: 1fr; }
     .periodo { grid-column: 1; grid-row: auto; justify-self: start; }
     .lista { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 901px) and (max-width: 1180px) {
+    .lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .plan:nth-child(3) { border-left: 0; }
     .plan + .plan { border-left: 0; border-top: 1px solid rgb(20 20 22 / 0.18); }
     .plan { padding-bottom: 28px; }
     .dos, .pie-g { grid-template-columns: 1fr; }
