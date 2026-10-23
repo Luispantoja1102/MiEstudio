@@ -68,8 +68,9 @@
   .barra {
     position: fixed; z-index: 40; top: 14px; left: 14px;
     display: flex; align-items: center; gap: 4px; padding: 5px 5px 5px 8px; border-radius: 14px;
-    background: rgb(246 245 241 / 0.94); color: var(--tinta);
-    box-shadow: 0 1px 2px rgb(20 20 22 / 0.12), 0 12px 28px -14px rgb(20 20 22 / 0.4);
+    background: rgb(246 245 241 / 0.55); color: var(--tinta);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35), 0 12px 28px -14px rgb(20 20 22 / 0.35);
   }
   .barra :global(.logo) { gap: 8px; margin-right: 6px; }
   .barra :global(.mark) { width: 30px; height: 30px; border-radius: 8px; }
