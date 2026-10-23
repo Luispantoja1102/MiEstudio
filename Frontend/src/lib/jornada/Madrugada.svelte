@@ -74,19 +74,19 @@
   ul li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--bermellon); }
 
   /* Teléfono: la página pública de reservas */
-  .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -28px rgb(20 20 22 / 0.45); }
+  .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -28px rgb(var(--ink-rgb) / 0.45); }
   .pantalla { height: 100%; border-radius: 30px; background: var(--ticket); color: var(--tinta); padding: 26px 16px 16px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px; overflow: hidden; }
   .negocio { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: 1.05rem; }
   .mes { margin: 0; font-size: 0.78rem; color: var(--tinta-suave); }
   .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; font-size: 0.68rem; text-align: center; }
   .cal i { font-style: normal; font-weight: 700; color: var(--tinta-suave); }
-  .cal span { padding: 4px 0; border-radius: 6px; color: rgb(20 20 22 / 0.3); }
-  .cal .libre { color: var(--tinta); background: rgb(20 20 22 / 0.05); }
+  .cal span { padding: 4px 0; border-radius: 6px; color: rgb(var(--ink-rgb) / 0.3); }
+  .cal .libre { color: var(--tinta); background: rgb(var(--ink-rgb) / 0.05); }
   .cal .hoy { background: var(--tinta); color: var(--ticket); }
   .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
-  .slots span { display: flex; flex-direction: column; padding: 7px 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgb(20 20 22 / 0.16); font-variant-numeric: tabular-nums; }
+  .slots span { display: flex; flex-direction: column; padding: 7px 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.16); font-variant-numeric: tabular-nums; }
   .slots small { font-size: 0.66rem; font-weight: 500; color: var(--tinta-suave); }
-  .slots .ocupado { color: rgb(20 20 22 / 0.4); background: rgb(20 20 22 / 0.05); box-shadow: none; }
+  .slots .ocupado { color: rgb(var(--ink-rgb) / 0.4); background: rgb(var(--ink-rgb) / 0.05); box-shadow: none; }
   /* el horario se toma justo cuando llega su aviso */
   .slots .tomado { --on: clamp(0, calc((var(--p) - 0.18 - var(--n) * 0.22) * 8), 1); background: color-mix(in oklab, var(--tinta) calc(var(--on) * 6%), transparent); color: color-mix(in oklab, var(--tinta) calc(100% - var(--on) * 60%), transparent); }
   .slots .ya { opacity: var(--on); }
@@ -96,7 +96,7 @@
   .avisos li {
     --on: clamp(0, calc((var(--p) - 0.12 - var(--n) * 0.22) * 6), 1);
     display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 14px 16px; border-radius: 14px;
-    background: #fff; box-shadow: 0 1px 2px rgb(20 20 22 / 0.06), 0 14px 28px -20px rgb(20 20 22 / 0.3);
+    background: var(--carta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08);
     opacity: var(--on); transform: translate3d(0, calc((1 - var(--on)) * 24px), 0);
   }
   .avisos time { grid-row: span 2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.3rem; color: var(--tinta); font-variant-numeric: tabular-nums; }

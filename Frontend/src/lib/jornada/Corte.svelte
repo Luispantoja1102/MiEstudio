@@ -46,7 +46,7 @@
   h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
   .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
   .comisiones { margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; max-width: 460px; }
-  .comisiones div { --on: clamp(0, calc((var(--p) - 0.6 - var(--k) * 0.06) * 8), 1); display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px solid rgb(20 20 22 / 0.12); opacity: calc(0.25 + var(--on) * 0.75); }
+  .comisiones div { --on: clamp(0, calc((var(--p) - 0.6 - var(--k) * 0.06) * 8), 1); display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px solid rgb(var(--ink-rgb) / 0.12); opacity: calc(0.25 + var(--on) * 0.75); }
   dt { font-weight: 600; }
   dt small { margin-left: 6px; font-weight: 400; opacity: 0.65; }
   dd { margin: 0; font-family: var(--rotulo); font-stretch: 80%; font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
@@ -56,7 +56,7 @@
   .ranura { position: absolute; z-index: 2; top: 0; left: -14px; right: -14px; height: 26px; border-radius: 8px; background: #0e0f11; box-shadow: inset 0 -6px 0 #2a2c31; }
   .papel { position: absolute; top: 14px; left: 0; right: 0; bottom: 0; overflow: hidden; }
   .ticket {
-    padding: 34px 26px 30px; background: #fff; color: #1b1b1d; box-shadow: 0 1px 2px rgb(20 20 22 / 0.06); font-family: var(--rotulo); font-stretch: 90%; font-size: 0.95rem;
+    padding: 34px 26px 30px; background: #fff; color: #1b1b1d; --tinta: #141416; --tinta-suave: #55555c; --ink-rgb: 20 20 22; box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.06); font-family: var(--rotulo); font-stretch: 90%; font-size: 0.95rem;
     transform: translate3d(0, calc((1 - clamp(0, calc(var(--p) * 1.6), 1)) * -100%), 0);
   }
   .ticket::after { content: ''; display: block; height: 10px; margin: 26px -26px -40px; background: radial-gradient(circle at 7px 10px, var(--ticket) 6px, transparent 6.5px) 0 0 / 14px 10px repeat-x; }

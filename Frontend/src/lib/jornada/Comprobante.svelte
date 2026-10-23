@@ -57,14 +57,14 @@
 
   .cita {
     --ok: clamp(0, calc((var(--p) - 0.62) * 6), 1);
-    position: absolute; z-index: 2; left: 0; bottom: 6%; width: min(420px, 92%); padding: 24px; border-radius: 16px; background: #fff;
-    box-shadow: 0 1px 2px rgb(20 20 22 / 0.08), 0 24px 48px -24px rgb(20 20 22 / 0.35);
+    position: absolute; z-index: 2; left: 0; bottom: 6%; width: min(420px, 92%); padding: 24px; border-radius: 16px; background: var(--carta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08);
+    box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.08), 0 24px 48px -24px rgb(var(--ink-rgb) / 0.35);
   }
   .quien { display: grid; gap: 4px; margin: 0 0 16px; }
   .quien b { font-family: var(--display); font-stretch: var(--ancho); font-size: 1.5rem; font-weight: 650; }
   .quien span { color: var(--tinta-suave); font-size: 0.95rem; }
   dl { margin: 0; display: grid; gap: 8px; }
-  dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px dashed rgb(20 20 22 / 0.18); }
+  dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px dashed rgb(var(--ink-rgb) / 0.18); }
   dt { color: var(--tinta-suave); }
   dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
   .estado { display: grid; text-align: right; }
@@ -73,7 +73,7 @@
   .despues { opacity: var(--ok); color: var(--eucalipto); }
   .boton { display: block; margin-top: 18px; padding: 12px; border-radius: 10px; text-align: center; font-weight: 600; background: var(--tinta); color: var(--ticket); opacity: calc(1 - var(--ok) * 0.6); }
   .sello {
-    position: absolute; left: 50%; bottom: 20px; padding: 6px 14px; background: #fff; border: 3px solid var(--eucalipto); border-radius: 6px;
+    position: absolute; left: 50%; bottom: 20px; padding: 6px 14px; background: var(--carta); border: 3px solid var(--eucalipto); border-radius: 6px;
     font-family: var(--rotulo); font-stretch: 75%; font-weight: 800; font-size: 1.4rem; text-transform: uppercase; color: var(--eucalipto);
     transform: translateX(-50%) rotate(-6deg) scale(calc(1.6 - var(--ok) * 0.6)); opacity: var(--ok);
   }
@@ -82,8 +82,8 @@
   .recibo {
     --mv: clamp(0, calc((var(--p) - 0.08) * 2.2), 1);
     --tx: -78%;
-    position: absolute; right: 0; top: 0; width: min(260px, 70%); padding: 18px 20px 22px; background: #fbfbfa; border-radius: 4px;
-    box-shadow: 0 1px 2px rgb(20 20 22 / 0.1), 0 18px 32px -18px rgb(20 20 22 / 0.4);
+    position: absolute; right: 0; top: 0; width: min(260px, 70%); padding: 18px 20px 22px; background: #fbfbfa; border-radius: 4px; --tinta: #141416; --tinta-suave: #55555c; --ink-rgb: 20 20 22; color: var(--tinta);
+    box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.1), 0 18px 32px -18px rgb(var(--ink-rgb) / 0.4);
     transform: translate3d(calc(var(--mv) * var(--tx)), calc(var(--mv) * 46%), 0) rotate(calc(5deg - var(--mv) * 8deg));
   }
   .recibo::after { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; background: radial-gradient(circle at 6px 0, transparent 5px, #fbfbfa 5.5px) 0 0 / 12px 8px repeat-x; }

@@ -5,10 +5,10 @@
   import { scene } from './scroll.js';
 
   const oficios = [
-    { nombre: 'barbería', tono: 'var(--cuero)', suave: '#eadfd8', servicios: [['Corte', 2], ['Fade', 2], ['Barba', 1], ['Corte y barba', 3]] },
-    { nombre: 'uñas', tono: 'var(--esmalte)', suave: '#f1dfdc', servicios: [['Gelish', 2], ['Acrílico', 5], ['Pedicure', 2], ['Retoque', 2]] },
-    { nombre: 'pestañas', tono: 'var(--tinta)', suave: '#e4e4ea', servicios: [['Extensiones', 4], ['Relleno', 2], ['Lifting', 2]] },
-    { nombre: 'spa', tono: 'var(--eucalipto)', suave: '#dde7e0', servicios: [['Masaje', 2], ['Facial', 3], ['Piedras calientes', 3]] }
+    { nombre: 'barbería', tono: 'var(--cuero)', suave: 'var(--s-barberia)', servicios: [['Corte', 2], ['Fade', 2], ['Barba', 1], ['Corte y barba', 3]] },
+    { nombre: 'uñas', tono: 'var(--esmalte)', suave: 'var(--s-unas)', servicios: [['Gelish', 2], ['Acrílico', 5], ['Pedicure', 2], ['Retoque', 2]] },
+    { nombre: 'pestañas', tono: 'var(--tinta)', suave: 'var(--s-pestanas)', servicios: [['Extensiones', 4], ['Relleno', 2], ['Lifting', 2]] },
+    { nombre: 'spa', tono: 'var(--eucalipto)', suave: 'var(--s-spa)', servicios: [['Masaje', 2], ['Facial', 3], ['Piedras calientes', 3]] }
   ];
   const clientes = ['Andrea', 'Luis', 'Mariela', 'Toño', 'Paola', 'Karla', 'Iker', 'Fer', 'Ivonne', 'Rubén', 'Dulce', 'Beto', 'Sara', 'Memo', 'Lupita', 'Óscar', 'Nayeli', 'Chuy'];
   const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -107,7 +107,7 @@
   .dias span:nth-child(6) { grid-column: 7; }
   /* líneas de cada hora: la retícula es la agenda misma */
   .horas { position: absolute; left: 0; right: 0; top: 29px; bottom: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
-  .horas li { position: absolute; left: 0; right: 0; top: calc(var(--i) * 2 / var(--filas) * 100%); padding-top: 2px; border-top: 1px solid rgb(20 20 22 / 0.07); font-size: 0.72rem; color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
+  .horas li { position: absolute; left: 0; right: 0; top: calc(var(--i) * 2 / var(--filas) * 100%); padding-top: 2px; border-top: 1px solid rgb(var(--ink-rgb) / 0.07); font-size: 0.72rem; color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
 
   .cita {
     --on: clamp(0, calc((var(--p) * 1.06 - var(--t)) * 14), 1);

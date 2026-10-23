@@ -110,35 +110,35 @@
   .silla .hora { color: var(--tono); }
   .silla .texto > p:last-child { color: var(--tinta-suave); }
   .dibujo { padding: clamp(24px, 3vw, 40px); border-radius: 18px; background: var(--suave); }
-  .barberia { --tono: var(--cuero); --suave: #eadfd8; }
-  .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(20 20 22 / 0.1); }
+  .barberia { --tono: var(--cuero); --suave: var(--s-barberia); }
+  .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(var(--ink-rgb) / 0.1); }
   .guia b { font-family: var(--rotulo); font-stretch: 75%; font-size: 1.6rem; }
   .guia small { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
   .barra { height: 18px; border-radius: 2px; background: #a3a9ae; box-shadow: inset 0 -5px 0 #858c92; transform-origin: left; transform: scaleX(calc((1 - var(--k) * 0.19) * clamp(0, calc(var(--q) * 1.4 - var(--k) * 0.08), 1))); }
 
   /* Uñas: el tono nude de la base */
-  .unas { --tono: var(--esmalte); --suave: #f1dfdc; }
+  .unas { --tono: var(--esmalte); --suave: var(--s-unas); }
   .unas-fila { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; max-width: 440px; }
   .tono { display: grid; justify-items: center; gap: 10px; }
-  .una { width: 64px; height: 92px; border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%; background: var(--c); box-shadow: inset 0 0 0 1px rgb(20 20 22 / 0.12), inset 8px 10px 0 -4px rgb(255 255 255 / 0.28);
+  .una { width: 64px; height: 92px; border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%; background: var(--c); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.12), inset 8px 10px 0 -4px rgb(255 255 255 / 0.28);
     /* el esmalte se pinta de la cutícula a la punta */
     clip-path: inset(0 0 calc((1 - clamp(0, calc(var(--q) * 1.6 - var(--k) * 0.12), 1)) * 100%) 0 round 32px); }
   .tono small { font-size: 0.85rem; font-weight: 600; }
 
   /* Pestañas: tinta */
-  .pestanas { --tono: var(--tinta); --suave: #e4e4ea; }
+  .pestanas { --tono: var(--tinta); --suave: var(--s-pestanas); }
   svg { width: 100%; max-width: 520px; overflow: visible; }
-  .parpado { fill: none; stroke: rgb(20 20 22 / 0.45); stroke-width: 2; }
+  .parpado { fill: none; stroke: rgb(var(--ink-rgb) / 0.45); stroke-width: 2; }
   .pestana { stroke: var(--tinta); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1)); }
   svg text { fill: var(--tinta-suave); font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
 
   /* Spa: eucalipto */
-  .spa { --tono: var(--eucalipto); --suave: #dde7e0; }
-  .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: #fff; color: var(--tinta); box-shadow: 0 1px 2px rgb(20 20 22 / 0.06); }
+  .spa { --tono: var(--eucalipto); --suave: var(--s-spa); }
+  .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: var(--carta); color: var(--tinta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08); }
   .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.4rem; font-weight: 650; }
   .t-nombre span { font-family: var(--texto); font-size: 0.9rem; font-weight: 500; color: var(--tinta-suave); align-self: center; }
   .hoyos { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; gap: 16px; }
-  .hoyos span { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(20 20 22 / 0.25); }
+  .hoyos span { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(var(--ink-rgb) / 0.25); }
   .hoyos .usada { background: var(--eucalipto); box-shadow: inset 0 3px 4px rgb(0 0 0 / 0.35); transform: scale(clamp(0, calc(var(--q) * 1.8 - var(--k) * 0.2), 1)); }
   .t-saldo { margin: 22px 0 0; color: var(--tinta-suave); }
   .t-saldo b { color: var(--tinta); font-variant-numeric: tabular-nums; }
