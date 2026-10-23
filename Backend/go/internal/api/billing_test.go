@@ -191,6 +191,8 @@ func TestPlanLimitsStaffBranchesAndFeatures(t *testing.T) {
 
 func TestDepositAndTerminalNeedPlanFeature(t *testing.T) {
 	d := newDeposit(t)
+	// un plan sin anticipos (la plataforma puede quitarlos de cualquiera)
+	d.a.DB.Exec(context.Background(), `INSERT INTO plan_settings (plan_id, price_month, price_year, max_staff, max_branches, pos, deposits, deposits_mp, terminal, support) VALUES ('individual', 150, 1500, 1, 1, false, false, false, false, 'correo')`)
 	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'individual'`)
 	r := d.a.do(t, "PUT", "/api/booking/settings", d.admin, map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2, "reminder_hours": 24, "deposit_percent": 30})
 	if r.Status != 403 || r.Body["code"] != "plan_feature" {

@@ -34,8 +34,8 @@ type Plan struct {
 func ptr(n int) *int { return &n }
 
 var planCatalog = []Plan{
-	{ID: "individual", Name: "Individual", Description: "Para quien trabaja solo: agenda y citas en línea", PriceMonth: 150, PriceYear: 1500,
-		MaxStaff: ptr(1), MaxBranches: 1, POS: false, Deposits: false, DepositsMP: false, Terminal: false, Support: "correo"},
+	{ID: "individual", Name: "Individual", Description: "Para quien trabaja solo: agenda, citas y anticipo por transferencia", PriceMonth: 150, PriceYear: 1500,
+		MaxStaff: ptr(1), MaxBranches: 1, POS: false, Deposits: true, DepositsMP: false, Terminal: false, Support: "correo"},
 	{ID: "basico", Name: "Básico", Description: "Agenda y citas, con anticipo por transferencia", PriceMonth: 350, PriceYear: 3500,
 		MaxStaff: ptr(2), MaxBranches: 1, POS: false, Deposits: true, DepositsMP: false, Terminal: false, Support: "correo"},
 	{ID: "crecimiento", Name: "Crecimiento", Description: "Todo incluido: citas, caja, ventas, anticipos y más", PriceMonth: 700, PriceYear: 7000,

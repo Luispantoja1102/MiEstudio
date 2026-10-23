@@ -143,7 +143,7 @@
       </span>
     </label>
 
-    {#if !canDeposit}<p class="banner" role="status">Los anticipos están incluidos desde el plan Básico. <a href="/panel/suscripcion">Ver planes</a></p>{:else if !canMP}<p class="banner" role="status">Tu plan cobra anticipos por transferencia. El cobro con Mercado Pago está en Crecimiento y Pro. <a href="/panel/suscripcion">Ver planes</a></p>{/if}
+    {#if !canDeposit}<p class="banner" role="status">Tu plan no incluye anticipos. <a href="/panel/suscripcion">Ver planes</a></p>{:else if !canMP}<p class="banner" role="status">Tu plan cobra anticipos por transferencia. El cobro con Mercado Pago está en Crecimiento y Pro. <a href="/panel/suscripcion">Ver planes</a></p>{/if}
     <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} disabled={!canTransfer} /> Aceptar anticipo por transferencia</label>
     {#if s.transfer_enabled}
       <div class="transfer">

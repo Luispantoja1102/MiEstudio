@@ -5,7 +5,7 @@
 
   // Respaldo por si no carga el catálogo; la fuente es GET /api/plans
   let plans = $state([
-    { id: 'individual', name: 'Individual', description: 'Para quien trabaja solo: agenda y citas en línea', price_month: 150, price_year: 1500, max_staff: 1, max_branches: 1, pos: false, deposits: false, deposits_mp: false, terminal: false, support: 'correo' },
+    { id: 'individual', name: 'Individual', description: 'Para quien trabaja solo: agenda, citas y anticipo por transferencia', price_month: 150, price_year: 1500, max_staff: 1, max_branches: 1, pos: false, deposits: true, deposits_mp: false, terminal: false, support: 'correo' },
     { id: 'basico', name: 'Básico', description: 'Agenda y citas, con anticipo por transferencia', price_month: 350, price_year: 3500, max_staff: 2, max_branches: 1, pos: false, deposits: true, deposits_mp: false, terminal: false, support: 'correo' },
     { id: 'crecimiento', name: 'Crecimiento', description: 'Todo incluido: citas, caja, ventas, anticipos y más', price_month: 700, price_year: 7000, max_staff: 6, max_branches: 1, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'prioritario' },
     { id: 'pro', name: 'Pro', description: 'Todo, con varias sucursales y equipos grandes', price_month: 1200, price_year: 12000, max_staff: null, max_branches: 10, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'dedicado' }

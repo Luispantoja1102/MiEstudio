@@ -67,7 +67,7 @@ func TestBasicoDepositsAreTransferOnly(t *testing.T) {
 	}
 }
 
-// Individual: una persona y sin anticipos.
+// Individual: una persona, anticipo por transferencia y sin caja.
 func TestIndividualPlan(t *testing.T) {
 	a := newTestAPI(t)
 	admin := a.mustRegister(t, "Barbería", "a@x.com")
@@ -84,12 +84,22 @@ func TestIndividualPlan(t *testing.T) {
 	if r := a.do(t, "POST", "/api/branches", admin, map[string]any{"name": "Sucursal 2"}); r.Status != 403 || r.Body["code"] != "plan_limit" {
 		t.Fatalf("segunda sucursal: %d %v", r.Status, r.Body)
 	}
-	// sin anticipos de ningún tipo
-	r := a.do(t, "PUT", "/api/booking/settings", admin, map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2,
-		"reminder_hours": 24, "show_prices": true, "deposit_percent": 30, "transfer_enabled": true, "transfer_bank": "BBVA", "transfer_holder": "Luis",
-		"transfer_clabe": "012345678901234568", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12})
-	if r.Status != 403 || r.Body["code"] != "plan_feature" {
-		t.Fatalf("anticipo en Individual: %d %v", r.Status, r.Body)
+	// anticipo solo por transferencia, como en Básico
+	body := func(mod map[string]any) map[string]any {
+		m := map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2, "reminder_hours": 24, "show_prices": true,
+			"deposit_percent": 30, "transfer_enabled": true, "transfer_bank": "BBVA", "transfer_holder": "Luis", "transfer_clabe": "012345678901234568",
+			"transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12}
+		for k, v := range mod {
+			m[k] = v
+		}
+		return m
+	}
+	if r := a.do(t, "PUT", "/api/booking/settings", admin, body(nil)); r.Status != 204 {
+		t.Fatalf("anticipo por transferencia en Individual: %d %v", r.Status, r.Body)
+	}
+	r := a.do(t, "PUT", "/api/booking/settings", admin, body(map[string]any{"transfer_enabled": false}))
+	if r.Status != 409 || r.Body["code"] != "transfer_required" {
+		t.Fatalf("Individual sin transferencias no puede pedir anticipo: %d %v", r.Status, r.Body)
 	}
 	// ni caja ni ventas
 	if r := a.do(t, "GET", "/api/cash/current", admin, nil); r.Status != 403 {
@@ -102,7 +112,7 @@ func TestIndividualPlan(t *testing.T) {
 		list[2]["price_month"] != float64(700) || list[3]["price_month"] != float64(1200) {
 		t.Fatalf("catálogo: %v", list)
 	}
-	if list[1]["deposits"] != true || list[1]["deposits_mp"] != false || list[2]["deposits_mp"] != true {
+	if list[0]["deposits"] != true || list[0]["deposits_mp"] != false || list[1]["deposits"] != true || list[1]["deposits_mp"] != false || list[2]["deposits_mp"] != true {
 		t.Fatalf("anticipos por plan: %v", list)
 	}
 }
