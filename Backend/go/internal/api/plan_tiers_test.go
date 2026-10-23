@@ -27,7 +27,7 @@ func TestBasicoDepositsAreTransferOnly(t *testing.T) {
 		return b
 	}
 	transfer := map[string]any{"transfer_enabled": true, "transfer_bank": "BBVA", "transfer_holder": "Barbería Don Luis",
-		"transfer_clabe": "012345678901234567", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12}
+		"transfer_clabe": "012345678901234568", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12}
 
 	// Crecimiento: los dos métodos
 	if m := publicMethods(t, d); len(m) != 1 || m[0] != "mp" {
@@ -87,7 +87,7 @@ func TestIndividualPlan(t *testing.T) {
 	// sin anticipos de ningún tipo
 	r := a.do(t, "PUT", "/api/booking/settings", admin, map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2,
 		"reminder_hours": 24, "show_prices": true, "deposit_percent": 30, "transfer_enabled": true, "transfer_bank": "BBVA", "transfer_holder": "Luis",
-		"transfer_clabe": "012345678901234567", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12})
+		"transfer_clabe": "012345678901234568", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12})
 	if r.Status != 403 || r.Body["code"] != "plan_feature" {
 		t.Fatalf("anticipo en Individual: %d %v", r.Status, r.Body)
 	}

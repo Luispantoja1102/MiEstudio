@@ -44,7 +44,7 @@ func (o *onlineFixture) transferSettings(t *testing.T, want int, mod map[string]
 	t.Helper()
 	body := map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2, "reminder_hours": 24,
 		"show_prices": true, "deposit_percent": 30, "transfer_enabled": true, "transfer_bank": "BBVA", "transfer_holder": "Barbería Don Luis",
-		"transfer_clabe": "012345678901234567", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12}
+		"transfer_clabe": "012345678901234568", "transfer_whatsapp": "664 123 4567", "transfer_hold_hours": 12}
 	for k, v := range mod {
 		body[k] = v
 	}
@@ -80,13 +80,45 @@ func TestTransferSettingsAreValidated(t *testing.T) {
 	o.transferSettings(t, 400, map[string]any{"transfer_whatsapp": "abc"})
 	o.transferSettings(t, 400, map[string]any{"transfer_hold_hours": 999})
 	// con una CLABE escrita con espacios se guardan solo los dígitos
-	o.transferSettings(t, 200, map[string]any{"transfer_clabe": "0123 4567 8901 2345 67"})
+	o.transferSettings(t, 200, map[string]any{"transfer_clabe": "0123 4567 8901 2345 68"})
 	got := o.a.do(t, "GET", "/api/booking/settings", o.admin, nil).Body["settings"].(map[string]any)
-	if got["transfer_clabe"] != "012345678901234567" {
+	if got["transfer_clabe"] != "012345678901234568" {
 		t.Fatalf("clabe: %v", got["transfer_clabe"])
 	}
 	// sin Mercado Pago ni transferencias no hay anticipo posible
 	o.transferSettings(t, 409, map[string]any{"transfer_enabled": false})
+}
+
+// El titular puede dar CLABE, tarjeta o las dos; con ninguna no hay a dónde transferir.
+func TestTransferCardAndClabeCombinations(t *testing.T) {
+	o := newOnline(t)
+	// un dígito verificador equivocado se rechaza: casi siempre es un error de captura
+	o.transferSettings(t, 400, map[string]any{"transfer_clabe": "012345678901234567"})
+	// ninguna de las dos
+	o.transferSettings(t, 400, map[string]any{"transfer_clabe": "", "transfer_card": ""})
+	// tarjeta inválida (no pasa Luhn) y con longitud incorrecta
+	o.transferSettings(t, 400, map[string]any{"transfer_clabe": "", "transfer_card": "4111111111111112"})
+	o.transferSettings(t, 400, map[string]any{"transfer_clabe": "", "transfer_card": "41111111111"})
+	// solo tarjeta
+	o.transferSettings(t, 200, map[string]any{"transfer_clabe": "", "transfer_card": "4111 1111 1111 1111"})
+	got := o.a.do(t, "GET", "/api/booking/settings", o.admin, nil).Body["settings"].(map[string]any)
+	if got["transfer_card"] != "4111111111111111" || got["transfer_clabe"] != "" {
+		t.Fatalf("solo tarjeta: %v %v", got["transfer_card"], got["transfer_clabe"])
+	}
+	// una reserva por transferencia muestra la tarjeta y no una CLABE vacía
+	token := o.mustBook(t, at(monday, "10:00"), nil)
+	tr := o.a.do(t, "GET", "/api/public-appointments/"+token, "", nil).Body["deposit"].(map[string]any)["transfer"].(map[string]any)
+	if tr["card"] != "4111111111111111" || tr["clabe"] != "" {
+		t.Fatalf("datos de transferencia con solo tarjeta: %v", tr)
+	}
+	// las dos
+	o.transferSettings(t, 200, map[string]any{"transfer_card": "4111111111111111"})
+	info := o.a.do(t, "GET", "/api/transfer-info", o.admin, nil).Body
+	if info["card"] != "4111111111111111" || info["clabe"] != "012345678901234568" {
+		t.Fatalf("transfer-info: %v", info)
+	}
+	// 15 dígitos (American Express)
+	o.transferSettings(t, 200, map[string]any{"transfer_clabe": "", "transfer_card": "378282246310005"})
 }
 
 func TestTransferBookingProofAndOwnerConfirmation(t *testing.T) {
@@ -106,7 +138,7 @@ func TestTransferBookingProofAndOwnerConfirmation(t *testing.T) {
 	view := o.a.do(t, "GET", "/api/public-appointments/"+token, "", nil)
 	dep := view.Body["deposit"].(map[string]any)
 	tr := dep["transfer"].(map[string]any)
-	if dep["method"] != "transfer" || tr["clabe"] != "012345678901234567" || tr["reference"] != fmt.Sprintf("CITA-%d", id) || tr["whatsapp"] != "526641234567" || tr["proof_uploaded"] != false {
+	if dep["method"] != "transfer" || tr["clabe"] != "012345678901234568" || tr["reference"] != fmt.Sprintf("CITA-%d", id) || tr["whatsapp"] != "526641234567" || tr["proof_uploaded"] != false {
 		t.Fatalf("datos de transferencia: %v", dep)
 	}
 	if inbox := o.a.do(t, "GET", "/api/inbox", o.admin, nil); inbox.Body["unread"].(float64) != 1 {

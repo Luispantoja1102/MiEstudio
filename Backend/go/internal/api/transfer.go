@@ -39,7 +39,7 @@ func (a *API) depositMethods(ctx context.Context, b *pubBiz) []string {
 // transferDetails es lo que ve quien debe pagar: a dónde transferir y con qué concepto.
 func transferDetails(s bookingSettings, apptID int64) map[string]any {
 	return map[string]any{
-		"bank": s.TransferBank, "holder": s.TransferHolder, "clabe": s.TransferClabe,
+		"bank": s.TransferBank, "holder": s.TransferHolder, "clabe": s.TransferClabe, "card": s.TransferCard,
 		"whatsapp": waDigits(s.TransferWhatsApp), "reference": fmt.Sprintf("CITA-%d", apptID),
 	}
 }
@@ -325,7 +325,7 @@ func (a *API) getTransferInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"enabled": st.TransferEnabled, "bank": st.TransferBank, "holder": st.TransferHolder, "clabe": st.TransferClabe,
+		"enabled": st.TransferEnabled, "bank": st.TransferBank, "holder": st.TransferHolder, "clabe": st.TransferClabe, "card": st.TransferCard,
 		"whatsapp": waDigits(st.TransferWhatsApp), "deposit_percent": st.DepositPercent, "hold_hours": st.TransferHoldHours,
 	})
 }

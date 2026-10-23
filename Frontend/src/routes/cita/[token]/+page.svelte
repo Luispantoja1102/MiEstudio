@@ -145,7 +145,8 @@
           <dl>
             <div><dt>Banco</dt><dd>{t.bank}</dd></div>
             <div><dt>Titular</dt><dd>{t.holder}</dd></div>
-            <div><dt>CLABE</dt><dd>{t.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')} <button class="mini" onclick={() => copy(t.clabe, 'clabe')}>{copied === 'clabe' ? 'Copiada' : 'Copiar'}</button></dd></div>
+            {#if t.clabe}<div><dt>CLABE</dt><dd>{t.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')} <button class="mini" onclick={() => copy(t.clabe, 'clabe')}>{copied === 'clabe' ? 'Copiada' : 'Copiar'}</button></dd></div>{/if}
+            {#if t.card}<div><dt>Tarjeta</dt><dd>{t.card.replace(/(\d{4})(?=\d)/g, '$1 ')} <button class="mini" onclick={() => copy(t.card, 'card')}>{copied === 'card' ? 'Copiada' : 'Copiar'}</button></dd></div>{/if}
             <div><dt>Concepto</dt><dd>{t.reference}</dd></div>
           </dl>
           {#if t.reject_reason}<p class="bad">No pudimos aceptar tu comprobante: {t.reject_reason}. Sube otro, por favor.</p>{/if}

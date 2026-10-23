@@ -4,6 +4,7 @@
   import { api } from '$lib/api.js';
   import { money } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
+  import { BANKS } from '$lib/banks.js';
 
   let s = $state(null);
   const canTransfer = session.me?.business?.plan_features?.deposits !== false;
@@ -15,6 +16,12 @@
   let error = $state('');
   let saved = $state(false);
   let busy = $state(false);
+  let bankOther = $state(false);
+  const bankSelect = $derived(bankOther ? '__otro' : (s?.transfer_bank ?? ''));
+  function pickBank(e) {
+    const v = e.currentTarget.value;
+    if (v === '__otro') { bankOther = true; s.transfer_bank = ''; } else { bankOther = false; s.transfer_bank = v; }
+  }
   let copied = $state(false);
 
   const link = $derived(meta.public_path ? location.origin + meta.public_path : '');
@@ -24,6 +31,7 @@
     s = { ...r.settings };
     meta = { public_path: r.public_path, mp_connected: r.mp_connected, mail_enabled: r.mail_enabled, whatsapp_available: r.whatsapp_available, is_owner: r.is_owner };
     services = svc.filter((x) => x.active);
+    bankOther = !!s.transfer_bank && !BANKS.includes(s.transfer_bank);
   }
 
   onMount(() => {
@@ -37,12 +45,12 @@
     saved = false;
     busy = true;
     try {
-      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme, transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours } = s;
+      const { enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme, transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_card, transfer_whatsapp, transfer_hold_hours } = s;
       await api('/api/booking/settings', {
         method: 'PUT',
         body: { enabled, min_notice_hours: +min_notice_hours, max_days_ahead: +max_days_ahead, cancel_min_hours: +cancel_min_hours,
           deposit_percent: +deposit_percent, reminder_hours: +reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders: !!whatsapp_reminders && meta.whatsapp_available,
-          transfer_enabled: !!transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours: +transfer_hold_hours || 12,
+          transfer_enabled: !!transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_card, transfer_whatsapp, transfer_hold_hours: +transfer_hold_hours || 12,
           ...(meta.is_owner ? { public_theme: public_theme || 'auto' } : {}) }
       });
       saved = true;
@@ -141,9 +149,19 @@
       <div class="transfer">
         <p class="hint" style="margin: 0 0 0.9rem">Estos datos los ve quien reserva. Cuando suba su comprobante recibirás un aviso en la campana y tú confirmas la cita.</p>
         <div class="form-grid">
-          <label class="field">Banco <input bind:value={s.transfer_bank} maxlength="60" placeholder="Ej. BBVA" /></label>
+          <label class="field">Banco
+            <select value={bankSelect} onchange={pickBank}>
+              <option value="" disabled>Elige tu banco</option>
+              {#each BANKS as b (b)}<option value={b}>{b}</option>{/each}
+              <option value="__otro">Otro banco…</option>
+            </select>
+          </label>
+          {#if bankOther}<label class="field">Nombre del banco <input bind:value={s.transfer_bank} maxlength="60" placeholder="Escribe el nombre" /></label>{/if}
           <label class="field">Titular de la cuenta <input bind:value={s.transfer_holder} maxlength="100" placeholder="Nombre o razón social" /></label>
-          <label class="field">CLABE (18 dígitos) <input bind:value={s.transfer_clabe} inputmode="numeric" maxlength="24" placeholder="000000000000000000" /></label>
+          <label class="field">CLABE interbancaria (18 dígitos) <input bind:value={s.transfer_clabe} inputmode="numeric" maxlength="24" placeholder="000000000000000000" />
+            <span class="hint">Para transferencias SPEI desde cualquier banco.</span></label>
+          <label class="field">Número de tarjeta (15 o 16 dígitos) <input bind:value={s.transfer_card} inputmode="numeric" maxlength="23" placeholder="0000 0000 0000 0000" autocomplete="off" />
+            <span class="hint">Opcional si ya pusiste la CLABE. Puedes dar las dos y quien paga elige. Pon al menos una.</span></label>
           <label class="field">WhatsApp para comprobantes (opcional)
             <input type="tel" bind:value={s.transfer_whatsapp} maxlength="30" placeholder="664 123 4567" />
             <span class="hint">Si tu cliente prefiere mandarlo por WhatsApp, lo ve aquí. Tú lo adjuntas desde la agenda.</span>

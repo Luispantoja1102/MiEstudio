@@ -28,7 +28,7 @@
   const link = $derived(appt.manage_path ? location.origin + appt.manage_path : '');
   const message = $derived(
     info
-      ? `Hola ${appt.client_name ?? ''}, para apartar tu cita transfiere ${money(appt.deposit_cents)} a:\n${info.bank} · ${info.holder}\nCLABE: ${info.clabe}\nConcepto: ${reference}\n` +
+      ? `Hola ${appt.client_name ?? ''}, para apartar tu cita transfiere ${money(appt.deposit_cents)} a:\n${info.bank} · ${info.holder}\n${info.clabe ? `CLABE: ${info.clabe}\n` : ''}${info.card ? `Tarjeta: ${info.card}\n` : ''}Concepto: ${reference}\n` +
           (link ? `Sube tu comprobante aquí: ${link}` : 'Envíanos el comprobante por este medio.')
       : ''
   );
@@ -79,7 +79,8 @@
     <dl>
       <div><dt>Banco</dt><dd>{info.bank}</dd></div>
       <div><dt>Titular</dt><dd>{info.holder}</dd></div>
-      <div><dt>CLABE</dt><dd class="mono">{fmtClabe(info.clabe)}<button class="mini" onclick={() => copy(info.clabe, 'clabe')}>{copied === 'clabe' ? 'Copiada' : 'Copiar'}</button></dd></div>
+      {#if info.clabe}<div><dt>CLABE</dt><dd class="mono">{fmtClabe(info.clabe)}<button class="mini" onclick={() => copy(info.clabe, 'clabe')}>{copied === 'clabe' ? 'Copiada' : 'Copiar'}</button></dd></div>{/if}
+      {#if info.card}<div><dt>Tarjeta</dt><dd class="mono">{fmtClabe(info.card)}<button class="mini" onclick={() => copy(info.card, 'card')}>{copied === 'card' ? 'Copiada' : 'Copiar'}</button></dd></div>{/if}
       <div><dt>Concepto</dt><dd class="mono">{reference}</dd></div>
     </dl>
     <button class="btn ghost sm" onclick={() => copy(message, 'msg')}>{copied === 'msg' ? 'Mensaje copiado' : 'Copiar mensaje para el cliente'}</button>

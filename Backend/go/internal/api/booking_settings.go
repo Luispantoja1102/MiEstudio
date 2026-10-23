@@ -29,7 +29,8 @@ type bookingSettings struct {
 	TransferEnabled   bool   `json:"transfer_enabled"`
 	TransferBank      string `json:"transfer_bank"`
 	TransferHolder    string `json:"transfer_holder"`
-	TransferClabe     string `json:"transfer_clabe"`
+	TransferClabe     string `json:"transfer_clabe"`      // 18 dígitos; puede ir vacío si hay tarjeta
+	TransferCard      string `json:"transfer_card"`       // 15 o 16 dígitos; puede ir vacío si hay CLABE
 	TransferWhatsApp  string `json:"transfer_whatsapp"`   // número al que se puede enviar el comprobante
 	TransferHoldHours int    `json:"transfer_hold_hours"` // cuánto se aparta el horario mientras llega el comprobante
 }
@@ -42,10 +43,10 @@ func loadBookingSettings(ctx context.Context, q queryer, bizID int64) (bookingSe
 	s := defaultBookingSettings()
 	err := q.QueryRow(ctx,
 		`SELECT enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme,
-		        transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours
+		        transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_card, transfer_whatsapp, transfer_hold_hours
 		 FROM booking_settings WHERE business_id = $1`, bizID).
 		Scan(&s.Enabled, &s.MinNoticeHours, &s.MaxDaysAhead, &s.CancelMinHours, &s.DepositPercent, &s.ReminderHours, &s.ShowPrices, &s.WelcomeText, &s.PrivacyEmail, &s.WhatsAppReminders, &s.PublicTheme,
-			&s.TransferEnabled, &s.TransferBank, &s.TransferHolder, &s.TransferClabe, &s.TransferWhatsApp, &s.TransferHoldHours)
+			&s.TransferEnabled, &s.TransferBank, &s.TransferHolder, &s.TransferClabe, &s.TransferCard, &s.TransferWhatsApp, &s.TransferHoldHours)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil
 	}
@@ -112,8 +113,12 @@ func validBookingSettings(s bookingSettings) string {
 		return "el tema de la página pública no es válido"
 	case s.TransferEnabled && (strings.TrimSpace(s.TransferBank) == "" || strings.TrimSpace(s.TransferHolder) == ""):
 		return "para pedir transferencias escribe el banco y el titular de la cuenta"
-	case s.TransferEnabled && !validClabe(s.TransferClabe):
-		return "la CLABE debe tener 18 dígitos"
+	case s.TransferEnabled && s.TransferClabe == "" && s.TransferCard == "":
+		return "captura tu CLABE, el número de tu tarjeta o los dos para recibir transferencias"
+	case s.TransferClabe != "" && !validClabe(s.TransferClabe):
+		return "la CLABE no es válida: deben ser 18 dígitos y el último es un dígito verificador; revísala"
+	case s.TransferCard != "" && !validCard(s.TransferCard):
+		return "el número de tarjeta no es válido: deben ser 15 o 16 dígitos; revísalo"
 	case utf8.RuneCountInString(s.TransferBank) > 60 || utf8.RuneCountInString(s.TransferHolder) > 100:
 		return "el banco o el titular son demasiado largos"
 	case s.TransferWhatsApp != "" && normalizePhone(s.TransferWhatsApp) == "":
@@ -136,12 +141,7 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
 	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
 	s.TransferBank, s.TransferHolder = strings.TrimSpace(s.TransferBank), strings.TrimSpace(s.TransferHolder)
-	s.TransferClabe = strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, s.TransferClabe)
+	s.TransferClabe, s.TransferCard = onlyDigits(s.TransferClabe), onlyDigits(s.TransferCard)
 	s.TransferWhatsApp = strings.TrimSpace(s.TransferWhatsApp)
 	if s.TransferHoldHours == 0 {
 		s.TransferHoldHours = 12 // clientes que no envían el campo
@@ -189,16 +189,16 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := a.DB.Exec(r.Context(),
 		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme,
-		   transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_whatsapp, transfer_hold_hours)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		   transfer_enabled, transfer_bank, transfer_holder, transfer_clabe, transfer_card, transfer_whatsapp, transfer_hold_hours)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		 ON CONFLICT (business_id) DO UPDATE SET enabled = EXCLUDED.enabled, min_notice_hours = EXCLUDED.min_notice_hours,
 		   max_days_ahead = EXCLUDED.max_days_ahead, cancel_min_hours = EXCLUDED.cancel_min_hours, deposit_percent = EXCLUDED.deposit_percent,
 		   reminder_hours = EXCLUDED.reminder_hours, show_prices = EXCLUDED.show_prices, welcome_text = EXCLUDED.welcome_text, privacy_email = EXCLUDED.privacy_email,
 		   whatsapp_reminders = EXCLUDED.whatsapp_reminders, public_theme = EXCLUDED.public_theme,
 		   transfer_enabled = EXCLUDED.transfer_enabled, transfer_bank = EXCLUDED.transfer_bank, transfer_holder = EXCLUDED.transfer_holder,
-		   transfer_clabe = EXCLUDED.transfer_clabe, transfer_whatsapp = EXCLUDED.transfer_whatsapp, transfer_hold_hours = EXCLUDED.transfer_hold_hours`,
+		   transfer_clabe = EXCLUDED.transfer_clabe, transfer_card = EXCLUDED.transfer_card, transfer_whatsapp = EXCLUDED.transfer_whatsapp, transfer_hold_hours = EXCLUDED.transfer_hold_hours`,
 		p.BusinessID, s.Enabled, s.MinNoticeHours, s.MaxDaysAhead, s.CancelMinHours, s.DepositPercent, s.ReminderHours, s.ShowPrices, s.WelcomeText, s.PrivacyEmail, s.WhatsAppReminders, s.PublicTheme,
-		s.TransferEnabled, s.TransferBank, s.TransferHolder, s.TransferClabe, s.TransferWhatsApp, s.TransferHoldHours); err != nil {
+		s.TransferEnabled, s.TransferBank, s.TransferHolder, s.TransferClabe, s.TransferCard, s.TransferWhatsApp, s.TransferHoldHours); err != nil {
 		serverErr(w)
 		return
 	}
@@ -215,16 +215,44 @@ func validPublicTheme(t string) bool {
 }
 
 // validClabe: 18 dígitos (no se valida el dígito de control: lo que se muestra al cliente lo escribe el titular).
+func onlyDigits(v string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, v)
+}
+
+// validClabe: 18 dígitos cuyo último es el verificador (pesos 3, 7, 1 sobre los 17 primeros).
 func validClabe(c string) bool {
-	if len(c) != 18 {
+	if len(c) != 18 || onlyDigits(c) != c {
 		return false
 	}
-	for _, r := range c {
-		if r < '0' || r > '9' {
-			return false
-		}
+	w := [3]int{3, 7, 1}
+	sum := 0
+	for i := 0; i < 17; i++ {
+		sum += (int(c[i]-'0') * w[i%3]) % 10
 	}
-	return true
+	return int(c[17]-'0') == (10-sum%10)%10
+}
+
+// validCard: 15 o 16 dígitos que pasan la verificación de Luhn (la de todas las tarjetas bancarias).
+func validCard(c string) bool {
+	if (len(c) != 15 && len(c) != 16) || onlyDigits(c) != c {
+		return false
+	}
+	sum := 0
+	for i := 0; i < len(c); i++ {
+		d := int(c[len(c)-1-i] - '0')
+		if i%2 == 1 {
+			if d *= 2; d > 9 {
+				d -= 9
+			}
+		}
+		sum += d
+	}
+	return sum%10 == 0
 }
 
 // waDigits deja el número listo para wa.me: con lada de país (52 si solo trae los 10 dígitos de México).
