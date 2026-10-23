@@ -6,13 +6,26 @@
   import { onMount } from 'svelte';
   import { scene, reduced } from './scroll.js';
 
+  // Un texto por lugar del video. El video se detiene en cada lugar mientras se lee su texto (paradas)
+  // y viaja sin texto encima entre uno y otro.
   const momentos = [
-    { a: -1, b: 0.17, tono: '#c9714f', lugar: 'Barbería', titulo: 'Todo tu local, en una sola agenda.', texto: 'Citas en línea, anticipos y caja para barberías, salones de uñas, pestañas y spas. Hecho en México.', h1: true },
-    { a: 0.17, b: 0.4, tono: '#a9b9c9', lugar: 'Pasillo', titulo: 'Del mostrador a la cabina, un solo sistema.', texto: 'Recepción, caja y cada profesional ven solo lo suyo. Tú ves todo el local desde el celular.' },
-    { a: 0.4, b: 0.62, tono: '#d2a24c', lugar: 'Salón', titulo: 'Cada silla sabe quién sigue.', texto: 'Agenda por persona que no deja empalmar, la fila del día a la vista y la comisión de cada servicio calculada sola.' },
-    { a: 0.62, b: 0.84, tono: '#d2a24c', lugar: 'Salón', titulo: 'Color, uñas y estética, sin perseguir pagos.', texto: 'Servicios largos con su duración real y un anticipo que aparta el horario. Con Mercado Pago se confirma solo.' },
-    { a: 0.84, b: 2, tono: '#e3c3b6', lugar: 'Pestañas y spa', titulo: 'Y tus clientas vuelven solas.', texto: 'Recordatorios por WhatsApp, paquetes de sesiones y reactivación de quien dejó de venir.', cta: true }
+    { a: -1, b: 0.2, tono: '#c9714f', lugar: 'Barbería', titulo: 'Todo tu local, en una sola agenda.', texto: 'Agenda por persona que no deja empalmar, anticipos y caja para barberías, salones de uñas, pestañas y spas. Hecho en México.', h1: true },
+    { a: 0.39, b: 0.66, tono: '#d2a24c', lugar: 'Salón', titulo: 'Color, uñas y estética, sin perseguir pagos.', texto: 'Servicios largos con su duración real, un anticipo que aparta el horario y la comisión de cada quien calculada sola.' },
+    { a: 0.85, b: 2, tono: '#e3c3b6', lugar: 'Pestañas y spa', titulo: 'Y tus clientas vuelven solas.', texto: 'Recordatorios por WhatsApp, paquetes de sesiones y reactivación de quien dejó de venir.', cta: true }
   ];
+  // [avance del scroll, segundo del video]: se queda quieto en 0 s (barbería), ~3 s (salón) y al final (cabina)
+  const paradas = [[0, 0], [0.16, 0], [0.42, 2.97], [0.62, 2.97], [0.86, 5.92], [1, 5.92]];
+  const segundo = (p) => {
+    for (let i = 1; i < paradas.length; i++) {
+      const [p0, t0] = paradas[i - 1], [p1, t1] = paradas[i];
+      if (p <= p1) {
+        const f = (p - p0) / (p1 - p0);
+        const e = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2; // arranca y frena suave
+        return t0 + (t1 - t0) * e;
+      }
+    }
+    return paradas[paradas.length - 1][1];
+  };
 
   let video = $state();
   let seccion = $state();
@@ -49,9 +62,9 @@
     const paso = () => {
       raf = requestAnimationFrame(paso);
       const p = +getComputedStyle(seccion).getPropertyValue('--p') || 0;
-      actual = Math.min(3, Math.floor(p * 4));
+      actual = p < 0.29 ? 0 : p < 0.74 ? 1 : 2;
       if (!listo || !video.duration) return;
-      const meta = Math.min(video.duration - 0.05, p * video.duration);
+      const meta = Math.min(video.duration - 0.05, segundo(p));
       mostrado += (meta - mostrado) * 0.18;
       if (Math.abs(meta - mostrado) < 0.002) mostrado = meta;
       // un salto a la vez: si el decodificador sigue buscando, se espera al siguiente cuadro
@@ -95,7 +108,7 @@
     {/each}
 
     <ol class="riel" aria-hidden="true">
-      {#each ['Barbería', 'Pasillo', 'Salón', 'Pestañas y spa'] as l, i}
+      {#each ['Barbería', 'Salón', 'Pestañas y spa'] as l, i}
         <li class:on={actual === i}>{l}</li>
       {/each}
     </ol>
@@ -112,7 +125,7 @@
   video, .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .poster { z-index: 1; transition: opacity 400ms var(--ease); }
   .poster.oculto { opacity: 0; }
-  .velo { position: absolute; inset: 0; z-index: 2; background: rgb(10 10 12 / 0.48); }
+  .velo { position: absolute; inset: 0; z-index: 2; background: rgb(10 10 12 / 0.55); }
 
   /* Cada momento aparece en su tramo del recorrido; título y texto se mueven a distinta velocidad (parallax) */
   .momento {
@@ -123,7 +136,7 @@
     opacity: var(--on); pointer-events: none;
   }
   .momento.primero { --t: clamp(0, calc(var(--p) * 6), 1); }
-  .momento:last-of-type { --t: clamp(-1, calc((var(--p) - 0.9) * 6), 0); }
+  .momento:last-of-type { --t: clamp(-1, calc((var(--p) - 0.93) * 6), 0); }
   .lugar {
     margin: 0 0 14px; display: inline-flex; align-items: center; gap: 10px;
     font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tono);
@@ -135,11 +148,10 @@
     transform: translate3d(0, calc(var(--t) * -70px), 0);
   }
   .texto {
-    margin: 20px 0 0; max-width: 48ch; font-size: clamp(1.02rem, 1.4vw, 1.2rem); line-height: 1.55; color: rgb(255 255 255 / 0.86); text-wrap: pretty;
+    margin: 20px 0 0; max-width: 48ch; font-size: clamp(1.02rem, 1.4vw, 1.2rem); line-height: 1.55; color: rgb(255 255 255 / 0.9); text-wrap: pretty; text-shadow: 0 1px 14px rgb(0 0 0 / 0.5);
     transform: translate3d(0, calc(var(--t) * -36px), 0);
   }
   .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 28px; pointer-events: auto; transform: translate3d(0, calc(var(--t) * -24px), 0); }
-  .momento:not(.primero):not(:last-of-type) .acciones { display: none; }
   .momento.primero .acciones, .momento:last-of-type .acciones { pointer-events: auto; }
   .pista { font-size: 0.9rem; color: rgb(255 255 255 / 0.75); }
   .claro { color: #fff; }
