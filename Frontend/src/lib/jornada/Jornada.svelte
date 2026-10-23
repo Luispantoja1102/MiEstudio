@@ -3,7 +3,7 @@
   // Tiene su propia dirección de arte (no sigue el tema claro/oscuro del panel): los colores salen de los materiales del oficio.
   import '@fontsource-variable/archivo/wdth.css';
   import Logo from '$lib/Logo.svelte';
-  import Reloj from './Reloj.svelte';
+  import Recorrido from './Recorrido.svelte';
   import Apertura from './Apertura.svelte';
   import Madrugada from './Madrugada.svelte';
   import Comprobante from './Comprobante.svelte';
@@ -11,21 +11,20 @@
   import Corte from './Corte.svelte';
   import Cierre from './Cierre.svelte';
 
-  const links = [['La jornada', '#madrugada'], ['Oficios', '#oficios'], ['Planes', '#planes'], ['Preguntas', '#preguntas']];
+  const links = [['Oficios', '#oficios'], ['Planes', '#planes'], ['Preguntas', '#preguntas']];
 </script>
 
 <div class="jornada">
   <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <!-- Barra pequeña, fija arriba a la izquierda -->
   <header class="barra">
     <Logo />
     <nav aria-label="Secciones">{#each links as [l, h]}<a href={h}>{l}</a>{/each}</nav>
-    <Reloj />
-    <div class="cuenta">
-      <a class="entrar" href="/login">Entrar</a>
-      <a class="btn btn-chico" href="/registro">Probar gratis</a>
-    </div>
+    <a class="entrar" href="/login">Entrar</a>
+    <a class="btn btn-chico" href="/registro">Probar gratis</a>
   </header>
   <main id="contenido">
+    <Recorrido />
     <Apertura />
     <Madrugada />
     <Comprobante />
@@ -67,16 +66,17 @@
   .saltar:focus { top: 12px; }
 
   .barra {
-    position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: 64px;
-    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 24px;
-    padding: 0 clamp(16px, 3vw, 40px); background: var(--ticket); color: var(--tinta);
-    box-shadow: 0 1px 0 rgb(20 20 22 / 0.12);
+    position: fixed; z-index: 40; top: 14px; left: 14px;
+    display: flex; align-items: center; gap: 4px; padding: 5px 5px 5px 8px; border-radius: 14px;
+    background: rgb(246 245 241 / 0.94); color: var(--tinta);
+    box-shadow: 0 1px 2px rgb(20 20 22 / 0.12), 0 12px 28px -14px rgb(20 20 22 / 0.4);
   }
-  .barra :global(.word) { font-family: var(--display); font-stretch: var(--ancho); }
-  nav { display: flex; gap: 4px; }
-  nav a, .entrar { padding: 8px 12px; border-radius: 8px; color: var(--tinta-suave); text-decoration: none; font-weight: 500; }
-  nav a:hover, .entrar:hover { color: var(--tinta); background: rgb(20 20 22 / 0.05); }
-  .cuenta { display: flex; align-items: center; gap: 6px; }
+  .barra :global(.logo) { gap: 8px; margin-right: 6px; }
+  .barra :global(.mark) { width: 30px; height: 30px; border-radius: 8px; }
+  .barra :global(.word) { font-family: var(--display); font-stretch: var(--ancho); font-size: 1.02rem; }
+  nav { display: flex; }
+  nav a, .entrar { padding: 7px 10px; border-radius: 8px; color: var(--tinta-suave); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+  nav a:hover, .entrar:hover { color: var(--tinta); background: rgb(20 20 22 / 0.06); }
 
   /* Botones de toda la landing */
   .jornada :global(.btn) {
@@ -92,6 +92,7 @@
   .jornada :global(.link) { color: inherit; font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
   .jornada :global(a:focus-visible), .jornada :global(button:focus-visible) { outline: 3px solid var(--bermellon); outline-offset: 3px; }
 
-  @media (max-width: 1080px) { nav { display: none; } .barra { grid-template-columns: auto 1fr auto; } }
-  @media (max-width: 560px) { .entrar { display: none; } .barra { gap: 12px; } }
+  .barra :global(.btn-chico) { min-height: 36px; padding: 0 14px; font-size: 0.88rem; }
+  @media (max-width: 900px) { nav { display: none; } }
+  @media (max-width: 420px) { .entrar { display: none; } }
 </style>

@@ -67,14 +67,14 @@
 
       <!-- El titular: la cita más grande de la semana -->
       <div class="titular" style="grid-column: {titular.d0 + 2} / {titular.d1 + 3}; grid-row: {titular.r0 + 2} / {titular.r1 + 2}">
-        <h1 id="titulo">
+        <h2 id="titulo" class="h1">
           Tu agenda de
           <span class="rueda">
             {#each oficios as o, i}<span class="palabra" class:ultima={i === 3} aria-hidden="true" style="--i: {i}; color: {o.tono}">{o.nombre}</span>{/each}
             <span class="sr">barbería, uñas, pestañas o spa</span>
           </span>
           se llena sola.
-        </h1>
+        </h2>
         <div class="lado">
           <p>Tus clientes reservan a cualquier hora, dejan su anticipo y tú cobras en pesos. Citas, caja y recordatorios en un solo lugar.</p>
           <div class="acciones">
@@ -126,7 +126,7 @@
     padding: clamp(20px, 3vw, 44px); border-radius: 10px; background: var(--ticket);
     box-shadow: inset 0 0 0 1.5px var(--tinta);
   }
-  h1 { margin: 0; align-self: center; font-family: var(--display); font-stretch: var(--ancho); font-weight: 700; font-size: clamp(2.2rem, 3.9vw, 4.2rem); line-height: 0.98; letter-spacing: -0.025em; }
+  .h1 { margin: 0; align-self: center; font-family: var(--display); font-stretch: var(--ancho); font-weight: 700; font-size: clamp(2.2rem, 3.9vw, 4.2rem); line-height: 0.98; letter-spacing: -0.025em; }
   .lado { display: grid; gap: 18px; }
   .rueda { display: grid; }
   .palabra {
@@ -153,7 +153,7 @@
     .dias span.fin, .cita.fin, .cita.choque { display: none; }
     .horas { display: none; }
     .titular { grid-column: 2 / 5 !important; grid-template-columns: 1fr; align-content: center; padding: 20px; gap: 14px; }
-    h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
+    .h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
     .titular p { font-size: 0.95rem; }
     .cita { padding: 3px 6px; }
     .cita b { font-size: 0.72rem; }
