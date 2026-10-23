@@ -66,7 +66,7 @@
     padding: 88px clamp(16px, 4vw, 56px) 40px;
   }
   .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: var(--luna); font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
+  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
   .texto > p:not(.hora) { margin: 0; max-width: 44ch; line-height: 1.55; color: rgb(246 245 241 / 0.78); text-wrap: pretty; }
   ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   li { line-height: 1.4; }
@@ -76,7 +76,7 @@
   /* Teléfono: la página pública de reservas */
   .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -20px rgb(0 0 0 / 0.8); }
   .pantalla { height: 100%; border-radius: 30px; background: var(--ticket); color: var(--tinta); padding: 26px 16px 16px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px; overflow: hidden; }
-  .negocio { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+  .negocio { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: 1.05rem; }
   .mes { margin: 0; font-size: 0.78rem; color: var(--tinta-suave); }
   .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; font-size: 0.68rem; text-align: center; }
   .cal i { font-style: normal; font-weight: 700; color: var(--tinta-suave); }

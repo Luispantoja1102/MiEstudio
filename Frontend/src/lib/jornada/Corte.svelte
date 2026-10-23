@@ -42,8 +42,8 @@
 <style>
   .corte { height: 230vh; background: #1d1e22; color: var(--ticket); }
   .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; gap: clamp(24px, 4vw, 64px); padding: 88px clamp(16px, 4vw, 56px) 40px; }
-  .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: #f0b44c; font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
+  .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: #d8b57e; font-variant-numeric: tabular-nums; }
+  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
   .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: rgb(246 245 241 / 0.78); text-wrap: pretty; }
   .comisiones { margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; max-width: 460px; }
   .comisiones div { --on: clamp(0, calc((var(--p) - 0.6 - var(--k) * 0.06) * 8), 1); display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px solid rgb(246 245 241 / 0.16); opacity: calc(0.25 + var(--on) * 0.75); }

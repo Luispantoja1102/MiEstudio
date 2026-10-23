@@ -47,7 +47,7 @@
   .comprobante { height: 240vh; background: var(--ticket); color: var(--tinta); }
   .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; gap: clamp(24px, 4vw, 64px); padding: 88px clamp(16px, 4vw, 56px) 40px; }
   .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: var(--bermellon); font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 15ch; text-wrap: balance; }
+  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 15ch; text-wrap: balance; }
   .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
   ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   ul li { padding-left: 18px; position: relative; line-height: 1.4; }
@@ -61,7 +61,7 @@
     box-shadow: 0 1px 2px rgb(20 20 22 / 0.08), 0 24px 48px -24px rgb(20 20 22 / 0.35);
   }
   .quien { display: grid; gap: 4px; margin: 0 0 16px; }
-  .quien b { font-family: var(--display); font-size: 1.5rem; font-weight: 600; }
+  .quien b { font-family: var(--display); font-stretch: var(--ancho); font-size: 1.5rem; font-weight: 650; }
   .quien span { color: var(--tinta-suave); font-size: 0.95rem; }
   dl { margin: 0; display: grid; gap: 8px; }
   dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px dashed rgb(20 20 22 / 0.18); }

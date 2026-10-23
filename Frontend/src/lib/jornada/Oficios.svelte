@@ -4,7 +4,7 @@
   import { scene } from './scroll.js';
 
   const guias = [['#4', '12 mm'], ['#3', '9 mm'], ['#2', '6 mm'], ['#1', '3 mm'], ['#0', '1.5 mm']];
-  const esmaltes = [['Cereza', '#9e1b22'], ['Nude rosado', '#d9a18f'], ['Ciruela', '#4f1f36'], ['Coral', '#e0614a'], ['Perla', '#efe6dc'], ['Azabache', '#141416']];
+  const esmaltes = [['Cereza', '#8f3a3c'], ['Nude rosado', '#cfa597'], ['Ciruela', '#55323f'], ['Coral', '#c9725f'], ['Perla', '#efe6dc'], ['Azabache', '#141416']];
   // mapa de pestañas: largo en mm de la esquina interna a la externa
   const largos = [8, 9, 10, 11, 12, 12, 11, 10, 9];
 </script>
@@ -99,14 +99,14 @@
     padding: 88px clamp(16px, 5vw, 80px) 40px;
   }
   .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-  h3 { margin: 0 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(2.2rem, 4.6vw, 4.2rem); line-height: 1; max-width: 13ch; text-wrap: balance; }
+  h3 { margin: 0 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2.2rem, 4.6vw, 4.2rem); line-height: 1; max-width: 13ch; text-wrap: balance; }
   .texto > p:last-child { margin: 0; max-width: 42ch; font-size: 1.05rem; line-height: 1.55; text-wrap: pretty; }
   figure { margin: 0; }
   figcaption { margin-top: 18px; font-size: 0.82rem; opacity: 0.7; }
 
   /* Barbería: cuero de sillón y acero */
   .barberia { background: var(--cuero); color: var(--ticket); }
-  .barberia .hora { color: #e9b9a6; }
+  .barberia .hora { color: #d9b8ab; }
   .barberia .texto > p:last-child { color: rgb(246 245 241 / 0.8); }
   .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(246 245 241 / 0.16); }
   .guia b { font-family: var(--rotulo); font-stretch: 75%; font-size: 1.6rem; }
@@ -114,8 +114,8 @@
   .barra { height: 18px; border-radius: 2px; background: #b4babf; box-shadow: inset 0 -5px 0 #8e959b; transform-origin: left; transform: scaleX(calc((1 - var(--k) * 0.19) * clamp(0, calc(var(--q) * 1.4 - var(--k) * 0.08), 1))); }
 
   /* Uñas: el tono nude de la base */
-  .unas { background: #ecd9d1; color: var(--tinta); }
-  .unas .hora { color: #9e1b22; }
+  .unas { background: #e8dfda; color: var(--tinta); }
+  .unas .hora { color: #8a4f4b; }
   .unas .texto > p:last-child { color: var(--tinta-suave); }
   .unas-fila { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; max-width: 440px; }
   .tono { display: grid; justify-items: center; gap: 10px; }
@@ -126,19 +126,19 @@
 
   /* Pestañas: tinta */
   .pestanas { background: var(--tinta); color: var(--ticket); }
-  .pestanas .hora { color: #efc6c4; }
+  .pestanas .hora { color: #dcc4c2; }
   .pestanas .texto > p:last-child { color: rgb(246 245 241 / 0.78); }
   svg { width: 100%; max-width: 520px; overflow: visible; }
   .parpado { fill: none; stroke: rgb(246 245 241 / 0.5); stroke-width: 2; }
   .pestana { stroke: var(--ticket); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1)); }
-  svg text { fill: #efc6c4; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
+  svg text { fill: #dcc4c2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
 
   /* Spa: eucalipto */
   .spa { background: var(--eucalipto); color: var(--ticket); }
-  .spa .hora { color: #cfe0d2; }
+  .spa .hora { color: #d3ddd5; }
   .spa .texto > p:last-child { color: rgb(246 245 241 / 0.82); }
   .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: var(--ticket); color: var(--tinta); box-shadow: 0 30px 50px -28px rgb(0 0 0 / 0.55); }
-  .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-size: 1.4rem; font-weight: 600; }
+  .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.4rem; font-weight: 650; }
   .t-nombre span { font-family: var(--texto); font-size: 0.9rem; font-weight: 500; color: var(--tinta-suave); align-self: center; }
   .hoyos { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; gap: 16px; }
   .hoyos span { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(20 20 22 / 0.25); }

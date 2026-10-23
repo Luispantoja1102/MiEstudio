@@ -1,8 +1,7 @@
 <script>
-  // 21:00. Planes, preguntas y la cortina que baja: el cierre de la jornada.
+  // 21:00. Planes, preguntas y el cierre de la jornada.
   import { onMount } from 'svelte';
   import Logo from '$lib/Logo.svelte';
-  import { scene } from './scroll.js';
 
   // Respaldo por si no carga el catálogo; la fuente es GET /api/plans
   let plans = $state([
@@ -83,17 +82,14 @@
   </div>
 </section>
 
-<!-- La cortina baja: fin de la jornada -->
-<section class="baja" use:scene data-hora="21:30" data-momento="Se baja la cortina" aria-labelledby="t-baja">
-  <div class="cuadro">
-    <div class="lamina"><span class="jaladera"></span></div>
-    <div class="final">
-      <h2 id="t-baja">Mañana abres con la agenda llena.</h2>
-      <p>Crea tu cuenta, pon tu horario y tus servicios, y comparte tu enlace hoy mismo.</p>
-      <div class="acciones">
-        <a class="btn" href="/registro">Crear mi cuenta gratis</a>
-        <a class="link" href="/login">Ya tengo cuenta</a>
-      </div>
+<!-- Fin de la jornada -->
+<section class="baja" data-hora="21:30" data-momento="Fin del día" aria-labelledby="t-baja">
+  <div class="final">
+    <h2 id="t-baja">Mañana abres con la agenda llena.</h2>
+    <p>Crea tu cuenta, pon tu horario y tus servicios, y comparte tu enlace hoy mismo.</p>
+    <div class="acciones">
+      <a class="btn" href="/registro">Crear mi cuenta gratis</a>
+      <a class="link" href="/login">Ya tengo cuenta</a>
     </div>
   </div>
 </section>
@@ -113,7 +109,7 @@
 
 <style>
   .envoltura { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
-  h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.2rem, 4.6vw, 4rem); line-height: 1; letter-spacing: -0.01em; text-wrap: balance; }
+  h2 { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2.2rem, 4.6vw, 4rem); line-height: 1; letter-spacing: -0.01em; text-wrap: balance; }
 
   /* Planes */
   .planes { padding: 120px 0 96px; background: var(--ticket); color: var(--tinta); }
@@ -128,8 +124,8 @@
   .plan { display: flex; flex-direction: column; padding: 28px 28px 0; }
   .plan + .plan { border-left: 1px solid rgb(20 20 22 / 0.18); }
   .plan.fuerte { background: var(--tinta); color: var(--ticket); padding-bottom: 28px; }
-  h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-size: 1.9rem; font-weight: 600; }
-  h3 span { font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: #f0b44c; }
+  h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.9rem; font-weight: 650; }
+  h3 span { font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: #d8b57e; }
   .desc { margin: 8px 0 22px; min-height: 2.8em; color: var(--tinta-suave); line-height: 1.4; }
   .fuerte .desc, .fuerte .equiv, .fuerte li { color: rgb(246 245 241 / 0.78); }
   .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -154,23 +150,12 @@
   summary:focus-visible { outline: 3px solid var(--bermellon); outline-offset: 4px; }
   details p { margin: 0 0 22px; max-width: 60ch; line-height: 1.6; color: var(--tinta-suave); }
 
-  /* La cortina que baja */
-  .baja { height: 180vh; background: var(--tinta); color: var(--ticket); }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; }
-  .lamina {
-    position: absolute; left: 0; right: 0; top: 0; height: 100%;
-    background: repeating-linear-gradient(180deg, #b9bec2 0 3px, #9fa5aa 3px 16px, #868c92 16px 19px, #c6cacd 19px 21px, #a7adb2 21px 26px);
-    transform: translate3d(0, calc(-100% + var(--p) * 42%), 0);
-    box-shadow: 0 20px 30px -10px rgb(0 0 0 / 0.6);
-  }
-  .lamina::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: #5d6268; box-shadow: inset 0 3px 0 #7b8187; }
-  .jaladera { position: absolute; z-index: 1; bottom: 28px; left: 50%; width: 120px; height: 14px; margin-left: -60px; border-radius: 3px; background: #4b5056; }
-  .final { position: absolute; left: 0; right: 0; bottom: 0; top: 46%; display: grid; place-content: center; justify-items: center; gap: 18px; padding: 0 20px 40px; text-align: center; }
-  .final h2 { max-width: 13ch; font-size: clamp(2.4rem, 6vw, 5.2rem); }
+  /* Cierre */
+  .baja { padding: clamp(96px, 14vw, 160px) 20px; background: var(--tinta); color: var(--ticket); }
+  .final { display: grid; justify-items: center; gap: 18px; text-align: center; }
+  .final h2 { max-width: 13ch; font-size: clamp(2.4rem, 5.6vw, 4.8rem); }
   .final p { margin: 0; max-width: 46ch; color: rgb(246 245 241 / 0.75); line-height: 1.5; }
   .acciones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 24px; margin-top: 10px; }
-  :global(.baja.still) { height: auto; }
-  :global(.baja.still) .cuadro { position: relative; }
 
   /* Pie */
   .pie { padding: 64px 0 28px; background: #0d0d0f; color: rgb(246 245 241 / 0.75); }

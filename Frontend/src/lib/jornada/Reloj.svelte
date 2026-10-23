@@ -1,23 +1,33 @@
 <script>
-  // La hora de la jornada: cambia con el capítulo que cruza la mitad de la pantalla (cada uno trae data-hora y data-momento).
+  // La hora de la jornada: la del capítulo que está en el centro de la pantalla (cada uno trae data-hora y data-momento).
+  // Se pregunta al punto central con elementsFromPoint, así respeta el recorrido horizontal de los oficios.
   import { onMount } from 'svelte';
 
-  let hora = $state('08:58');
-  let momento = $state('Antes de abrir');
+  let hora = $state('09:00');
+  let momento = $state('Se abre el local');
 
   onMount(() => {
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          hora = e.target.dataset.hora;
-          momento = e.target.dataset.momento;
+    let raf = 0;
+    const leer = () => {
+      raf = 0;
+      for (const el of document.elementsFromPoint(innerWidth / 2, innerHeight / 2)) {
+        const c = el.closest('[data-hora]');
+        if (c) {
+          hora = c.dataset.hora;
+          momento = c.dataset.momento;
+          return;
         }
-      },
-      { rootMargin: '-50% 0px -50% 0px' }
-    );
-    document.querySelectorAll('[data-hora]').forEach((el) => io.observe(el));
-    return () => io.disconnect();
+      }
+    };
+    const pedir = () => raf || (raf = requestAnimationFrame(leer));
+    addEventListener('scroll', pedir, { passive: true });
+    addEventListener('resize', pedir);
+    leer();
+    return () => {
+      removeEventListener('scroll', pedir);
+      removeEventListener('resize', pedir);
+      cancelAnimationFrame(raf);
+    };
   });
 </script>
 

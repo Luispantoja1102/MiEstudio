@@ -1,11 +1,10 @@
 <script>
-  // Landing «La jornada»: un día de trabajo en el local, de la cortina que sube al corte de caja.
+  // Landing «La jornada»: un día de trabajo en el local, de la primera cita al corte de caja.
   // Tiene su propia dirección de arte (no sigue el tema claro/oscuro del panel): los colores salen de los materiales del oficio.
-  import '@fontsource-variable/bodoni-moda/opsz.css';
   import '@fontsource-variable/archivo/wdth.css';
   import Logo from '$lib/Logo.svelte';
   import Reloj from './Reloj.svelte';
-  import Cortina from './Cortina.svelte';
+  import Apertura from './Apertura.svelte';
   import Madrugada from './Madrugada.svelte';
   import Comprobante from './Comprobante.svelte';
   import Oficios from './Oficios.svelte';
@@ -27,7 +26,7 @@
     </div>
   </header>
   <main id="contenido">
-    <Cortina />
+    <Apertura />
     <Madrugada />
     <Comprobante />
     <Oficios />
@@ -42,15 +41,16 @@
     --tinta: #141416;            /* tinta de pestaña, letreros */
     --tinta-suave: #55555c;
     --ticket: #f6f5f1;           /* papel térmico de la caja */
-    --noche: #0f1420;            /* la madrugada */
-    --luna: #c7d3ea;
-    --bermellon: #c4271e;        /* esmalte rojo y franja del poste de barbería */
-    --bermellon-osc: #a11d16;
-    --cuero: #4a1618;            /* sillón de barbero */
-    --esmalte: #9e1b22;
-    --eucalipto: #3d5a4a;        /* cabina de spa */
-    --miel: #9a6200;
-    --display: 'Bodoni Moda Variable', 'Didot', Georgia, serif;
+    --noche: #161a22;            /* la madrugada */
+    --luna: #c9d0dc;
+    --bermellon: #b5483b;        /* esmalte rojo y franja del poste de barbería */
+    --bermellon-osc: #973a2f;
+    --cuero: #3d2b29;            /* sillón de barbero */
+    --esmalte: #8a5552;
+    --eucalipto: #4d5f55;        /* cabina de spa */
+    --miel: #8a6a2e;
+    --display: 'Archivo Variable', system-ui, sans-serif;
+    --ancho: 112%;
     --rotulo: 'Archivo Variable', 'Arial Narrow', sans-serif;
     --texto: 'Archivo Variable', system-ui, sans-serif;
     --ease: cubic-bezier(0.32, 0.72, 0, 1);
@@ -72,7 +72,7 @@
     padding: 0 clamp(16px, 3vw, 40px); background: var(--ticket); color: var(--tinta);
     box-shadow: 0 1px 0 rgb(20 20 22 / 0.12);
   }
-  .barra :global(.word) { font-family: var(--display); }
+  .barra :global(.word) { font-family: var(--display); font-stretch: var(--ancho); }
   nav { display: flex; gap: 4px; }
   nav a, .entrar { padding: 8px 12px; border-radius: 8px; color: var(--tinta-suave); text-decoration: none; font-weight: 500; }
   nav a:hover, .entrar:hover { color: var(--tinta); background: rgb(20 20 22 / 0.05); }
