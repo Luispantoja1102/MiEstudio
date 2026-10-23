@@ -40,7 +40,7 @@ func TestRecordPaymentExtendsAndActivates(t *testing.T) {
 	f := newPB(t)
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	f.a.Now = func() time.Time { return now }
-	r := f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "plan": "crecimiento", "method": "transfer", "note": "SPEI 123"})
+	r := f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "plan": "crecimiento", "method": "transfer", "note": "SPEI 123"})
 	if r.Status != 201 {
 		t.Fatalf("pago: %d %v", r.Status, r.Body)
 	}
@@ -50,7 +50,7 @@ func TestRecordPaymentExtendsAndActivates(t *testing.T) {
 	}
 	// renovar antes de vencer suma al periodo vigente (no pierde días)
 	f.a.Now = func() time.Time { return now.AddDate(0, 0, 10) }
-	f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "method": "transfer"})
+	f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "method": "transfer"})
 	_, _, end2, _ := f.row(t)
 	if !end2.Equal(now.AddDate(0, 2, 0)) {
 		t.Fatalf("debía sumarse al periodo vigente: %v", end2)
@@ -58,13 +58,13 @@ func TestRecordPaymentExtendsAndActivates(t *testing.T) {
 	// después de vencer el periodo empieza hoy
 	late := now.AddDate(0, 5, 0)
 	f.a.Now = func() time.Time { return late }
-	f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "method": "cash"})
+	f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "method": "cash"})
 	_, _, end3, _ := f.row(t)
 	if !end3.Equal(late.AddDate(0, 1, 0)) {
 		t.Fatalf("tras vencer empieza hoy: %v", end3)
 	}
 	// un plan distinto en el pago cambia el plan
-	f.pay(t, map[string]any{"amount_cents": 1499000, "months": 12, "plan": "pro", "method": "transfer"})
+	f.pay(t, map[string]any{"amount_cents": 1200000, "months": 12, "plan": "pro", "method": "transfer"})
 	if _, plan, _, _ := f.row(t); plan != "pro" {
 		t.Fatalf("plan: %s", plan)
 	}
@@ -81,7 +81,7 @@ func TestPaymentReactivatesSuspendedAndClearsReason(t *testing.T) {
 	if r := f.a.do(t, "GET", "/api/services", f.admin, nil); r.Status != 403 || r.Body["code"] != "business_suspended" {
 		t.Fatalf("suspendido: %d %v", r.Status, r.Body)
 	}
-	f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "method": "transfer"})
+	f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "method": "transfer"})
 	if status, _, _, reason := f.row(t); status != "active" || reason != "" {
 		t.Fatalf("el pago reactiva: %s %q", status, reason)
 	}
@@ -121,7 +121,7 @@ func TestRecordPaymentValidationAndPermissions(t *testing.T) {
 
 func TestMoneyIsAdminOnly(t *testing.T) {
 	f := newPB(t)
-	f.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "method": "transfer"})
+	f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "method": "transfer"})
 	det := f.a.do(t, "GET", path("/api/platform/businesses/", f.biz), f.plat, nil)
 	if det.Status != 200 || len(det.Body["payments"].([]any)) != 1 || det.Body["usage"] == nil || det.Body["limits"] == nil {
 		t.Fatalf("detalle del admin: %v", det.Body)
@@ -167,8 +167,8 @@ func TestOverviewCountsMRRAndAttention(t *testing.T) {
 	ins := func(id int64, cents, months int, method string, created time.Time) {
 		f.a.DB.Exec(ctx, `INSERT INTO payments (business_id, amount_cents, method, plan, months, period_start, period_end, created_at) VALUES ($1, $2, $3, 'crecimiento', $4, $5, $5, $5)`, id, cents, method, months, created)
 	}
-	ins(paid, 79900, 1, "transfer", now.Add(-2*day))
-	ins(annual, 799000, 12, "transfer", now.Add(-3*day))
+	ins(paid, 70000, 1, "transfer", now.Add(-2*day))
+	ins(annual, 700000, 12, "transfer", now.Add(-3*day))
 	ins(f.biz, 0, 1, "courtesy", now.Add(-day))      // una cortesía no suma
 	ins(paid, 0, 1, "courtesy", now.Add(-time.Hour)) // ni borra lo que ya pagaba: el último pago de verdad es el que cuenta
 	ins(paid, 50000, 1, "transfer", now.AddDate(0, -2, 0))
@@ -181,12 +181,12 @@ func TestOverviewCountsMRRAndAttention(t *testing.T) {
 			t.Errorf("conteo %s: %v, esperaba %v", k, c[k], v)
 		}
 	}
-	// MRR: $799 + $7990/12 (= $665.83) = $1,464.83; la cortesía y los pagos viejos de otro negocio no cuentan
-	if got := ov.Body["mrr_cents"].(float64); got != 79900+66583 {
+	// MRR: $700 + $7000/12 (= $583.33) = $1,283.33; la cortesía y los pagos viejos de otro negocio no cuentan
+	if got := ov.Body["mrr_cents"].(float64); got != 70000+58333 {
 		t.Errorf("MRR: %v", got)
 	}
-	// cobrado en noviembre: 799.00 + 7,990.00 (la cortesía en cero y el pago de septiembre no)
-	if got := ov.Body["paid_this_month_cents"].(float64); got != 79900+799000 {
+	// cobrado en noviembre: 700.00 + 7,000.00 (la cortesía en cero y el pago de septiembre no)
+	if got := ov.Body["paid_this_month_cents"].(float64); got != 70000+700000 {
 		t.Errorf("cobrado este mes: %v", got)
 	}
 	var kinds []string
@@ -236,7 +236,7 @@ func TestPlansEndpointAndPatchPlanAndPeriod(t *testing.T) {
 	r := f.a.do(t, "GET", "/api/platform/plans", f.support, nil)
 	var plans []map[string]any
 	jsonUnmarshal(r.Raw, &plans)
-	if r.Status != 200 || len(plans) != 3 || plans[0]["id"] != "basico" || plans[1]["businesses"] != float64(1) {
+	if r.Status != 200 || len(plans) != 4 || plans[0]["id"] != "individual" || plans[2]["businesses"] != float64(1) {
 		t.Fatalf("planes: %d %v", r.Status, plans)
 	}
 	if r := f.a.do(t, "PATCH", path("/api/platform/businesses/", f.biz), f.plat, map[string]any{"plan": "gratis"}); r.Status != 400 {

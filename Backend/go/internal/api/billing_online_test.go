@@ -54,7 +54,7 @@ func TestBillingPageWorksWhileLockedAndIsAdminOnly(t *testing.T) {
 		t.Fatalf("bloqueado: %d", r.Status)
 	}
 	r := b.a.do(t, "GET", "/api/billing", b.admin, nil)
-	if r.Status != 200 || r.Body["billing_state"] != "trial_expired" || r.Body["online"] != true || len(r.Body["plans"].([]any)) != 3 {
+	if r.Status != 200 || r.Body["billing_state"] != "trial_expired" || r.Body["online"] != true || len(r.Body["plans"].([]any)) != 4 {
 		t.Fatalf("billing: %d %v", r.Status, r.Body)
 	}
 	b.a.DB.Exec(context.Background(), `UPDATE businesses SET status = 'active', current_period_end = NULL`)
@@ -76,16 +76,16 @@ func TestCheckoutUsesServerPriceAndPlatformAccount(t *testing.T) {
 	b := newBO(t)
 	b.lapse()
 	r := b.checkout(t, "crecimiento", 1)
-	if r.Status != 201 || r.Body["amount_cents"] != float64(79900) || r.Body["pay_url"] != "https://mp.test/pay/1" {
+	if r.Status != 201 || r.Body["amount_cents"] != float64(70000) || r.Body["pay_url"] != "https://mp.test/pay/1" {
 		t.Fatalf("checkout: %d %v", r.Status, r.Body)
 	}
 	pref := b.mp.prefs[0]
-	if pref["items"].([]any)[0].(map[string]any)["unit_price"] != float64(799) || pref["external_reference"] != b.ref(t, r.Body["id"].(float64)) ||
+	if pref["items"].([]any)[0].(map[string]any)["unit_price"] != float64(700) || pref["external_reference"] != b.ref(t, r.Body["id"].(float64)) ||
 		!strings.HasPrefix(pref["external_reference"].(string), "mie-sub:") || pref["notification_url"] != "https://api.test/api/webhooks/mercadopago-platform" ||
 		pref["back_urls"].(map[string]any)["success"] != fmt.Sprintf("https://app.test/panel/suscripcion?checkout=%d", int(r.Body["id"].(float64))) {
 		t.Fatalf("preferencia: %v", pref)
 	}
-	if r := b.checkout(t, "pro", 12); r.Body["amount_cents"] != float64(1499000) {
+	if r := b.checkout(t, "pro", 12); r.Body["amount_cents"] != float64(1200000) {
 		t.Fatalf("anual: %v", r.Body)
 	}
 	for name, body := range map[string]map[string]any{"plan": {"plan": "gratis", "months": 1}, "meses": {"plan": "pro", "months": 6}, "vacío": {}} {
@@ -97,7 +97,7 @@ func TestCheckoutUsesServerPriceAndPlatformAccount(t *testing.T) {
 	b.a.do(t, "POST", "/api/billing/checkout", b.admin, map[string]any{"plan": "basico", "months": 1, "amount_cents": 1})
 	var amount int
 	b.a.DB.QueryRow(context.Background(), `SELECT amount_cents FROM subscription_checkouts ORDER BY id DESC LIMIT 1`).Scan(&amount)
-	if amount != 39900 {
+	if amount != 35000 {
 		t.Fatalf("monto guardado: %d", amount)
 	}
 	b.mp.prefFail = true
@@ -118,15 +118,15 @@ func TestPaymentUnlocksBusinessOnceAndSendsReceipts(t *testing.T) {
 	ref := b.ref(t, id)
 	// monto distinto, sin aprobar o de otra referencia: nada
 	b.mp.pay(ref, 100, "approved")
-	b.mp.pay(ref, 799, "pending")
-	b.mp.pay("mie-sub:999", 799, "approved")
+	b.mp.pay(ref, 700, "pending")
+	b.mp.pay("mie-sub:999", 700, "approved")
 	if g := b.a.do(t, "GET", path("/api/billing/checkouts/", int64(id)), b.admin, nil); g.Body["status"] != "pending" {
 		t.Fatalf("no debe acreditarse: %v", g.Body)
 	}
 	if r := b.a.do(t, "GET", "/api/services", b.admin, nil); r.Status != 403 {
 		t.Fatal("sigue bloqueado")
 	}
-	pid := b.mp.pay(ref, 799, "approved")
+	pid := b.mp.pay(ref, 700, "approved")
 	g := b.a.do(t, "GET", path("/api/billing/checkouts/", int64(id)), b.admin, nil)
 	if g.Body["status"] != "paid" {
 		t.Fatalf("pagado: %v", g.Body)
@@ -166,7 +166,7 @@ func TestPlatformWebhookSettlesAndVerifiesSignature(t *testing.T) {
 	b.lapse()
 	c := b.checkout(t, "basico", 1)
 	ref := b.ref(t, c.Body["id"].(float64))
-	pid := b.mp.pay(ref, 399, "approved")
+	pid := b.mp.pay(ref, 350, "approved")
 	send := func(url, sig string) int {
 		req := httptest.NewRequest("POST", url, strings.NewReader(`{}`))
 		req.Header.Set("x-signature", sig)
@@ -206,8 +206,8 @@ func TestDuplicatePaymentIsRefundedAndOtherBusinessCannotSeeCheckout(t *testing.
 	c := b.checkout(t, "basico", 1)
 	id := c.Body["id"].(float64)
 	ref := b.ref(t, id)
-	p1 := b.mp.pay(ref, 399, "approved")
-	p2 := b.mp.pay(ref, 399, "approved")
+	p1 := b.mp.pay(ref, 350, "approved")
+	p2 := b.mp.pay(ref, 350, "approved")
 	b.a.do(t, "GET", path("/api/billing/checkouts/", int64(id)), b.admin, nil)
 	if b.mp.refunds(p1)+b.mp.refunds(p2) != 1 {
 		t.Fatalf("debe devolverse exactamente uno: %d %d", b.mp.refunds(p1), b.mp.refunds(p2))
@@ -223,7 +223,7 @@ func TestConcurrentSettleCreditsOnce(t *testing.T) {
 	b.lapse()
 	c := b.checkout(t, "crecimiento", 1)
 	id := int64(c.Body["id"].(float64))
-	b.mp.pay(b.ref(t, c.Body["id"].(float64)), 799, "approved")
+	b.mp.pay(b.ref(t, c.Body["id"].(float64)), 700, "approved")
 	var wg sync.WaitGroup
 	for i := 0; i < 6; i++ {
 		wg.Add(1)
@@ -310,7 +310,7 @@ func TestCourtesyPaymentSendsNoNotice(t *testing.T) {
 	if b.fm.count() != 0 {
 		t.Fatalf("una cortesía no avisa: %d", b.fm.count())
 	}
-	b.pay(t, map[string]any{"amount_cents": 79900, "months": 1, "method": "transfer"})
+	b.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "method": "transfer"})
 	waitMail(t, b.fm, 2)
 }
 

@@ -25,7 +25,8 @@ type Plan struct {
 	MaxStaff    *int   `json:"max_staff"`    // personas activas que atienden (aparecen en la agenda)
 	MaxBranches int    `json:"max_branches"` // sucursales activas
 	POS         bool   `json:"pos"`          // cobros: caja, ventas, paquetes, inventario, comisiones y reportes
-	Deposits    bool   `json:"deposits"`     // anticipos en la reserva en línea
+	Deposits    bool   `json:"deposits"`     // anticipos por transferencia (con comprobante) en la reserva en línea
+	DepositsMP  bool   `json:"deposits_mp"`  // anticipos con Mercado Pago
 	Terminal    bool   `json:"terminal"`     // cobro con terminal de Mercado Pago
 	Support     string `json:"support"`
 }
@@ -33,12 +34,14 @@ type Plan struct {
 func ptr(n int) *int { return &n }
 
 var planCatalog = []Plan{
-	{ID: "basico", Name: "Básico", Description: "Solo agenda y citas, sin cobros", PriceMonth: 399, PriceYear: 3990,
-		MaxStaff: ptr(2), MaxBranches: 1, POS: false, Deposits: false, Terminal: false, Support: "correo"},
-	{ID: "crecimiento", Name: "Crecimiento", Description: "Todo incluido: citas, caja, ventas, anticipos y más", PriceMonth: 799, PriceYear: 7990,
-		MaxStaff: ptr(6), MaxBranches: 1, POS: true, Deposits: true, Terminal: true, Support: "prioritario"},
-	{ID: "pro", Name: "Pro", Description: "Todo, con varias sucursales y equipos grandes", PriceMonth: 1499, PriceYear: 14990,
-		MaxStaff: nil, MaxBranches: 10, POS: true, Deposits: true, Terminal: true, Support: "dedicado"},
+	{ID: "individual", Name: "Individual", Description: "Para quien trabaja solo: agenda y citas en línea", PriceMonth: 150, PriceYear: 1500,
+		MaxStaff: ptr(1), MaxBranches: 1, POS: false, Deposits: false, DepositsMP: false, Terminal: false, Support: "correo"},
+	{ID: "basico", Name: "Básico", Description: "Agenda y citas, con anticipo por transferencia", PriceMonth: 350, PriceYear: 3500,
+		MaxStaff: ptr(2), MaxBranches: 1, POS: false, Deposits: true, DepositsMP: false, Terminal: false, Support: "correo"},
+	{ID: "crecimiento", Name: "Crecimiento", Description: "Todo incluido: citas, caja, ventas, anticipos y más", PriceMonth: 700, PriceYear: 7000,
+		MaxStaff: ptr(6), MaxBranches: 1, POS: true, Deposits: true, DepositsMP: true, Terminal: true, Support: "prioritario"},
+	{ID: "pro", Name: "Pro", Description: "Todo, con varias sucursales y equipos grandes", PriceMonth: 1200, PriceYear: 12000,
+		MaxStaff: nil, MaxBranches: 10, POS: true, Deposits: true, DepositsMP: true, Terminal: true, Support: "dedicado"},
 }
 
 // defaultPlan es el plan tal como lo define el código, sin los ajustes de la plataforma.
@@ -55,7 +58,7 @@ func defaultPlan(id string) (Plan, bool) {
 func (a *API) plans(ctx context.Context) []Plan {
 	out := make([]Plan, len(planCatalog))
 	copy(out, planCatalog)
-	rows, err := a.DB.Query(ctx, `SELECT plan_id, description, price_month, price_year, max_staff, max_branches, pos, deposits, terminal, support FROM plan_settings`)
+	rows, err := a.DB.Query(ctx, `SELECT plan_id, description, price_month, price_year, max_staff, max_branches, pos, deposits, deposits_mp, terminal, support FROM plan_settings`)
 	if err != nil {
 		return out
 	}
@@ -63,7 +66,7 @@ func (a *API) plans(ctx context.Context) []Plan {
 	for rows.Next() {
 		var id string
 		var o Plan
-		if rows.Scan(&id, &o.Description, &o.PriceMonth, &o.PriceYear, &o.MaxStaff, &o.MaxBranches, &o.POS, &o.Deposits, &o.Terminal, &o.Support) != nil {
+		if rows.Scan(&id, &o.Description, &o.PriceMonth, &o.PriceYear, &o.MaxStaff, &o.MaxBranches, &o.POS, &o.Deposits, &o.DepositsMP, &o.Terminal, &o.Support) != nil {
 			continue
 		}
 		for i := range out {
@@ -136,7 +139,10 @@ func (a *API) planOf(ctx context.Context, q queryer, bizID int64) Plan {
 	if p, ok := a.planByID(ctx, id); ok {
 		return p
 	}
-	return a.plans(ctx)[1]
+	if p, ok := a.planByID(ctx, "crecimiento"); ok {
+		return p
+	}
+	return a.plans(ctx)[0]
 }
 
 // Uso actual frente a los topes del plan.
@@ -164,6 +170,7 @@ func planLimit(code, msg string) error {
 var errPlanPOS = &httpFail{403, "Tu plan no incluye cobros (caja, ventas, inventario y reportes). Cambia a Crecimiento o Pro para usarlos.", "plan_feature"}
 var errPlanTerminal = &httpFail{403, "Tu plan no incluye el cobro con terminal. Cambia de plan para usarlo.", "plan_feature"}
 var errPlanDeposits = &httpFail{403, "Tu plan no incluye anticipos en la reserva en línea. Cambia de plan para usarlos.", "plan_feature"}
+var errPlanDepositsMP = &httpFail{403, "Tu plan permite anticipos solo por transferencia. Cambia a Crecimiento o Pro para cobrarlos con Mercado Pago.", "plan_feature"}
 
 // checkStaffRoom exige que quepa una persona más en la agenda según el plan.
 func (a *API) checkStaffRoom(ctx context.Context, bizID int64) error {
@@ -201,7 +208,7 @@ func (a *API) posOnly(h http.HandlerFunc) http.HandlerFunc {
 // planFeatures es lo que la interfaz necesita saber del plan para mostrar u ocultar secciones.
 func (a *API) planFeatures(ctx context.Context, bizID int64) map[string]any {
 	pl := a.planOf(ctx, a.DB, bizID)
-	return map[string]any{"pos": pl.POS, "deposits": pl.Deposits, "terminal": pl.Terminal, "max_branches": pl.MaxBranches, "max_staff": pl.MaxStaff, "name": pl.Name}
+	return map[string]any{"pos": pl.POS, "deposits": pl.Deposits, "deposits_mp": pl.DepositsMP, "terminal": pl.Terminal, "max_branches": pl.MaxBranches, "max_staff": pl.MaxStaff, "name": pl.Name}
 }
 
 // publicPlans es GET /api/plans: el catálogo de planes para la página de inicio, sin datos de ningún negocio.

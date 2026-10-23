@@ -5,9 +5,10 @@
 
   // Respaldo por si no carga el catálogo; la fuente es GET /api/plans
   let plans = $state([
-    { id: 'basico', name: 'Básico', description: 'Solo agenda y citas, sin cobros', price_month: 399, price_year: 3990, max_staff: 2, max_branches: 1, pos: false, deposits: false, terminal: false, support: 'correo' },
-    { id: 'crecimiento', name: 'Crecimiento', description: 'Todo incluido: citas, caja, ventas, anticipos y más', price_month: 799, price_year: 7990, max_staff: 6, max_branches: 1, pos: true, deposits: true, terminal: true, support: 'prioritario' },
-    { id: 'pro', name: 'Pro', description: 'Todo, con varias sucursales y equipos grandes', price_month: 1499, price_year: 14990, max_staff: null, max_branches: 10, pos: true, deposits: true, terminal: true, support: 'dedicado' }
+    { id: 'individual', name: 'Individual', description: 'Para quien trabaja solo: agenda y citas en línea', price_month: 150, price_year: 1500, max_staff: 1, max_branches: 1, pos: false, deposits: false, deposits_mp: false, terminal: false, support: 'correo' },
+    { id: 'basico', name: 'Básico', description: 'Agenda y citas, con anticipo por transferencia', price_month: 350, price_year: 3500, max_staff: 2, max_branches: 1, pos: false, deposits: true, deposits_mp: false, terminal: false, support: 'correo' },
+    { id: 'crecimiento', name: 'Crecimiento', description: 'Todo incluido: citas, caja, ventas, anticipos y más', price_month: 700, price_year: 7000, max_staff: 6, max_branches: 1, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'prioritario' },
+    { id: 'pro', name: 'Pro', description: 'Todo, con varias sucursales y equipos grandes', price_month: 1200, price_year: 12000, max_staff: null, max_branches: 10, pos: true, deposits: true, deposits_mp: true, terminal: true, support: 'dedicado' }
   ]);
   let yearly = $state(false);
 
@@ -21,11 +22,12 @@
   const money = (n) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
   const rows = (p) => [
     [true, 'Agenda día, semana y mes, y reserva en línea'],
-    [true, p.max_staff === null ? 'Equipo sin límite en la agenda' : `Hasta ${p.max_staff} personas en la agenda`],
+    [true, p.max_staff === null ? 'Equipo sin límite en la agenda' : p.max_staff === 1 ? '1 persona en la agenda' : `Hasta ${p.max_staff} personas en la agenda`],
     [true, p.max_branches === 1 ? '1 sucursal' : `Hasta ${p.max_branches} sucursales`],
     [p.pos, 'Caja, ventas, paquetes e inventario'],
     [p.pos, 'Comisiones y reportes'],
-    [p.deposits, 'Anticipos con Mercado Pago o transferencia'],
+    [p.deposits, 'Anticipo por transferencia, con comprobante'],
+    [p.deposits_mp, 'Anticipo con Mercado Pago'],
     [p.terminal, 'Cobro con terminal de Mercado Pago'],
     [true, `Soporte ${p.support}`]
   ];
@@ -83,5 +85,6 @@
   li.off .mk :global(svg) { display: none; }
   li.off .mk::before { content: ''; width: 7px; height: 2px; border-radius: 2px; background: currentColor; }
   .fine { margin: 1.6rem 0 0; text-align: center; font-size: 0.85rem; color: var(--muted); }
-  @media (min-width: 900px) { .plans { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 680px) { .plans { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1120px) { .plans { grid-template-columns: repeat(4, 1fr); } }
 </style>

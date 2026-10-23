@@ -6,7 +6,10 @@
   import { session } from '$lib/session.svelte.js';
 
   let s = $state(null);
-  const canDeposit = session.me?.business?.plan_features?.deposits !== false;
+  const canTransfer = session.me?.business?.plan_features?.deposits !== false;
+  const canMP = session.me?.business?.plan_features?.deposits_mp !== false;
+  const canDeposit = canTransfer || canMP;
+  const mpReady = $derived(canMP && meta.mp_connected);
   let meta = $state({ public_path: '', mp_connected: false, mail_enabled: false, whatsapp_available: false, is_owner: false });
   let services = $state([]);
   let error = $state('');
@@ -120,20 +123,20 @@
 
     <h3 style="margin-top: 1.5rem">Anticipo</h3>
     <label class="field">Porcentaje del precio por adelantado
-      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!canDeposit || (!meta.mp_connected && !s.transfer_enabled)} />
+      <input type="number" min="0" max="100" bind:value={s.deposit_percent} disabled={!canDeposit || (!mpReady && !(canTransfer && s.transfer_enabled))} />
       <span class="hint">
-        {#if meta.mp_connected}
+        {#if mpReady}
           0 = sin anticipo. Se cobra con Mercado Pago al reservar y se descuenta al cobrar la cita. Si el cliente cancela a tiempo, se le devuelve.
-        {:else if s.transfer_enabled}
+        {:else if canTransfer && s.transfer_enabled}
           0 = sin anticipo. El cliente transfiere y sube su comprobante; tú confirmas la cita al verlo. Se descuenta al cobrar la cita.
         {:else}
-          Para pedir anticipo <a href="/panel/pagos">conecta tu cuenta de Mercado Pago</a> o activa las transferencias aquí abajo.
+          {#if canMP}Para pedir anticipo <a href="/panel/pagos">conecta tu cuenta de Mercado Pago</a> o activa las transferencias aquí abajo.{:else}Para pedir anticipo activa las transferencias aquí abajo y captura tu CLABE.{/if}
         {/if}
       </span>
     </label>
 
-    {#if !canDeposit}<p class="banner" role="status">Los anticipos están incluidos desde el plan Crecimiento. <a href="/panel/suscripcion">Ver planes</a></p>{/if}
-    <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} disabled={!canDeposit} /> Aceptar anticipo por transferencia</label>
+    {#if !canDeposit}<p class="banner" role="status">Los anticipos están incluidos desde el plan Básico. <a href="/panel/suscripcion">Ver planes</a></p>{:else if !canMP}<p class="banner" role="status">Tu plan cobra anticipos por transferencia. El cobro con Mercado Pago está en Crecimiento y Pro. <a href="/panel/suscripcion">Ver planes</a></p>{/if}
+    <label class="check"><input type="checkbox" bind:checked={s.transfer_enabled} disabled={!canTransfer} /> Aceptar anticipo por transferencia</label>
     {#if s.transfer_enabled}
       <div class="transfer">
         <p class="hint" style="margin: 0 0 0.9rem">Estos datos los ve quien reserva. Cuando suba su comprobante recibirás un aviso en la campana y tú confirmas la cita.</p>

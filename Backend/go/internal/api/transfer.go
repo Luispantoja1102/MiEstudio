@@ -22,14 +22,15 @@ const (
 
 // depositMethods dice cómo puede pagar el anticipo quien reserva: Mercado Pago y/o transferencia.
 func (a *API) depositMethods(ctx context.Context, b *pubBiz) []string {
-	if b.Settings.DepositPercent <= 0 || !a.planOf(ctx, a.DB, b.ID).Deposits {
+	if b.Settings.DepositPercent <= 0 {
 		return nil
 	}
+	pl := a.planOf(ctx, a.DB, b.ID)
 	out := []string{}
-	if a.mpConnected(ctx, b.ID) {
+	if pl.DepositsMP && a.mpConnected(ctx, b.ID) {
 		out = append(out, "mp")
 	}
-	if b.Settings.TransferEnabled {
+	if pl.Deposits && b.Settings.TransferEnabled {
 		out = append(out, "transfer")
 	}
 	return out

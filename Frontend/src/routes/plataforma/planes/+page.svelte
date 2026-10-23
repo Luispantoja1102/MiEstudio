@@ -26,7 +26,7 @@
     notice = error = '';
     editing = p.id;
     form = { description: p.description, price_month: p.price_month, price_year: p.price_year, unlimited: p.max_staff === null, max_staff: p.max_staff ?? 6,
-      max_branches: p.max_branches, pos: p.pos, deposits: p.deposits, terminal: p.terminal, support: p.support };
+      max_branches: p.max_branches, pos: p.pos, deposits: p.deposits, deposits_mp: p.deposits_mp, terminal: p.terminal, support: p.support };
   }
 
   async function save(e) {
@@ -37,7 +37,7 @@
       await api(`/api/platform/plans/${editing}`, {
         method: 'PUT',
         body: { description: form.description, price_month: +form.price_month, price_year: +form.price_year, max_staff: form.unlimited ? null : +form.max_staff,
-          max_branches: +form.max_branches, pos: form.pos, deposits: form.deposits, terminal: form.terminal, support: form.support }
+          max_branches: +form.max_branches, pos: form.pos, deposits: form.deposits, deposits_mp: form.deposits_mp, terminal: form.terminal, support: form.support }
       });
       notice = 'Plan guardado. Ya se ve así en la página de inicio, en la suscripción de los negocios y en los cobros nuevos.';
       editing = null;
@@ -91,7 +91,8 @@
           </div>
           <label class="check"><input type="checkbox" bind:checked={form.unlimited} /> Sin límite de personas</label>
           <label class="check"><input type="checkbox" bind:checked={form.pos} /> Caja, ventas, inventario, comisiones y reportes</label>
-          <label class="check"><input type="checkbox" bind:checked={form.deposits} /> Anticipos en la reserva en línea</label>
+          <label class="check"><input type="checkbox" bind:checked={form.deposits} /> Anticipos por transferencia (con comprobante)</label>
+          <label class="check"><input type="checkbox" bind:checked={form.deposits_mp} /> Anticipos con Mercado Pago</label>
           <label class="check"><input type="checkbox" bind:checked={form.terminal} /> Cobro con terminal de Mercado Pago</label>
           <label class="field" style="margin-top: 0.9rem">Soporte
             <select bind:value={form.support}><option value="correo">Por correo</option><option value="prioritario">Prioritario</option><option value="dedicado">Dedicado</option></select>
@@ -111,7 +112,8 @@
           <li>Personas en agenda: <b>{lim(p.max_staff)}</b></li>
           <li>Sucursales: <b>{p.max_branches}</b></li>
           <li>Caja, ventas e inventario: <b>{p.pos ? 'Sí' : 'No'}</b></li>
-          <li>Anticipos en la reserva: <b>{p.deposits ? 'Sí' : 'No'}</b></li>
+          <li>Anticipo por transferencia: <b>{p.deposits ? 'Sí' : 'No'}</b></li>
+          <li>Anticipo con Mercado Pago: <b>{p.deposits_mp ? 'Sí' : 'No'}</b></li>
           <li>Cobro con terminal: <b>{p.terminal ? 'Sí' : 'No'}</b></li>
           <li>Soporte: <b>{p.support}</b></li>
         </ul>

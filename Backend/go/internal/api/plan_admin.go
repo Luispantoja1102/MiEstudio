@@ -20,6 +20,7 @@ type planEdit struct {
 	MaxBranches int    `json:"max_branches"`
 	POS         bool   `json:"pos"`
 	Deposits    bool   `json:"deposits"`
+	DepositsMP  bool   `json:"deposits_mp"`
 	Terminal    bool   `json:"terminal"`
 	Support     string `json:"support"`
 }
@@ -55,12 +56,12 @@ func (a *API) platformPutPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := a.DB.Exec(r.Context(),
-		`INSERT INTO plan_settings (plan_id, description, price_month, price_year, max_staff, max_branches, pos, deposits, terminal, support, updated_at, updated_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`INSERT INTO plan_settings (plan_id, description, price_month, price_year, max_staff, max_branches, pos, deposits, deposits_mp, terminal, support, updated_at, updated_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		 ON CONFLICT (plan_id) DO UPDATE SET description = EXCLUDED.description, price_month = EXCLUDED.price_month, price_year = EXCLUDED.price_year,
-		   max_staff = EXCLUDED.max_staff, max_branches = EXCLUDED.max_branches, pos = EXCLUDED.pos, deposits = EXCLUDED.deposits,
+		   max_staff = EXCLUDED.max_staff, max_branches = EXCLUDED.max_branches, pos = EXCLUDED.pos, deposits = EXCLUDED.deposits, deposits_mp = EXCLUDED.deposits_mp,
 		   terminal = EXCLUDED.terminal, support = EXCLUDED.support, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
-		id, req.Description, req.PriceMonth, req.PriceYear, req.MaxStaff, req.MaxBranches, req.POS, req.Deposits, req.Terminal, req.Support, time.Now(), p.UserID); err != nil {
+		id, req.Description, req.PriceMonth, req.PriceYear, req.MaxStaff, req.MaxBranches, req.POS, req.Deposits, req.DepositsMP, req.Terminal, req.Support, time.Now(), p.UserID); err != nil {
 		serverErr(w)
 		return
 	}

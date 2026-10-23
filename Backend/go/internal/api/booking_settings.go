@@ -90,7 +90,7 @@ func (a *API) getBookingSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"settings": s, "slug": slug, "public_path": "/reservar/" + slug, "is_owner": owner,
-		"mp_connected": a.mpConnected(ctx, p.BusinessID), "mail_enabled": a.mailEnabled(), "whatsapp_available": a.waEnabled(),
+		"mp_connected": a.mpConnected(ctx, p.BusinessID), "plan_features": a.planFeatures(ctx, p.BusinessID), "mail_enabled": a.mailEnabled(), "whatsapp_available": a.waEnabled(),
 	})
 }
 
@@ -166,15 +166,26 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "WhatsApp no está configurado en este servidor todavía")
 		return
 	}
-	if s.DepositPercent > 0 && !a.planOf(r.Context(), a.DB, p.BusinessID).Deposits {
-		writeFail(w, errPlanDeposits)
-		return
-	}
-	// un anticipo solo se puede cobrar con Mercado Pago conectado o con transferencias activadas
-	if s.DepositPercent > 0 && !s.TransferEnabled && !a.mpConnected(r.Context(), p.BusinessID) {
-		writeJSON(w, http.StatusConflict, map[string]string{
-			"error": "para cobrar anticipo conecta primero tu cuenta de Mercado Pago (Pagos) o activa las transferencias", "code": "mp_required"})
-		return
+	if s.DepositPercent > 0 {
+		pl := a.planOf(r.Context(), a.DB, p.BusinessID)
+		if !pl.Deposits && !pl.DepositsMP {
+			writeFail(w, errPlanDeposits)
+			return
+		}
+		// un anticipo solo se puede cobrar por un método que el plan permita y que esté listo:
+		// transferencias activadas (todos los planes con anticipo) o Mercado Pago conectado (solo si el plan lo incluye)
+		canTransfer := pl.Deposits && s.TransferEnabled
+		canMP := pl.DepositsMP && a.mpConnected(r.Context(), p.BusinessID)
+		if !canTransfer && !canMP {
+			if !pl.DepositsMP {
+				writeJSON(w, http.StatusConflict, map[string]string{
+					"error": "tu plan cobra anticipos por transferencia: activa las transferencias y captura tu CLABE", "code": "transfer_required"})
+				return
+			}
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"error": "para cobrar anticipo conecta primero tu cuenta de Mercado Pago (Pagos) o activa las transferencias", "code": "mp_required"})
+			return
+		}
 	}
 	if _, err := a.DB.Exec(r.Context(),
 		`INSERT INTO booking_settings (business_id, enabled, min_notice_hours, max_days_ahead, cancel_min_hours, deposit_percent, reminder_hours, show_prices, welcome_text, privacy_email, whatsapp_reminders, public_theme,

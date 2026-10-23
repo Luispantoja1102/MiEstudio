@@ -4,7 +4,7 @@ import "testing"
 
 func planBody(mod map[string]any) map[string]any {
 	b := map[string]any{"description": "Todo para crecer", "price_month": 899, "price_year": 8990, "max_staff": 8, "max_branches": 1,
-		"pos": true, "deposits": true, "terminal": true, "support": "prioritario"}
+		"pos": true, "deposits": true, "deposits_mp": true, "terminal": true, "support": "prioritario"}
 	for k, v := range mod {
 		b[k] = v
 	}
@@ -29,7 +29,7 @@ func publicPlan(t *testing.T, f *pbFx, id string) map[string]any {
 
 func TestPlatformEditsPlansAndEverythingUsesTheNewValues(t *testing.T) {
 	f := newPB(t)
-	if publicPlan(t, f, "crecimiento")["price_month"] != float64(799) {
+	if publicPlan(t, f, "crecimiento")["price_month"] != float64(700) {
 		t.Fatal("sin ajustes, el plan usa lo definido en el código")
 	}
 	// solo el administrador de plataforma edita
@@ -79,7 +79,7 @@ func TestPlatformEditsPlansAndEverythingUsesTheNewValues(t *testing.T) {
 	if r := f.a.do(t, "DELETE", "/api/platform/plans/crecimiento", f.plat, nil); r.Status != 204 {
 		t.Fatalf("restablecer: %d", r.Status)
 	}
-	if p := publicPlan(t, f, "crecimiento"); p["price_month"] != float64(799) || p["pos"] != true {
+	if p := publicPlan(t, f, "crecimiento"); p["price_month"] != float64(700) || p["pos"] != true {
 		t.Fatalf("tras restablecer: %v", p)
 	}
 	if r := f.a.do(t, "GET", "/api/sales", f.admin, nil); r.Status != 200 {

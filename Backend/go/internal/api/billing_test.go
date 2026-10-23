@@ -88,7 +88,7 @@ func TestLapsedTrialLocksTenantButKeepsAccountAndBilling(t *testing.T) {
 	// la plataforma registra un pago y todo vuelve
 	var id int64
 	a.DB.QueryRow(context.Background(), `SELECT id FROM businesses`).Scan(&id)
-	if p := a.do(t, "POST", path("/api/platform/businesses/", id, "/payments"), plat, map[string]any{"amount_cents": 79900, "months": 1, "method": "transfer"}); p.Status != 201 {
+	if p := a.do(t, "POST", path("/api/platform/businesses/", id, "/payments"), plat, map[string]any{"amount_cents": 70000, "months": 1, "method": "transfer"}); p.Status != 201 {
 		t.Fatalf("pago: %d %v", p.Status, p.Body)
 	}
 	if r := a.do(t, "GET", "/api/services", admin, nil); r.Status != 200 {
@@ -191,10 +191,10 @@ func TestPlanLimitsStaffBranchesAndFeatures(t *testing.T) {
 
 func TestDepositAndTerminalNeedPlanFeature(t *testing.T) {
 	d := newDeposit(t)
-	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
+	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'individual'`)
 	r := d.a.do(t, "PUT", "/api/booking/settings", d.admin, map[string]any{"enabled": true, "min_notice_hours": 2, "max_days_ahead": 30, "cancel_min_hours": 2, "reminder_hours": 24, "deposit_percent": 30})
 	if r.Status != 403 || r.Body["code"] != "plan_feature" {
-		t.Fatalf("anticipo en Esencial: %d %v", r.Status, r.Body)
+		t.Fatalf("anticipo en Individual: %d %v", r.Status, r.Body)
 	}
 	// un negocio que bajó de plan con un anticipo ya configurado deja de pedirlo
 	d.a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'crecimiento'`)
@@ -233,8 +233,8 @@ func TestBasicPlanIsAppointmentsOnlyAndGrowthIncludesCobros(t *testing.T) {
 	}
 	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'basico'`)
 	f := a.do(t, "GET", "/api/me", admin, nil).Body["business"].(map[string]any)["plan_features"].(map[string]any)
-	if f["pos"] != false || f["deposits"] != false || f["terminal"] != false {
-		t.Fatalf("Básico no incluye cobros: %v", f)
+	if f["pos"] != false || f["deposits"] != true || f["deposits_mp"] != false || f["terminal"] != false {
+		t.Fatalf("Básico no incluye caja ni Mercado Pago, sí anticipo por transferencia: %v", f)
 	}
 	for i, c := range cobros {
 		who := map[string]string{"administrador": admin}

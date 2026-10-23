@@ -113,10 +113,11 @@
         <p class="meta">{p.description}</p>
         <p class="price">{pesos(p.price_month)}<small>/mes</small></p>
         <ul>
-          <li><b>{lim(p.max_staff)}</b> personas en agenda</li>
+          <li><b>{lim(p.max_staff)}</b> {p.max_staff === 1 ? 'persona' : 'personas'} en agenda</li>
           <li><b>{p.max_branches}</b> {p.max_branches === 1 ? 'sucursal' : 'sucursales'}</li>
           <li>Caja, ventas e inventario: {p.pos ? 'sí' : 'no'}</li>
-          <li>Anticipos en la reserva: {p.deposits ? 'sí' : 'no'}</li>
+          <li>Anticipo por transferencia: {p.deposits ? 'sí' : 'no'}</li>
+          <li>Anticipo con Mercado Pago: {p.deposits_mp ? 'sí' : 'no'}</li>
           <li>Cobro con terminal: {p.terminal ? 'sí' : 'no'}</li>
           <li>Soporte {p.support}</li>
         </ul>
