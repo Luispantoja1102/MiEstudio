@@ -68,15 +68,15 @@
   .barra {
     position: fixed; z-index: 40; top: 14px; left: 14px;
     display: flex; align-items: center; gap: 4px; padding: 5px 5px 5px 8px; border-radius: 14px;
-    background: rgb(246 245 241 / 0.55); color: var(--tinta);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+    background: rgb(246 245 241 / 0.32); color: var(--tinta);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35), 0 12px 28px -14px rgb(20 20 22 / 0.35);
   }
   .barra :global(.logo) { gap: 8px; margin-right: 6px; }
   .barra :global(.mark) { width: 30px; height: 30px; border-radius: 8px; }
   .barra :global(.word) { font-family: var(--display); font-stretch: var(--ancho); font-size: 1.02rem; }
   nav { display: flex; }
-  nav a, .entrar { padding: 7px 10px; border-radius: 8px; color: var(--tinta-suave); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+  nav a, .entrar { padding: 7px 10px; border-radius: 8px; color: var(--tinta); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
   nav a:hover, .entrar:hover { color: var(--tinta); background: rgb(20 20 22 / 0.06); }
 
   /* Botones de toda la landing */
