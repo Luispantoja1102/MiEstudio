@@ -123,11 +123,10 @@
   .lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--tinta); }
   .plan { display: flex; flex-direction: column; padding: 28px 28px 0; }
   .plan + .plan { border-left: 1px solid rgb(20 20 22 / 0.18); }
-  .plan.fuerte { background: var(--tinta); color: var(--ticket); padding-bottom: 28px; }
+  .plan.fuerte { background: #fff; box-shadow: inset 0 0 0 2px var(--tinta); border-radius: 0 0 14px 14px; padding-bottom: 28px; }
   h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.9rem; font-weight: 650; }
-  h3 span { font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: #d8b57e; }
+  h3 span { font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
   .desc { margin: 8px 0 22px; min-height: 2.8em; color: var(--tinta-suave); line-height: 1.4; }
-  .fuerte .desc, .fuerte .equiv, .fuerte li { color: rgb(246 245 241 / 0.78); }
   .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
   .precio small { font-family: var(--texto); font-stretch: 100%; font-size: 1rem; font-weight: 500; margin-left: 4px; }
   .equiv { margin: 8px 0 22px; font-size: 0.9rem; color: var(--tinta-suave); }
@@ -151,10 +150,10 @@
   details p { margin: 0 0 22px; max-width: 60ch; line-height: 1.6; color: var(--tinta-suave); }
 
   /* Cierre */
-  .baja { padding: clamp(96px, 14vw, 160px) 20px; background: var(--tinta); color: var(--ticket); }
+  .baja { padding: clamp(96px, 14vw, 160px) 20px; background: var(--ticket); color: var(--tinta); border-top: 1px solid rgb(20 20 22 / 0.12); }
   .final { display: grid; justify-items: center; gap: 18px; text-align: center; }
   .final h2 { max-width: 13ch; font-size: clamp(2.4rem, 5.6vw, 4.8rem); }
-  .final p { margin: 0; max-width: 46ch; color: rgb(246 245 241 / 0.75); line-height: 1.5; }
+  .final p { margin: 0; max-width: 46ch; color: var(--tinta-suave); line-height: 1.5; }
   .acciones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 24px; margin-top: 10px; }
 
   /* Pie */

@@ -59,22 +59,22 @@
 </section>
 
 <style>
-  .madrugada { height: 260vh; background: var(--noche); color: var(--ticket); }
+  .madrugada { height: 260vh; background: var(--ticket); color: var(--tinta); }
   .cuadro {
     position: sticky; top: 0; height: 100svh; overflow: hidden;
     display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.8fr) minmax(0, 0.9fr); align-items: center; gap: clamp(20px, 3vw, 48px);
     padding: 88px clamp(16px, 4vw, 56px) 40px;
   }
-  .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: var(--luna); font-variant-numeric: tabular-nums; }
+  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); font-variant-numeric: tabular-nums; }
   h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
-  .texto > p:not(.hora) { margin: 0; max-width: 44ch; line-height: 1.55; color: rgb(246 245 241 / 0.78); text-wrap: pretty; }
+  .texto > p:not(.hora) { margin: 0; max-width: 44ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
   ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   li { line-height: 1.4; }
-  ul li { padding-left: 18px; position: relative; color: rgb(246 245 241 / 0.85); }
-  ul li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--luna); }
+  ul li { padding-left: 18px; position: relative; }
+  ul li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--bermellon); }
 
   /* Teléfono: la página pública de reservas */
-  .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -20px rgb(0 0 0 / 0.8); }
+  .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -28px rgb(20 20 22 / 0.45); }
   .pantalla { height: 100%; border-radius: 30px; background: var(--ticket); color: var(--tinta); padding: 26px 16px 16px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px; overflow: hidden; }
   .negocio { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: 1.05rem; }
   .mes { margin: 0; font-size: 0.78rem; color: var(--tinta-suave); }
@@ -96,11 +96,11 @@
   .avisos li {
     --on: clamp(0, calc((var(--p) - 0.12 - var(--n) * 0.22) * 6), 1);
     display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 14px 16px; border-radius: 14px;
-    background: rgb(246 245 241 / 0.08); box-shadow: inset 0 0 0 1px rgb(246 245 241 / 0.12);
+    background: #fff; box-shadow: 0 1px 2px rgb(20 20 22 / 0.06), 0 14px 28px -20px rgb(20 20 22 / 0.3);
     opacity: var(--on); transform: translate3d(0, calc((1 - var(--on)) * 24px), 0);
   }
-  .avisos time { grid-row: span 2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.3rem; color: var(--luna); font-variant-numeric: tabular-nums; }
-  .avisos small { color: rgb(246 245 241 / 0.6); }
+  .avisos time { grid-row: span 2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.3rem; color: var(--tinta); font-variant-numeric: tabular-nums; }
+  .avisos small { color: var(--tinta-suave); }
 
   :global(.madrugada.still) { height: auto; }
   :global(.madrugada.still) .cuadro { position: relative; height: auto; min-height: 100svh; }

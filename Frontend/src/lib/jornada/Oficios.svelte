@@ -102,21 +102,22 @@
   h3 { margin: 0 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2.2rem, 4.6vw, 4.2rem); line-height: 1; max-width: 13ch; text-wrap: balance; }
   .texto > p:last-child { margin: 0; max-width: 42ch; font-size: 1.05rem; line-height: 1.55; text-wrap: pretty; }
   figure { margin: 0; }
-  figcaption { margin-top: 18px; font-size: 0.82rem; opacity: 0.7; }
+  figcaption { margin-top: 18px; font-size: 0.82rem; color: var(--tinta-suave); }
 
   /* Barbería: cuero de sillón y acero */
-  .barberia { background: var(--cuero); color: var(--ticket); }
-  .barberia .hora { color: #d9b8ab; }
-  .barberia .texto > p:last-child { color: rgb(246 245 241 / 0.8); }
-  .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(246 245 241 / 0.16); }
+  /* Todas las sillas sobre el mismo papel; el oficio pone su color solo en su dibujo */
+  .silla { background: var(--ticket); color: var(--tinta); }
+  .silla .hora { color: var(--tono); }
+  .silla .texto > p:last-child { color: var(--tinta-suave); }
+  .dibujo { padding: clamp(24px, 3vw, 40px); border-radius: 18px; background: var(--suave); }
+  .barberia { --tono: var(--cuero); --suave: #eadfd8; }
+  .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(20 20 22 / 0.1); }
   .guia b { font-family: var(--rotulo); font-stretch: 75%; font-size: 1.6rem; }
   .guia small { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
-  .barra { height: 18px; border-radius: 2px; background: #b4babf; box-shadow: inset 0 -5px 0 #8e959b; transform-origin: left; transform: scaleX(calc((1 - var(--k) * 0.19) * clamp(0, calc(var(--q) * 1.4 - var(--k) * 0.08), 1))); }
+  .barra { height: 18px; border-radius: 2px; background: #a3a9ae; box-shadow: inset 0 -5px 0 #858c92; transform-origin: left; transform: scaleX(calc((1 - var(--k) * 0.19) * clamp(0, calc(var(--q) * 1.4 - var(--k) * 0.08), 1))); }
 
   /* Uñas: el tono nude de la base */
-  .unas { background: #e8dfda; color: var(--tinta); }
-  .unas .hora { color: #8a4f4b; }
-  .unas .texto > p:last-child { color: var(--tinta-suave); }
+  .unas { --tono: var(--esmalte); --suave: #f1dfdc; }
   .unas-fila { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; max-width: 440px; }
   .tono { display: grid; justify-items: center; gap: 10px; }
   .una { width: 64px; height: 92px; border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%; background: var(--c); box-shadow: inset 0 0 0 1px rgb(20 20 22 / 0.12), inset 8px 10px 0 -4px rgb(255 255 255 / 0.28);
@@ -125,19 +126,15 @@
   .tono small { font-size: 0.85rem; font-weight: 600; }
 
   /* Pestañas: tinta */
-  .pestanas { background: var(--tinta); color: var(--ticket); }
-  .pestanas .hora { color: #dcc4c2; }
-  .pestanas .texto > p:last-child { color: rgb(246 245 241 / 0.78); }
+  .pestanas { --tono: var(--tinta); --suave: #e4e4ea; }
   svg { width: 100%; max-width: 520px; overflow: visible; }
-  .parpado { fill: none; stroke: rgb(246 245 241 / 0.5); stroke-width: 2; }
-  .pestana { stroke: var(--ticket); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1)); }
-  svg text { fill: #dcc4c2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
+  .parpado { fill: none; stroke: rgb(20 20 22 / 0.45); stroke-width: 2; }
+  .pestana { stroke: var(--tinta); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1)); }
+  svg text { fill: var(--tinta-suave); font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
 
   /* Spa: eucalipto */
-  .spa { background: var(--eucalipto); color: var(--ticket); }
-  .spa .hora { color: #d3ddd5; }
-  .spa .texto > p:last-child { color: rgb(246 245 241 / 0.82); }
-  .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: var(--ticket); color: var(--tinta); box-shadow: 0 30px 50px -28px rgb(0 0 0 / 0.55); }
+  .spa { --tono: var(--eucalipto); --suave: #dde7e0; }
+  .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: #fff; color: var(--tinta); box-shadow: 0 1px 2px rgb(20 20 22 / 0.06); }
   .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.4rem; font-weight: 650; }
   .t-nombre span { font-family: var(--texto); font-size: 0.9rem; font-weight: 500; color: var(--tinta-suave); align-self: center; }
   .hoyos { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; gap: 16px; }

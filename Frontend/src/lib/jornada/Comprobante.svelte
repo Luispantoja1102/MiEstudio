@@ -46,7 +46,7 @@
 <style>
   .comprobante { height: 240vh; background: var(--ticket); color: var(--tinta); }
   .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; gap: clamp(24px, 4vw, 64px); padding: 88px clamp(16px, 4vw, 56px) 40px; }
-  .hora { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: clamp(3rem, 7vw, 6rem); line-height: 1; color: var(--bermellon); font-variant-numeric: tabular-nums; }
+  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); font-variant-numeric: tabular-nums; }
   h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 15ch; text-wrap: balance; }
   .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
   ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
