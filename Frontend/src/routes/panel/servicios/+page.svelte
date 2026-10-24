@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import { money, toCents, toPesos } from '$lib/format.js';
-  import { session } from '$lib/session.svelte.js';
+  import { hasPos, session } from '$lib/session.svelte.js';
 
   const admin = session.me.role === 'admin';
-  const sells = ['admin', 'cashier', 'reception'].includes(session.me.role);
+  // los paquetes son de cobros: sin ese plan ni se piden ni se muestran
+  const sells = ['admin', 'cashier', 'reception'].includes(session.me.role) && hasPos();
 
   let services = $state([]);
   let team = $state([]);

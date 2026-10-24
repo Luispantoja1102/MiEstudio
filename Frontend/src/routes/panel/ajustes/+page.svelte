@@ -5,7 +5,7 @@
   import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
-  import { session } from '$lib/session.svelte.js';
+  import { hasMercadoPago, session } from '$lib/session.svelte.js';
   import Equipo from '../equipo/+page.svelte';
   import Mensajes from '../mensajes/+page.svelte';
   import Pagos from '../pagos/+page.svelte';
@@ -16,7 +16,7 @@
 
   const A = ['admin'];
   // Agrupado por lo que la persona busca, como en MiConsultorio.
-  const groups = [
+  const all = [
     {
       title: 'Mi negocio',
       items: [
@@ -48,6 +48,9 @@
       ]
     }
   ];
+
+  // Mercado Pago solo aparece si el plan incluye anticipos con MP o terminal
+  const groups = $derived(all.map((g) => ({ ...g, items: g.items.filter((i) => i.id !== 'pagos' || hasMercadoPago()) })));
 
   async function logout() {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});

@@ -223,7 +223,7 @@ func TestBasicPlanIsAppointmentsOnlyAndGrowthIncludesCobros(t *testing.T) {
 	cobros := []struct{ method, url string }{
 		{"GET", "/api/cash/current?branch_id=1"}, {"POST", "/api/cash/open"}, {"GET", "/api/sales"}, {"POST", "/api/sales"},
 		{"GET", "/api/packages"}, {"POST", "/api/packages"}, {"GET", "/api/reports/sales"}, {"GET", "/api/reports/commissions"},
-		{"GET", "/api/commission-rules"}, {"POST", "/api/products"},
+		{"GET", "/api/commission-rules"}, {"POST", "/api/products"}, {"GET", "/api/products"},
 	}
 	// un negocio nuevo empieza en Crecimiento: todo incluido
 	me := a.do(t, "GET", "/api/me", admin, nil).Body["business"].(map[string]any)

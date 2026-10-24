@@ -2,9 +2,12 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
-  import { session } from '$lib/session.svelte.js';
+  import { planLimit, session } from '$lib/session.svelte.js';
 
   let branches = $state([]);
+  // el plan fija cuántas sucursales activas caben: al llegar al tope no se ofrece crear ni reactivar
+  const maxBranches = $derived(planLimit('max_branches'));
+  const full = $derived(typeof maxBranches === 'number' && branches.filter((b) => b.active).length >= maxBranches);
   let error = $state('');
   let editing = $state(null); // null | 'new' | id
   let busy = $state(false);
@@ -57,8 +60,12 @@
     <h1>Sucursales</h1>
     <p>Los lugares donde atiendes. La agenda y los horarios se organizan por sucursal.</p>
   </div>
-  <button class="btn" onclick={startNew}>Nueva sucursal</button>
+  {#if !full}<button class="btn" onclick={startNew}>Nueva sucursal</button>{/if}
 </div>
+
+{#if full}
+  <p class="banner">Tu plan {planLimit('name')} incluye {maxBranches} {maxBranches === 1 ? 'sucursal' : 'sucursales'}. Para agregar más, <a href="/panel/ajustes?s=suscripcion">cambia de plan</a>.</p>
+{/if}
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
@@ -84,7 +91,7 @@
         <div class="meta">{[b.address, b.phone].filter(Boolean).join(' · ') || 'Sin dirección'}</div>
       </div>
       <button class="btn ghost sm" onclick={() => startEdit(b)}>Editar</button>
-      <button class="btn ghost sm" onclick={() => toggle(b)}>{b.active ? 'Desactivar' : 'Activar'}</button>
+      {#if b.active || !full}<button class="btn ghost sm" onclick={() => toggle(b)}>{b.active ? 'Desactivar' : 'Activar'}</button>{/if}
     </div>
   {/each}
 </div>

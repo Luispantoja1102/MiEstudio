@@ -4,7 +4,7 @@
   import HoursEditor from '$lib/HoursEditor.svelte';
   import { api } from '$lib/api.js';
   import { ROLES } from '$lib/format.js';
-  import { session } from '$lib/session.svelte.js';
+  import { hasPos, planLimit, session } from '$lib/session.svelte.js';
 
   let team = $state([]);
   let branches = $state([]);
@@ -14,6 +14,9 @@
   let showForm = $state(false);
   let busy = $state(false);
   let form = $state(blank());
+  // el plan fija cuántas personas caben en la agenda (null = sin tope): al llegar al tope no se suman más
+  const maxStaff = $derived(planLimit('max_staff'));
+  const staffFull = $derived(typeof maxStaff === 'number' && team.filter((m) => m.active && m.bookable).length >= maxStaff);
 
   function blank() {
     return { name: '', email: '', password: '', role: 'staff', bookable: true, commission_pct: 0 };
@@ -35,7 +38,7 @@
     error = '';
     busy = true;
     try {
-      await api('/api/team', { method: 'POST', body: { ...form, commission_pct: Number(form.commission_pct) } });
+      await api('/api/team', { method: 'POST', body: { ...form, bookable: form.bookable && !staffFull, commission_pct: Number(form.commission_pct) } });
       form = blank();
       showForm = false;
       await load();
@@ -95,12 +98,15 @@
           {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
         </select>
       </label>
-      <label class="field">
-        Comisión (%)
-        <input type="number" min="0" max="100" step="0.5" bind:value={form.commission_pct} />
-      </label>
+      {#if hasPos()}
+        <label class="field">
+          Comisión (%)
+          <input type="number" min="0" max="100" step="0.5" bind:value={form.commission_pct} />
+        </label>
+      {/if}
     </div>
-    <label class="check"><input type="checkbox" bind:checked={form.bookable} />Aparece en la agenda (atiende clientes)</label>
+    <label class="check"><input type="checkbox" checked={form.bookable && !staffFull} disabled={staffFull} onchange={(e) => (form.bookable = e.currentTarget.checked)} />Aparece en la agenda (atiende clientes)</label>
+    {#if staffFull}<p class="meta">Tu plan {planLimit('name')} permite {maxStaff} {maxStaff === 1 ? 'persona' : 'personas'} en la agenda. Para sumar más, <a href="/panel/ajustes?s=suscripcion">cambia de plan</a>.</p>{/if}
     <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button></div>
   </form>
 {/if}
@@ -120,10 +126,12 @@
         <select id="role-{m.id}" value={m.role} disabled={me} onchange={(e) => patch(m, { role: e.currentTarget.value })} style="width: auto; margin: 0">
           {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
         </select>
-        <label class="check"><input type="checkbox" checked={m.bookable} onchange={(e) => patch(m, { bookable: e.currentTarget.checked })} />En agenda</label>
-        <label class="meta" for="com-{m.id}">Comisión %</label>
-        <input id="com-{m.id}" type="number" min="0" max="100" step="0.5" value={m.commission_pct} style="width: 84px; margin: 0"
-          onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
+        <label class="check"><input type="checkbox" checked={m.bookable} disabled={!m.bookable && staffFull} onchange={(e) => patch(m, { bookable: e.currentTarget.checked })} />En agenda</label>
+        {#if hasPos()}
+          <label class="meta" for="com-{m.id}">Comisión %</label>
+          <input id="com-{m.id}" type="number" min="0" max="100" step="0.5" value={m.commission_pct} style="width: 84px; margin: 0"
+            onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
+        {/if}
         {#if m.bookable && m.active}
           <button class="btn ghost sm" onclick={() => (hoursFor = hoursFor === m.id ? null : m.id)}>Horario</button>
         {/if}
@@ -132,7 +140,7 @@
           <button class="btn ghost sm" onclick={() => resetTwoFactor(m)}>Quitar 2 pasos</button>
         {/if}
         {#if !me}
-          <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
+          {#if m.active || !m.bookable || !staffFull}<button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>{/if}
         {/if}
         {#if hoursFor === m.id}<HoursEditor member={m} {branches} />{/if}
       </div>

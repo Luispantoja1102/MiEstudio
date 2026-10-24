@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
-  import { session } from '$lib/session.svelte.js';
+  import { planLimit, session } from '$lib/session.svelte.js';
 
   let status = $state(null);
   let terminals = $state([]);
@@ -115,7 +115,7 @@
     {/if}
   </section>
 
-  {#if status.connected}
+  {#if status.connected && planLimit('terminal') !== false}
     <section class="card" style="margin-top: 1rem">
       <h2>2. Terminal por sucursal</h2>
       <p class="meta">Al registrarla, la terminal pasa a modo punto de venta: solo cobra lo que envía Barbella.</p>

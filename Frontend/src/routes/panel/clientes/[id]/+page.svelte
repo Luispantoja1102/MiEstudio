@@ -5,7 +5,7 @@
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { formatDate } from '$lib/format.js';
-  import { canSeeNotes, session } from '$lib/session.svelte.js';
+  import { canSeeNotes, hasPos, session } from '$lib/session.svelte.js';
 
   const id = page.params.id;
 
@@ -17,7 +17,7 @@
   let busy = $state(false);
   let packages = $state([]);
   const STATUS = { active: 'Vigente', exhausted: 'Agotado', expired: 'Vencido', void: 'Cancelado' };
-  const sells = ['admin', 'cashier', 'reception'].includes(session.me.role);
+  const sells = ['admin', 'cashier', 'reception'].includes(session.me.role) && hasPos();
 
   async function loadNotes() {
     if (canSeeNotes()) notes = await api(`/api/clients/${id}/notes`);

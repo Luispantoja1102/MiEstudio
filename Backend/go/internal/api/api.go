@@ -162,7 +162,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/services", a.tenant(a.createService, admin))
 	mux.Handle("PATCH /api/services/{id}", a.tenant(a.updateService, admin))
 	mux.Handle("PUT /api/services/{id}/staff", a.tenant(a.setServiceStaff, admin))
-	mux.Handle("GET /api/products", a.tenant(a.listProducts))
+	mux.Handle("GET /api/products", a.tenant(a.posOnly(a.listProducts)))
 	mux.Handle("POST /api/products", a.tenant(a.posOnly(a.createProduct), admin))
 	mux.Handle("PATCH /api/products/{id}", a.tenant(a.posOnly(a.updateProduct), admin))
 	mux.Handle("GET /api/branches", a.tenant(a.listBranches))
