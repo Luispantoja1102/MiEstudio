@@ -219,9 +219,8 @@
   }
 
   /* Día y Noche: saludo sobre la franja oscura de la barra (ver Shell), franja de color por profesional y horas grandes */
-  :global(:root[data-theme='light']) .hero-head,
   :global(:root[data-theme='dark']) .hero-head { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); --surface-2: rgba(236, 233, 226, 0.1); color: var(--text); }
-  :global(:root[data-theme='light']) .who,
+  :global(:root[data-theme='light']) .who { color: var(--accent); }
   :global(:root[data-theme='dark']) .who { color: #ee8a7c; }
   :global(:root[data-theme='light']) .slots li,
   :global(:root[data-theme='dark']) .slots li { position: relative; overflow: hidden; grid-template-columns: 5rem 1fr auto; padding-left: 1.7rem; }

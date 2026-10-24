@@ -112,6 +112,12 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: var(--band-h);
+  }
+  :global(:root[data-theme='light']) .main.hero::before {
+    background: radial-gradient(ellipse 55% 130% at 0% 0%, rgba(207, 84, 68, 0.2), transparent 62%), radial-gradient(ellipse 50% 110% at 100% 100%, rgba(95, 130, 220, 0.14), transparent 60%), #f8f1e8;
+    border-bottom: 1px solid var(--border);
+  }
+  :global(:root[data-theme='dark']) .main.hero::before {
     background: radial-gradient(ellipse 55% 130% at 0% 0%, rgba(207, 84, 68, 0.3), transparent 62%), radial-gradient(ellipse 50% 110% at 100% 100%, rgba(95, 130, 220, 0.2), transparent 60%), var(--side);
     border-bottom: 1px solid var(--side-line);
   }
@@ -120,7 +126,8 @@
   :global(:root[data-theme='light']) .main.hero > .content,
   :global(:root[data-theme='dark']) .main.hero > .content { position: relative; z-index: 1; }
   :global(:root[data-theme='light']) .main.hero > .top,
-  :global(:root[data-theme='dark']) .main.hero > .top { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); --surface: rgba(236, 233, 226, 0.06); --surface-2: rgba(236, 233, 226, 0.12); color: var(--text); }
+  :global(:root[data-theme='dark']) .main.hero > .top { z-index: 2; } /* el menú de avisos cuelga de la barra y debe quedar sobre el contenido */
+  :global(:root[data-theme='dark']) .main.hero > .top { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); color: var(--text); }
 
   /* Riel de íconos: la estructura es la misma en todos los temas; el tema solo pone los colores (--side-*) */
   .side {
@@ -137,6 +144,7 @@
     border-right: 1px solid var(--side-line);
     position: sticky;
     top: 0;
+    z-index: 5;
     height: 100vh;
   }
   .brand { display: grid; gap: 8px; justify-items: center; padding: 0 0 20px; }
@@ -181,8 +189,8 @@
     font-size: 0.85rem;
     font-weight: 500;
     white-space: nowrap;
-    color: var(--bg);
-    background: var(--text);
+    color: var(--side);
+    background: var(--side-text);
     border-radius: 8px;
     opacity: 0;
     transform: translate(-4px, -50%);

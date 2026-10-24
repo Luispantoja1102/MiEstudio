@@ -246,7 +246,7 @@
   .sw { flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); }
   .sw-auto { background: linear-gradient(135deg, #f3f1ec 50%, #101012 50%); }
   .sw-lino { background: linear-gradient(135deg, #a8614c 50%, #f8f6f2 50%); }
-  .sw-light { background: linear-gradient(135deg, #13203b 50%, #f3f1ec 50%); }
+  .sw-light { background: linear-gradient(135deg, #b8402f 50%, #f1eee7 50%); }
   .sw-ivory { background: linear-gradient(135deg, #101012 50%, #f4efe6 50%); }
   .sw-dark { background: linear-gradient(135deg, #c9a45c 50%, #101012 50%); }
   .linkbox { display: flex; gap: 8px; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; }

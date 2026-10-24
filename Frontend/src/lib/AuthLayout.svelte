@@ -48,8 +48,8 @@
     justify-content: space-between;
     padding: 16px 20px;
     color: #f8f6f2;
-    background: #111c38;
-    background-image: radial-gradient(ellipse 70% 50% at 8% 0%, rgba(192, 122, 101, 0.34), transparent 62%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(80, 120, 210, 0.26), transparent 60%);
+    background: #0f1012;
+    background-image: radial-gradient(ellipse 70% 50% at 8% 0%, rgba(207, 84, 68, 0.32), transparent 62%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(95, 130, 220, 0.22), transparent 60%);
   }
   .pitch, .kinds { display: none; }
 
@@ -73,10 +73,10 @@
     .kinds { display: block; }
     .tag { font: 600 0.72rem/1 var(--font-body, inherit); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(248, 246, 242, 0.55); margin: 0 0 1.25rem; }
     h2 { font-size: clamp(2.4rem, 4vw, 3.5rem); line-height: 0.98; margin: 0; color: #f8f6f2; }
-    h2 em { color: #e6a893; }
+    h2 em { color: #ee8a7c; }
     ul { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; gap: 14px; color: rgba(248, 246, 242, 0.82); font-size: 0.95rem; }
     li { display: flex; align-items: flex-start; gap: 12px; }
-    .tick { flex: none; display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: rgba(230, 168, 147, 0.22); color: #e6a893; }
+    .tick { flex: none; display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: rgba(238, 138, 124, 0.22); color: #ee8a7c; }
     .safe { display: inline-flex; align-items: center; gap: 8px; margin: 2.2rem 0 0; padding: 8px 14px; border-radius: 999px; font-size: 0.85rem; color: rgba(248, 246, 242, 0.82); box-shadow: inset 0 0 0 1px rgba(248, 246, 242, 0.18); }
     .kinds { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(248, 246, 242, 0.45); margin: 0; }
     main { padding: 40px 24px; }
