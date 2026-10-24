@@ -319,3 +319,97 @@ func signWebhook(secret, dataID, requestID, ts string) string {
 	fmt.Fprintf(mac, "id:%s;request-id:%s;ts:%s;", strings.ToLower(dataID), requestID, ts)
 	return hex.EncodeToString(mac.Sum(nil))
 }
+
+// subjectsTo junta los asuntos de los correos que recibió una dirección.
+func subjectsTo(fm *fakeMailer, to string) []string {
+	var out []string
+	for _, m := range fm.all() {
+		if m.To == to {
+			out = append(out, m.Subject)
+		}
+	}
+	return out
+}
+
+func TestRegistrationSendsWelcomeAndTeamNotice(t *testing.T) {
+	a := newTestAPI(t)
+	fm := &fakeMailer{}
+	a.Mailer, a.AppURL, a.PlatformNoticeTo = fm, "https://app.test", "equipo@plataforma.test"
+	a.mustRegister(t, "Barbería Norte", "norte@x.com")
+	waitMail(t, fm, 2)
+
+	var welcome, notice *mailMsg
+	for _, m := range fm.all() {
+		m := m
+		switch m.To {
+		case "norte@x.com":
+			welcome = &mailMsg{m.Subject, m.Text, m.ReplyTo}
+		case "equipo@plataforma.test":
+			notice = &mailMsg{m.Subject, m.Text, m.ReplyTo}
+		}
+	}
+	if welcome == nil || welcome.subject != "Bienvenido a Barbella" || !strings.Contains(welcome.text, "https://app.test/login") || !strings.Contains(welcome.text, "Barbería Norte") {
+		t.Fatalf("bienvenida: %+v", welcome)
+	}
+	if notice == nil || notice.subject != "Nuevo registro · Barbería Norte" || notice.replyTo != "norte@x.com" ||
+		!strings.Contains(notice.text, "https://app.test/plataforma/negocios/") || !strings.Contains(notice.text, "norte@x.com") {
+		t.Fatalf("aviso al equipo: %+v", notice)
+	}
+}
+
+type mailMsg struct{ subject, text, replyTo string }
+
+func TestTeamPaymentNoticeSaysFirstPaymentThenRenewal(t *testing.T) {
+	b := newBO(t)
+	b.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "plan": "crecimiento", "method": "transfer"})
+	waitMail(t, b.fm, 2)
+	b.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "plan": "crecimiento", "method": "transfer"})
+	waitMail(t, b.fm, 4)
+	got := subjectsTo(b.fm, "cobros@plataforma.test")
+	if len(got) != 2 || !strings.HasPrefix(got[0], "Primer pago · Barbería Norte") || !strings.HasPrefix(got[1], "Pago mensual · Barbería Norte") {
+		t.Fatalf("avisos de pago al equipo: %v", got)
+	}
+	b.pay(t, map[string]any{"amount_cents": 700000, "months": 12, "plan": "crecimiento", "method": "transfer"})
+	waitMail(t, b.fm, 6)
+	if got := subjectsTo(b.fm, "cobros@plataforma.test"); len(got) != 3 || !strings.HasPrefix(got[2], "Pago anual") {
+		t.Fatalf("pago anual: %v", got)
+	}
+}
+
+func TestMissedPaymentNoticeGoesToTeamOncePerEvent(t *testing.T) {
+	b := newBO(t)
+	ctx := context.Background()
+	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+	b.a.Now = func() time.Time { return now }
+	team := func() int {
+		time.Sleep(150 * time.Millisecond)
+		n := 0
+		for _, s := range subjectsTo(b.fm, "cobros@plataforma.test") {
+			if strings.HasPrefix(s, "No pagó") {
+				n++
+			}
+		}
+		return n
+	}
+	day := 24 * time.Hour
+	// una prueba que terminó hace un día sin pagar: avisa una sola vez
+	b.a.DB.Exec(ctx, `UPDATE businesses SET status = 'trial', trial_ends_at = $1, current_period_end = NULL`, now.Add(-day))
+	b.a.billingPass(ctx)
+	b.a.billingPass(ctx)
+	if n := team(); n != 1 {
+		t.Fatalf("prueba terminada sin pagar: %d avisos", n)
+	}
+	// historia vieja (hace 10 días): no se avisa, para no repasar todo el pasado
+	b.a.DB.Exec(ctx, `UPDATE businesses SET trial_ends_at = $1`, now.Add(-10*day))
+	b.a.billingPass(ctx)
+	if n := team(); n != 1 {
+		t.Fatalf("una prueba vieja no debe avisar: %d", n)
+	}
+	// un periodo pagado que terminó y ya pasó su gracia: otro evento, otro aviso
+	b.a.DB.Exec(ctx, `UPDATE businesses SET status = 'active', trial_ends_at = NULL, current_period_end = $1`, now.Add(-(pastDueGraceDays*day + time.Hour)))
+	b.a.billingPass(ctx)
+	b.a.billingPass(ctx)
+	if n := team(); n != 2 {
+		t.Fatalf("periodo vencido sin renovar: %d avisos", n)
+	}
+}

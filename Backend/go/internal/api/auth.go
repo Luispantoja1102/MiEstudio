@@ -217,6 +217,8 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		serverErr(w)
 	default:
 		a.logActivity(r.Context(), 0, bizID, "business_registered", map[string]any{"status": status, "email": req.Email})
+		a.welcomeEmail(req.Email, req.Name, req.BusinessName, status == "pending")
+		a.signupNotice(r.Context(), req, bizID, status)
 		token, _ := a.startSession(w, r, userID)
 		writeJSON(w, http.StatusCreated, map[string]any{"token": token, "status": status})
 	}

@@ -117,3 +117,19 @@ func TestSendRejectsBadAddresses(t *testing.T) {
 		t.Fatal("destinatario inválido debe fallar")
 	}
 }
+
+func TestBuildAddsReplyToOnlyWhenValid(t *testing.T) {
+	raw := string(Build("Barbella <no-reply@x.mx>", "equipo@x.mx", Message{Subject: "Hola", Text: "hola", ReplyTo: "Ana López <ana@correo.com>"}))
+	if !strings.Contains(raw, "Reply-To: ") || !strings.Contains(raw, "ana@correo.com") {
+		t.Fatalf("falta Reply-To:\n%s", raw)
+	}
+	for _, bad := range []string{"", "no es un correo"} {
+		if raw := string(Build("a@x.mx", "b@x.mx", Message{Subject: "Hola", Text: "hola", ReplyTo: bad})); strings.Contains(raw, "Reply-To") {
+			t.Fatalf("ReplyTo %q no debe producir encabezado:\n%s", bad, raw)
+		}
+	}
+	// un valor con salto de línea no puede inyectar otro encabezado
+	if raw := string(Build("a@x.mx", "b@x.mx", Message{Subject: "Hola", Text: "hola", ReplyTo: "ana@correo.com\r\nBcc: otro@x.mx"})); strings.Contains(raw, "\r\nBcc:") {
+		t.Fatalf("inyección de encabezado:\n%s", raw)
+	}
+}

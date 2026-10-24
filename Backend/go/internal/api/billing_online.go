@@ -305,14 +305,9 @@ func (a *API) notifyPayment(ctx context.Context, bizID int64, p paymentRow) {
 	if !a.mailEnabled() || p.Method == "courtesy" {
 		return
 	}
-	var name string
-	a.DB.QueryRow(ctx, `SELECT name FROM businesses WHERE id = $1`, bizID).Scan(&name)
 	plan, _ := a.planByID(ctx, p.Plan)
 	until := p.PeriodEnd.Format("2006-01-02")
-	for _, to := range a.teamRecipients(ctx) {
-		a.sendBackground(mail.Message{To: to, Subject: "Pago recibido: " + name,
-			Text: fmt.Sprintf("%s pagó %s (plan %s, %s). Vigente hasta %s.\n", name, moneyES(p.AmountCents), plan.Name, plural(p.Months, "mes", "meses"), until)}, "aviso de pago a la plataforma")
-	}
+	a.teamPaymentNotice(ctx, bizID, p, plan.Name)
 	for _, to := range a.businessAdmins(ctx, bizID) {
 		a.sendBackground(mail.Message{To: to, Subject: "Recibimos tu pago · Barbella",
 			Text: fmt.Sprintf("Gracias. Recibimos tu pago de %s por el plan %s (%s).\nTu suscripción está vigente hasta el %s.\n\n— Barbella\n", moneyES(p.AmountCents), plan.Name, plural(p.Months, "mes", "meses"), until),
@@ -345,6 +340,7 @@ func (a *API) billingPass(ctx context.Context) {
 		}
 	}
 	rows.Close()
+	a.missedPaymentPass(ctx, list, now)
 	link := a.AppURL + "/panel/suscripcion"
 	for _, b := range list {
 		var kind, key, subject, body string

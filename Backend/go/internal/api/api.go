@@ -40,7 +40,7 @@ type API struct {
 	MPWebhookSecret string // firma de los avisos; vacío = no se verifica
 
 	PlatformWebhookSecret string   // MPP_WEBHOOK_SECRET: firma de los avisos de pagos de suscripción
-	PlatformNoticeTo      string   // PLATFORM_NOTICE_EMAIL: a quién avisan los pagos recibidos
+	PlatformNoticeTo      string   // PLATFORM_NOTICE_EMAIL: a quién avisan los registros, los pagos recibidos y los que no llegaron
 	PlatformMPToken       string   // MPP_ACCESS_TOKEN: cuenta de Mercado Pago de la plataforma, para cobrar suscripciones
 	Operator              Operator // datos de quien opera la plataforma (aviso de privacidad)
 

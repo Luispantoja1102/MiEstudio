@@ -22,6 +22,7 @@ type Message struct {
 	Subject string
 	Text    string
 	HTML    string
+	ReplyTo string // opcional: a quién llega la respuesta (por ejemplo, la persona que se registró)
 }
 
 // Sender entrega correos. La API depende de esta interfaz para poder capturarlos en las pruebas.
@@ -131,6 +132,9 @@ func Build(from, to string, m Message) []byte {
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	h("From", from)
 	h("To", to)
+	if r, err := mail.ParseAddress(clean(m.ReplyTo)); err == nil {
+		h("Reply-To", r.String())
+	}
 	h("Subject", mime.QEncoding.Encode("utf-8", clean(m.Subject)))
 	h("Date", time.Now().Format(time.RFC1123Z))
 	h("MIME-Version", "1.0")

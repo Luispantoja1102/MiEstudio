@@ -26,8 +26,8 @@ func waitMail(t *testing.T, fm *fakeMailer, n int) {
 func newReset(t *testing.T) (*API, *fakeMailer) {
 	a := newTestAPI(t)
 	fm := &fakeMailer{}
+	a.mustRegister(t, "Barbería", "a@x.com") // se registra antes de instalar el correo de prueba: la bienvenida no cuenta aquí
 	a.Mailer, a.AppURL = fm, "https://app.test"
-	a.mustRegister(t, "Barbería", "a@x.com")
 	return a, fm
 }
 
