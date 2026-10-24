@@ -24,6 +24,6 @@ pgdata/
 .vscode/
 .idea/
 
-.claude
-.agents
+.claude/
+.agents/
 Claude.md
