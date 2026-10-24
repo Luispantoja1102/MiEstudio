@@ -14,6 +14,7 @@ type member struct {
 	ID            int64   `json:"id"`
 	Name          string  `json:"name"`
 	Email         string  `json:"email"`
+	Username      string  `json:"username"`
 	Role          string  `json:"role"`
 	Bookable      bool    `json:"bookable"`
 	CommissionPct float64 `json:"commission_pct"`
@@ -24,7 +25,7 @@ type member struct {
 func (a *API) listTeam(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT id, name, email, role, bookable, commission_pct::float8, active, totp_secret_enc IS NOT NULL
+		`SELECT id, name, email, username, role, bookable, commission_pct::float8, active, totp_secret_enc IS NOT NULL
 		 FROM users WHERE business_id = $1 ORDER BY name`, p.BusinessID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error interno")
@@ -34,7 +35,7 @@ func (a *API) listTeam(w http.ResponseWriter, r *http.Request) {
 	out := []member{}
 	for rows.Next() {
 		var m member
-		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Bookable, &m.CommissionPct, &m.Active, &m.TwoFactor); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Username, &m.Role, &m.Bookable, &m.CommissionPct, &m.Active, &m.TwoFactor); err != nil {
 			writeErr(w, http.StatusInternalServerError, "error interno")
 			return
 		}
@@ -48,6 +49,7 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name          string  `json:"name"`
 		Email         string  `json:"email"`
+		Username      string  `json:"username"` // opcional: si falta se genera a partir del correo
 		Password      string  `json:"password"`
 		Role          string  `json:"role"`
 		Bookable      bool    `json:"bookable"`
@@ -59,12 +61,16 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Username = normUsername(req.Username)
 	switch {
 	case !validName(req.Name):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
 		return
 	case !validEmail(req.Email):
 		writeErr(w, http.StatusBadRequest, "correo inválido")
+		return
+	case req.Username != "" && !validUsername(req.Username):
+		writeErr(w, http.StatusBadRequest, usernameHelp)
 		return
 	case !validPassword(req.Password):
 		writeErr(w, http.StatusBadRequest, "la contraseña debe tener de 8 a 72 caracteres")
@@ -87,12 +93,19 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "error interno")
 		return
 	}
+	if req.Username == "" {
+		req.Username = a.uniqueUsername(r.Context(), a.DB, emailLocal(req.Email))
+	}
 	var id int64
 	err = a.DB.QueryRow(r.Context(),
-		`INSERT INTO users (business_id, email, password_hash, name, role, bookable, commission_pct)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-		p.BusinessID, req.Email, hash, req.Name, req.Role, req.Bookable, req.CommissionPct).Scan(&id)
-	if code, _ := pgConstraint(err); code == "23505" {
+		`INSERT INTO users (business_id, email, username, password_hash, name, role, bookable, commission_pct)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		p.BusinessID, req.Email, req.Username, hash, req.Name, req.Role, req.Bookable, req.CommissionPct).Scan(&id)
+	if code, constraint := pgConstraint(err); code == "23505" {
+		if constraint == "users_username_key" {
+			writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
+			return
+		}
 		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
 		return
 	}

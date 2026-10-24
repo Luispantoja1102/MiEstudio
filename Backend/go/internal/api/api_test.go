@@ -287,3 +287,51 @@ func TestLoginIsNeverLockedOut(t *testing.T) {
 		t.Fatalf("con la contraseña correcta debe entrar siempre: %d", r.Status)
 	}
 }
+
+func TestLoginWithUsernameOrEmailAnyCase(t *testing.T) {
+	a := newTestAPI(t)
+	r := a.do(t, "POST", "/api/auth/register", "", map[string]any{
+		"business_name": "Barbería", "kind": "barberia", "name": "Ana", "email": "Ana@X.com", "username": "Ana.Lopez",
+		"password": "supersecreta1", "accept_terms": true})
+	if r.Status != http.StatusCreated {
+		t.Fatalf("registro con usuario: %d %v", r.Status, r.Body)
+	}
+	token := r.Body["token"].(string)
+	if me := a.do(t, "GET", "/api/me", token, nil); me.Body["username"] != "ana.lopez" {
+		t.Fatalf("el usuario se guarda en minúsculas: %v", me.Body["username"])
+	}
+
+	// el mismo campo acepta usuario o correo, con cualquier combinación de mayúsculas y espacios alrededor
+	for _, who := range []string{"ana.lopez", "ANA.LOPEZ", "  Ana.Lopez ", "ana@x.com", "ANA@X.COM"} {
+		if r := a.do(t, "POST", "/api/auth/login", "", map[string]any{"identifier": who, "password": "supersecreta1"}); r.Status != http.StatusOK {
+			t.Errorf("entrar con %q: %d %v", who, r.Status, r.Body)
+		}
+	}
+	if r := a.do(t, "POST", "/api/auth/login", "", map[string]any{"email": "ana@x.com", "password": "supersecreta1"}); r.Status != http.StatusOK {
+		t.Errorf("el campo email sigue funcionando: %d", r.Status)
+	}
+	// los fallos responden igual: contraseña mala o cuenta inexistente
+	for _, who := range []string{"ana.lopez", "nadie.existe"} {
+		if r := a.do(t, "POST", "/api/auth/login", "", map[string]any{"identifier": who, "password": "incorrecta1"}); r.Status != http.StatusUnauthorized {
+			t.Errorf("credenciales incorrectas con %q: %d", who, r.Status)
+		}
+	}
+
+	// el usuario es único sin distinguir mayúsculas, y debe tener un formato válido
+	other := map[string]any{"business_name": "Otro", "kind": "spa", "name": "Beto", "email": "beto@x.com", "username": "ANA.LOPEZ", "password": "supersecreta1", "accept_terms": true}
+	if r := a.do(t, "POST", "/api/auth/register", "", other); r.Status != http.StatusConflict {
+		t.Errorf("usuario repetido con otras mayúsculas: %d", r.Status)
+	}
+	for _, bad := range []string{"ab", "con espacio", "con@arroba", "ñandú"} {
+		other["username"] = bad
+		if r := a.do(t, "POST", "/api/auth/register", "", other); r.Status != http.StatusBadRequest {
+			t.Errorf("usuario inválido %q: %d", bad, r.Status)
+		}
+	}
+
+	// quien se agrega sin usuario recibe uno generado desde su correo y puede entrar con él
+	a.addMember(t, token, "carlos.perez@x.com", "staff")
+	if r := a.do(t, "POST", "/api/auth/login", "", map[string]any{"identifier": "Carlos.Perez", "password": "supersecreta1"}); r.Status != http.StatusOK {
+		t.Errorf("usuario generado para el equipo: %d %v", r.Status, r.Body)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -63,11 +64,53 @@ type registerReq struct {
 	Kind         string `json:"kind"`
 	Name         string `json:"name"`
 	Email        string `json:"email"`
+	Username     string `json:"username"` // opcional: si falta se genera a partir del correo
+	Phone        string `json:"phone"`    // opcional: queda en la primera sucursal
 	Password     string `json:"password"`
 	AcceptTerms  bool   `json:"accept_terms"` // términos y aviso de privacidad de la plataforma
 }
 
 var errEmailTaken = errors.New("correo ya registrado")
+var errUsernameTaken = errors.New("usuario ya registrado")
+
+// El usuario se guarda en minúsculas: letras, números, punto, guion y guion bajo (nunca "@", para no confundirse con un correo).
+var usernameRe = regexp.MustCompile(`^[a-z0-9._-]{3,30}$`)
+
+const usernameHelp = "el usuario debe tener de 3 a 30 caracteres: letras, números, punto, guion o guion bajo"
+
+func normUsername(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+
+func validUsername(s string) bool { return usernameRe.MatchString(s) }
+
+var nonUsername = regexp.MustCompile(`[^a-z0-9._-]+`)
+
+// uniqueUsername propone un usuario libre a partir de una base (normalmente la parte local de un correo).
+func (a *API) uniqueUsername(ctx context.Context, q queryer, base string) string {
+	base = nonUsername.ReplaceAllString(strings.ToLower(base), "")
+	if len(base) < 3 {
+		base += "user"
+	}
+	if len(base) > 24 {
+		base = base[:24]
+	}
+	cand := base
+	for n := 2; n < 1000; n++ {
+		var taken bool
+		if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE username = $1)`, cand).Scan(&taken); err != nil || !taken {
+			return cand
+		}
+		cand = base + strconv.Itoa(n)
+	}
+	b := make([]byte, 3)
+	rand.Read(b)
+	return base + hex.EncodeToString(b)
+}
+
+// emailLocal es la parte del correo antes de la @.
+func emailLocal(email string) string {
+	local, _, _ := strings.Cut(email, "@")
+	return local
+}
 
 // registrationMode devuelve "open", "approval" o "closed" (por defecto, abierto).
 func (a *API) registrationMode(ctx context.Context) string {
@@ -87,6 +130,8 @@ func validateRegister(req *registerReq) string {
 	req.BusinessName = strings.TrimSpace(req.BusinessName)
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Username = normUsername(req.Username)
+	req.Phone = strings.TrimSpace(req.Phone)
 	switch {
 	case !validName(req.BusinessName) || !validName(req.Name):
 		return "el nombre del negocio y el nombre de la persona son obligatorios"
@@ -94,6 +139,10 @@ func validateRegister(req *registerReq) string {
 		return "giro inválido"
 	case !validEmail(req.Email):
 		return "correo inválido"
+	case req.Username != "" && !validUsername(req.Username):
+		return usernameHelp
+	case len(req.Phone) > 30:
+		return "el teléfono es demasiado largo"
 	case !validPassword(req.Password):
 		return "la contraseña debe tener de 8 a 72 caracteres"
 	}
@@ -137,6 +186,8 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, errEmailTaken):
 		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	case errors.Is(err, errUsernameTaken):
+		writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
 	case err != nil:
 		serverErr(w)
 	default:
@@ -148,6 +199,9 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 
 // registerBusiness inserta el negocio con un identificador único, reintentando con sufijo si ya existe.
 func (a *API) registerBusiness(ctx context.Context, req registerReq, hash, status string) (bizID, userID int64, err error) {
+	if req.Username == "" {
+		req.Username = a.uniqueUsername(ctx, a.DB, emailLocal(req.Email))
+	}
 	base := slugify(req.BusinessName)
 	for attempt := 0; attempt < 5; attempt++ {
 		slug := base
@@ -164,6 +218,8 @@ func (a *API) registerBusiness(ctx context.Context, req registerReq, hash, statu
 		switch {
 		case code == "23505" && constraint == "users_email_key":
 			return 0, 0, errEmailTaken
+		case code == "23505" && constraint == "users_username_key":
+			return 0, 0, errUsernameTaken
 		case code == "23505" && constraint == "businesses_slug_key":
 			continue
 		default:
@@ -186,13 +242,13 @@ func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, s
 		req.BusinessName, slug, req.Kind, status).Scan(&bizID); err != nil {
 		return 0, 0, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO branches (business_id, name) VALUES ($1, 'Principal')`, bizID); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO branches (business_id, name, phone) VALUES ($1, 'Principal', $2)`, bizID, req.Phone); err != nil {
 		return 0, 0, err
 	}
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO users (business_id, email, password_hash, name, role, terms_version, terms_accepted_at)
-		 VALUES ($1, $2, $3, $4, 'admin', CASE WHEN $5 THEN $6 END, CASE WHEN $5 THEN now() END) RETURNING id`,
-		bizID, req.Email, hash, req.Name, req.AcceptTerms, NoticeVersion).Scan(&userID); err != nil {
+		`INSERT INTO users (business_id, email, username, password_hash, name, role, terms_version, terms_accepted_at)
+		 VALUES ($1, $2, $3, $4, $5, 'admin', CASE WHEN $6 THEN $7 END, CASE WHEN $6 THEN now() END) RETURNING id`,
+		bizID, req.Email, req.Username, hash, req.Name, req.AcceptTerms, NoticeVersion).Scan(&userID); err != nil {
 		return 0, 0, err
 	}
 	// el primer administrador es el titular del negocio
@@ -203,20 +259,26 @@ func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, s
 }
 
 func (a *API) login(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Email, Password string }
+	// Se entra con el usuario o con el correo en el mismo campo ("identifier"); "email" se sigue aceptando por compatibilidad.
+	var req struct{ Identifier, Email, Password string }
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(req.Email))
+	who := strings.TrimSpace(req.Identifier)
+	if who == "" {
+		who = strings.TrimSpace(req.Email)
+	}
+	who = strings.ToLower(who) // mayúsculas y minúsculas dan igual, tanto en el usuario como en el correo
 	// el inicio de sesión no se bloquea por intentos (decisión del dueño): un fallo siempre responde 401 con el mismo mensaje
 
 	var id int64
 	var hash string
 	var active, twoFactor bool
+	// un usuario nunca lleva "@", así que no puede coincidir con el correo de otra persona
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT id, password_hash, active, totp_secret_enc IS NOT NULL FROM users WHERE email = $1`, email).Scan(&id, &hash, &active, &twoFactor)
-	// mismo error si el correo no existe, está inactivo o la contraseña es incorrecta
+		`SELECT id, password_hash, active, totp_secret_enc IS NOT NULL FROM users WHERE lower(email) = $1 OR username = $1 LIMIT 1`, who).Scan(&id, &hash, &active, &twoFactor)
+	// mismo error si el usuario o correo no existe, está inactivo o la contraseña es incorrecta
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!active || !auth.CheckPassword(hash, req.Password))) {
 		writeErr(w, http.StatusUnauthorized, "credenciales incorrectas")
 		return
@@ -268,20 +330,20 @@ func (a *API) logoutAll(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
-	var name, email string
+	var name, email, username string
 	var bizName, kind, status, tz, plan *string
 	var trialEnds, periodEnd, setupDone *time.Time
 	err := a.DB.QueryRow(r.Context(),
-		`SELECT u.name, u.email, b.name, b.kind, b.status, b.trial_ends_at, b.timezone, b.plan, b.current_period_end, b.setup_completed_at
+		`SELECT u.name, u.email, u.username, b.name, b.kind, b.status, b.trial_ends_at, b.timezone, b.plan, b.current_period_end, b.setup_completed_at
 		 FROM users u LEFT JOIN businesses b ON b.id = u.business_id WHERE u.id = $1`, p.UserID).
-		Scan(&name, &email, &bizName, &kind, &status, &trialEnds, &tz, &plan, &periodEnd, &setupDone)
+		Scan(&name, &email, &username, &bizName, &kind, &status, &trialEnds, &tz, &plan, &periodEnd, &setupDone)
 	if err != nil {
 		serverErr(w)
 		return
 	}
 	var twoFactor bool
 	a.DB.QueryRow(r.Context(), `SELECT totp_secret_enc IS NOT NULL FROM users WHERE id = $1`, p.UserID).Scan(&twoFactor)
-	out := map[string]any{"id": p.UserID, "name": name, "email": email, "role": p.Role, "business": nil, "two_factor": twoFactor}
+	out := map[string]any{"id": p.UserID, "name": name, "email": email, "username": username, "role": p.Role, "business": nil, "two_factor": twoFactor}
 	if p.BusinessID != 0 {
 		isOwner := p.Role == "admin" && a.isOwner(r.Context(), p.BusinessID, p.UserID)
 		out["business"] = map[string]any{

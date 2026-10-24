@@ -5,7 +5,8 @@
   import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
-  import { hasMercadoPago, session } from '$lib/session.svelte.js';
+  import { onMount } from 'svelte';
+  import { hasMercadoPago, planLimit, session } from '$lib/session.svelte.js';
   import Equipo from '../equipo/+page.svelte';
   import Mensajes from '../mensajes/+page.svelte';
   import Pagos from '../pagos/+page.svelte';
@@ -20,7 +21,7 @@
     {
       title: 'Mi negocio',
       items: [
-        { id: 'negocio', label: 'Datos del negocio', desc: 'Nombre, giro y zona horaria', icon: 'home', component: BusinessProfile, roles: A },
+        { id: 'negocio', label: 'Datos del negocio', desc: 'Nombre, contacto y zona horaria', icon: 'home', component: BusinessProfile, roles: A },
         { id: 'equipo', label: 'Equipo', desc: 'Personal, roles y horarios', icon: 'users', component: Equipo, roles: A },
         { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales y su dirección', icon: 'home', component: Sucursales, roles: A }
       ]
@@ -49,8 +50,20 @@
     }
   ];
 
+  // Sucursales solo aparece si el plan admite varias, o si el negocio ya tiene más de una (por ejemplo, tras bajar de plan, para poder desactivarlas).
+  // La dirección y el teléfono de la única sucursal se editan en «Datos del negocio».
+  let branchCount = $state(0);
+  onMount(() => {
+    api('/api/branches').then((l) => (branchCount = l.length)).catch(() => {});
+  });
+  const manyBranches = $derived((planLimit('max_branches') ?? 1) > 1 || branchCount > 1);
   // Mercado Pago solo aparece si el plan incluye anticipos con MP o terminal
-  const groups = $derived(all.map((g) => ({ ...g, items: g.items.filter((i) => i.id !== 'pagos' || hasMercadoPago()) })));
+  const groups = $derived(
+    all.map((g) => ({
+      ...g,
+      items: g.items.filter((i) => (i.id !== 'pagos' || hasMercadoPago()) && (i.id !== 'sucursales' || manyBranches))
+    }))
+  );
 
   async function logout() {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});

@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
+  import { ago } from '$lib/format.js';
 
   let open = $state(false);
   let unread = $state(0);
@@ -45,15 +46,6 @@
     open = false;
     if (it.link) goto(it.link);
   }
-
-  const ago = (iso) => {
-    const m = Math.round((Date.now() - new Date(iso)) / 60000);
-    if (m < 1) return 'ahora';
-    if (m < 60) return `hace ${m} min`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `hace ${h} h`;
-    return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-  };
 
   const onwindow = (e) => {
     if (open && root && !root.contains(e.target)) open = false;

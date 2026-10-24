@@ -58,12 +58,13 @@ func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if !validEmail(email) {
-		writeErr(w, http.StatusBadRequest, "escribe un correo válido")
+	// el campo "email" acepta también el usuario; el enlace siempre llega al correo de la cuenta
+	who := strings.ToLower(strings.TrimSpace(req.Email))
+	if !validEmail(who) && !validUsername(who) {
+		writeErr(w, http.StatusBadRequest, "escribe tu correo o tu usuario")
 		return
 	}
-	if !a.allow(w, "forgot-ip:"+clientIP(r), 10, time.Hour) || !a.allow(w, "forgot-email:"+email, 3, time.Hour) {
+	if !a.allow(w, "forgot-ip:"+clientIP(r), 10, time.Hour) || !a.allow(w, "forgot-email:"+who, 3, time.Hour) {
 		return
 	}
 	if !a.mailEnabled() {
@@ -72,8 +73,8 @@ func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	var id int64
-	var name string
-	err := a.DB.QueryRow(ctx, `SELECT id, name FROM users WHERE email = $1 AND active AND role <> $2`, email, auth.RolePlatformAdmin).Scan(&id, &name)
+	var name, email string
+	err := a.DB.QueryRow(ctx, `SELECT id, name, email FROM users WHERE (lower(email) = $1 OR username = $1) AND active AND role <> $2 LIMIT 1`, who, auth.RolePlatformAdmin).Scan(&id, &name, &email)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		// misma respuesta que si existiera

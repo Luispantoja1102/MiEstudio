@@ -173,6 +173,8 @@ func (a *API) platformCreateBusiness(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, errEmailTaken):
 		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	case errors.Is(err, errUsernameTaken):
+		writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
 	case err != nil:
 		serverErr(w)
 	default:
@@ -415,8 +417,8 @@ func (a *API) insertPlatformUser(ctx context.Context, name, email, password, rol
 	}
 	var id int64
 	err = a.DB.QueryRow(ctx,
-		`INSERT INTO users (business_id, email, password_hash, name, role) VALUES (NULL, $1, $2, $3, $4) RETURNING id`,
-		email, hash, name, role).Scan(&id)
+		`INSERT INTO users (business_id, email, username, password_hash, name, role) VALUES (NULL, $1, $2, $3, $4, $5) RETURNING id`,
+		email, a.uniqueUsername(ctx, a.DB, emailLocal(email)), hash, name, role).Scan(&id)
 	if code, constraint := pgConstraint(err); code == "23505" && constraint == "users_email_key" {
 		return 0, errEmailTaken
 	}

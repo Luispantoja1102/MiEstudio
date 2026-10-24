@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import HoursEditor from '$lib/HoursEditor.svelte';
   import { api } from '$lib/api.js';
-  import { ROLES } from '$lib/format.js';
+  import { ROLES, cleanUsername } from '$lib/format.js';
   import { hasPos, planLimit, session } from '$lib/session.svelte.js';
 
   let team = $state([]);
@@ -19,7 +19,7 @@
   const staffFull = $derived(typeof maxStaff === 'number' && team.filter((m) => m.active && m.bookable).length >= maxStaff);
 
   function blank() {
-    return { name: '', email: '', password: '', role: 'staff', bookable: true, commission_pct: 0 };
+    return { name: '', email: '', username: '', password: '', role: 'staff', bookable: true, commission_pct: 0 };
   }
 
   async function load() {
@@ -38,7 +38,7 @@
     error = '';
     busy = true;
     try {
-      await api('/api/team', { method: 'POST', body: { ...form, bookable: form.bookable && !staffFull, commission_pct: Number(form.commission_pct) } });
+      await api('/api/team', { method: 'POST', body: { ...form, username: form.username || undefined, bookable: form.bookable && !staffFull, commission_pct: Number(form.commission_pct) } });
       form = blank();
       showForm = false;
       await load();
@@ -86,7 +86,10 @@
   <form class="card" onsubmit={add} style="margin-bottom: 1.5rem">
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={form.name} required /></label>
-      <label class="field">Correo <input type="email" bind:value={form.email} required /></label>
+      <label class="field">Correo <input type="email" bind:value={form.email} required autocapitalize="none" spellcheck="false" /></label>
+      <label class="field">Usuario <span class="hint">opcional · con él o con su correo podrá entrar</span>
+        <input value={form.username} oninput={(e) => (form.username = cleanUsername(e.currentTarget.value))} maxlength="30" placeholder="Se genera desde el correo" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" />
+      </label>
       <label class="field">
         Contraseña inicial
         <input type="password" bind:value={form.password} minlength="8" maxlength="72" autocomplete="new-password" required />
@@ -120,7 +123,7 @@
       <div class="item-row" class:off={!m.active}>
         <div class="grow">
           <div class="title">{m.name} {#if me}<span class="badge">Tú</span>{/if}{#if !m.active}<span class="badge muted">Inactivo</span>{/if}</div>
-          <div class="meta">{m.email}</div>
+          <div class="meta">{m.username} · {m.email}</div>
         </div>
         <label class="sr-only" for="role-{m.id}">Rol de {m.name}</label>
         <select id="role-{m.id}" value={m.role} disabled={me} onchange={(e) => patch(m, { role: e.currentTarget.value })} style="width: auto; margin: 0">

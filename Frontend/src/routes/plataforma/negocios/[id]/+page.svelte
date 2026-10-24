@@ -1,9 +1,10 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/state';
+  import Avatar from '$lib/Avatar.svelte';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
-  import { BILLING, KINDS, PAY_METHODS, PLANS, ROLES, ACTIONS, formatDate, formatDay, money, plural, pesos, toCents } from '$lib/format.js';
+  import { BILLING, KINDS, PAY_METHODS, PLANS, ROLES, ACTIONS, ago, formatDate, formatDay, money, plural, pesos, toCents } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
 
   const id = page.params.id;
@@ -13,6 +14,7 @@
   let activity = $state([]);
   let error = $state('');
   let notice = $state('');
+  let tab = $state('resumen');
   let trialDate = $state('');
   let periodDate = $state('');
   let plan = $state('');
@@ -22,6 +24,9 @@
   let newPassword = $state('');
   let plans = $state([]);
   let pay = $state({ amount: '', months: 1, plan: '', method: 'transfer', note: '' });
+
+  // soporte es de solo lectura: no ve Licencia y pagos
+  const TABS = [['resumen', 'Resumen'], ...(write ? [['licencia', 'Licencia y pagos']] : []), ['personas', 'Personas'], ['actividad', 'Actividad']];
 
   async function load() {
     data = await api(`/api/platform/businesses/${id}`);
@@ -77,6 +82,8 @@
   }
 
   const limitOf = (v) => (v === null || v === undefined ? '∞' : v);
+  const pct = (used, max) => (max === null || max === undefined ? 0 : Math.min(100, Math.round((used / Math.max(max, 1)) * 100)));
+  const tone = (used, max) => (max === null || max === undefined ? '' : used > max ? 'over' : used === max ? 'full' : '');
   // precio de lista del plan elegido: 12 meses cobra el precio anual; otros periodos, meses × precio mensual
   const priceHint = () => {
     const p = plans.find((x) => x.id === pay.plan);
@@ -91,67 +98,109 @@
 
 {#if data}
   {@const b = data.business}
-  {@const [label, tone] = BILLING[b.billing_state]}
-  <div class="page-head">
-    <div>
-      <h1>{b.name}</h1>
-      <p>{KINDS[b.kind]} · identificador <code>{b.slug}</code> · alta {formatDay(b.created_at)}</p>
+  {@const [label, billTone] = BILLING[b.billing_state]}
+  <section class="card head">
+    <div class="top">
+      <Avatar name={b.name} size="3.2rem" />
+      <div class="grow">
+        <h1>{b.name}</h1>
+        <p class="chips">
+          <span class="badge {billTone}">{label}</span>
+          <span class="chip">{PLANS[b.plan]}</span>
+          <span class="chip">{KINDS[b.kind]}</span>
+          <span class="meta">identificador <code>{b.slug}</code></span>
+        </p>
+      </div>
+      {#if write}
+        <div class="acts">
+          {#if b.status === 'pending'}<button class="btn sm" onclick={() => patch({ status: 'trial' }, 'Negocio aprobado: inició su prueba de 14 días.')}>Aprobar</button>{/if}
+          {#if b.status === 'suspended'}
+            <button class="btn sm" onclick={() => patch({ status: b.last_payment_at || b.current_period_end ? 'active' : 'trial' }, 'Negocio reactivado.')}>Reactivar</button>
+          {:else if !suspending}
+            <button class="btn ghost sm" onclick={() => (suspending = true)}>Suspender…</button>
+          {/if}
+        </div>
+      {/if}
     </div>
-    <span class="badge {tone}">{label}</span>
-  </div>
+    {#if suspending}
+      <form class="reset" onsubmit={suspend}>
+        <input bind:value={reason} maxlength="300" placeholder="Motivo (opcional, lo verá el negocio)" aria-label="Motivo de la suspensión" />
+        <button class="btn sm">Suspender</button>
+        <button type="button" class="btn ghost sm" onclick={() => (suspending = false)}>Cancelar</button>
+      </form>
+    {/if}
+    {#if b.suspended_reason}<p class="banner">Suspendido: {b.suspended_reason}</p>{/if}
 
-  <section class="card">
-    <h2>Suscripción</h2>
-    <p class="meta">
-      Plan <b>{PLANS[b.plan]}</b> ·
-      {#if b.status === 'trial'}prueba hasta {formatDay(b.trial_ends_at)}{#if b.trial_days_left !== null}{' '}({plural(b.trial_days_left, 'día', 'días')}){/if}
-      {:else if b.current_period_end}vigente hasta {formatDay(b.current_period_end)}
-      {:else if b.status === 'active'}activo sin vencimiento (cortesía)
-      {:else}sin periodo pagado{/if}
-      {#if b.last_payment_at} · último pago {formatDay(b.last_payment_at)}{/if}
-    </p>
-    {#if b.suspended_reason}<p class="banner">Motivo de la suspensión: {b.suspended_reason}</p>{/if}
-    <p class="meta">{plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')} · responsable: {b.owner_email || '—'}</p>
+    <nav class="tabs" aria-label="Secciones del negocio">
+      {#each TABS as [v, l]}
+        <button type="button" class="chip" aria-pressed={tab === v} onclick={() => (tab = v)}>{l}</button>
+      {/each}
+    </nav>
+  </section>
+
+  {#if tab === 'resumen'}
+    <section class="card">
+      <dl class="facts">
+        <div>
+          <dt>Responsable</dt>
+          <dd>{#if b.owner_email}<a href="mailto:{b.owner_email}">{b.owner_email}</a>{:else}Sin responsable{/if}</dd>
+          <small>{plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')}</small>
+        </div>
+        <div>
+          <dt>Alta</dt>
+          <dd>{formatDay(b.created_at)}</dd>
+          <small>{ago(b.created_at)}</small>
+        </div>
+        <div>
+          <dt>Última cita creada</dt>
+          <dd>{data.metrics?.last_appointment_at ? formatDay(data.metrics.last_appointment_at) : 'Nunca'}</dd>
+          <small>{data.metrics?.last_appointment_at ? ago(data.metrics.last_appointment_at) : 'sin actividad todavía'}</small>
+        </div>
+        <div>
+          <dt>Plan</dt>
+          <dd>{PLANS[b.plan]}</dd>
+          <small>
+            {#if b.status === 'trial'}prueba hasta {formatDay(b.trial_ends_at)}{#if b.trial_days_left !== null} ({plural(b.trial_days_left, 'día', 'días')}){/if}
+            {:else if b.current_period_end}vigente hasta {formatDay(b.current_period_end)}
+            {:else if b.status === 'active'}activo sin vencimiento (cortesía)
+            {:else}sin periodo pagado{/if}
+            {#if b.last_payment_at} · último pago {formatDay(b.last_payment_at)}{/if}
+          </small>
+        </div>
+      </dl>
+    </section>
 
     {#if data.usage && data.limits}
-      <div class="usage">
-        <span class:over={data.limits.max_staff !== null && data.usage.staff > data.limits.max_staff}>Agenda: {data.usage.staff} / {limitOf(data.limits.max_staff)}</span>
-        <span class:over={data.usage.branches > data.limits.max_branches}>Sucursales: {data.usage.branches} / {data.limits.max_branches}</span>
-        <span>Cobros: {data.limits.pos ? 'sí' : 'no'}</span>
-        <span>Anticipos: {data.limits.deposits_mp ? 'transferencia y Mercado Pago' : data.limits.deposits ? 'solo transferencia' : 'no'}</span>
-        <span>Terminal: {data.limits.terminal ? 'sí' : 'no'}</span>
-      </div>
+      <section class="card">
+        <h2>Uso del plan</h2>
+        <div class="meters">
+          <div>
+            <div class="mhead"><span>Personas en agenda</span><b class="num">{data.usage.staff} / {limitOf(data.limits.max_staff)}</b></div>
+            <div class="meter {tone(data.usage.staff, data.limits.max_staff)}"><i style="width: {pct(data.usage.staff, data.limits.max_staff)}%"></i></div>
+          </div>
+          <div>
+            <div class="mhead"><span>Sucursales</span><b class="num">{data.usage.branches} / {data.limits.max_branches}</b></div>
+            <div class="meter {tone(data.usage.branches, data.limits.max_branches)}"><i style="width: {pct(data.usage.branches, data.limits.max_branches)}%"></i></div>
+          </div>
+        </div>
+        <p class="meta feats">
+          <span>Cobros: {data.limits.pos ? 'sí' : 'no'}</span>
+          <span>Anticipos: {data.limits.deposits_mp ? 'transferencia y Mercado Pago' : data.limits.deposits ? 'solo transferencia' : 'no'}</span>
+          <span>Terminal: {data.limits.terminal ? 'sí' : 'no'}</span>
+        </p>
+      </section>
     {/if}
 
     {#if data.metrics}
-      <dl class="metrics" aria-label="Uso en los últimos 30 días">
-        <div><dt>Citas (30 días)</dt><dd>{data.metrics.appointments_30d}</dd></div>
-        <div><dt>Reservas en línea</dt><dd>{data.metrics.online_bookings_30d}</dd></div>
-        <div><dt>Ventas</dt><dd>{data.metrics.sales_30d}</dd></div>
-        <div><dt>Última cita creada</dt><dd class="small">{data.metrics.last_appointment_at ? formatDay(data.metrics.last_appointment_at) : 'Nunca'}</dd></div>
-      </dl>
+      <section class="kpis" aria-label="Uso en los últimos 30 días">
+        <div class="kpi"><span class="lbl">Citas (30 días)</span><span class="body"><b class="v">{data.metrics.appointments_30d}</b></span></div>
+        <div class="kpi"><span class="lbl">Reservas en línea</span><span class="body"><b class="v">{data.metrics.online_bookings_30d}</b></span></div>
+        <div class="kpi"><span class="lbl">Ventas</span><span class="body"><b class="v">{data.metrics.sales_30d}</b></span></div>
+      </section>
     {/if}
+  {/if}
 
-    {#if write}
-      <div class="form-actions">
-        {#if b.status === 'pending'}<button class="btn" onclick={() => patch({ status: 'trial' }, 'Negocio aprobado: inició su prueba de 14 días.')}>Aprobar</button>{/if}
-        {#if b.status === 'suspended'}
-          <button class="btn" onclick={() => patch({ status: b.last_payment_at || b.current_period_end ? 'active' : 'trial' }, 'Negocio reactivado.')}>Reactivar</button>
-        {:else if !suspending}
-          <button class="btn ghost" onclick={() => (suspending = true)}>Suspender…</button>
-        {/if}
-      </div>
-      {#if suspending}
-        <form class="reset" onsubmit={suspend}>
-          <input bind:value={reason} maxlength="300" placeholder="Motivo (opcional, lo verá el negocio)" aria-label="Motivo de la suspensión" />
-          <button class="btn sm">Suspender</button>
-          <button type="button" class="btn ghost sm" onclick={() => (suspending = false)}>Cancelar</button>
-        </form>
-      {/if}
-    {/if}
-  </section>
-
-  {#if write}
+  {#if tab === 'licencia' && write}
     <section class="card">
       <h2>Plan y fechas</h2>
       <p class="meta">Cambia el plan o ajusta cuándo termina la prueba o el periodo pagado.</p>
@@ -172,9 +221,7 @@
         </div>
       </div>
     </section>
-  {/if}
 
-  {#if write}
     <section class="card">
       <h2>Registrar un pago</h2>
       <p class="meta">Para transferencias, efectivo o cortesías. El periodo se suma al vigente y el negocio queda activo.</p>
@@ -217,60 +264,86 @@
     </section>
   {/if}
 
-  <section>
-    <h2>Equipo del negocio</h2>
-    <div class="list">
-      {#each data.team as u (u.id)}
-        <div class="item-row" class:off={!u.active}>
-          <div class="grow">
-            <div class="title">{u.name} <span class="badge muted">{ROLES[u.role]}</span>{#if !u.active} <span class="badge bad">Inactivo</span>{/if}</div>
-            <div class="meta">{u.email}</div>
+  {#if tab === 'personas'}
+    <section>
+      <h2>Equipo del negocio</h2>
+      <div class="list">
+        {#each data.team as u (u.id)}
+          <div class="item-row" class:off={!u.active}>
+            <Avatar name={u.name} size="2.2rem" />
+            <div class="grow">
+              <div class="title">{u.name} <span class="badge muted">{ROLES[u.role]}</span>{#if !u.active} <span class="badge bad">Inactivo</span>{/if}</div>
+              <div class="meta">{u.email}</div>
+            </div>
+            {#if write}
+              <button class="btn ghost sm" onclick={() => ((resetFor = resetFor === u.id ? null : u.id), (newPassword = ''))}>Restablecer contraseña</button>
+              <button class="btn ghost sm" onclick={() => resetTwoFactor(u)}>Quitar 2 pasos</button>
+              <button class="btn ghost sm" onclick={() => toggleUser(u)}>{u.active ? 'Desactivar' : 'Reactivar'}</button>
+            {/if}
+            {#if resetFor === u.id}
+              <form class="reset" onsubmit={(e) => resetPassword(e, u)}>
+                <label class="sr-only" for="pw-{u.id}">Contraseña nueva</label>
+                <input id="pw-{u.id}" type="password" bind:value={newPassword} minlength="8" maxlength="72" placeholder="Contraseña nueva (8+ caracteres)" autocomplete="new-password" required />
+                <button class="btn sm">Guardar</button>
+              </form>
+            {/if}
           </div>
-          {#if write}
-            <button class="btn ghost sm" onclick={() => ((resetFor = resetFor === u.id ? null : u.id), (newPassword = ''))}>Restablecer contraseña</button>
-            <button class="btn ghost sm" onclick={() => resetTwoFactor(u)}>Quitar 2 pasos</button>
-            <button class="btn ghost sm" onclick={() => toggleUser(u)}>{u.active ? 'Desactivar' : 'Reactivar'}</button>
-          {/if}
-          {#if resetFor === u.id}
-            <form class="reset" onsubmit={(e) => resetPassword(e, u)}>
-              <label class="sr-only" for="pw-{u.id}">Contraseña nueva</label>
-              <input id="pw-{u.id}" type="password" bind:value={newPassword} minlength="8" maxlength="72" placeholder="Contraseña nueva (8+ caracteres)" autocomplete="new-password" required />
-              <button class="btn sm">Guardar</button>
-            </form>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  </section>
+        {/each}
+      </div>
+    </section>
+  {/if}
 
-  <section>
-    <h2>Actividad reciente</h2>
-    <div class="list">
-      {#each activity as a (a.id)}
-        <div class="item-row"><span class="grow">{ACTIONS[a.action] ?? a.action}</span><span class="meta">{a.actor} · {formatDate(a.created_at)}</span></div>
-      {:else}
-        <div class="empty">Sin actividad registrada.</div>
-      {/each}
-    </div>
-  </section>
+  {#if tab === 'actividad'}
+    <section>
+      <h2>Actividad reciente</h2>
+      <div class="list">
+        {#each activity as a (a.id)}
+          <div class="item-row"><span class="grow">{ACTIONS[a.action] ?? a.action}</span><span class="meta">{a.actor} · {formatDate(a.created_at)}</span></div>
+        {:else}
+          <div class="empty">Sin actividad registrada.</div>
+        {/each}
+      </div>
+    </section>
+  {/if}
 {/if}
 
 <style>
   .back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 0.4rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
   .back :global(svg) { transform: rotate(180deg); }
   .back:hover { color: var(--accent); }
-  section { margin-top: 2rem; }
-  section h2 { font-size: 1.4rem; }
+  .card { margin-bottom: 1rem; }
+  section:not(.card):not(.kpis) { margin-top: 1.5rem; }
+  section h2 { font-size: 1.3rem; }
   .card h2 { margin-bottom: 0.3rem; }
   code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
+  .meta { color: var(--muted); font-size: 0.88rem; }
+
+  .head h1 { font-size: 1.8rem; margin: 0; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; }
+  .top .grow { flex: 1 1 220px; min-width: 0; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0.35rem 0 0; }
+  .chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 0.7rem; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--muted); background: var(--surface-2); border: 0; border-radius: 999px; }
+  .acts { display: flex; gap: 8px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .tabs .chip { min-height: 36px; padding: 0 1rem; font-size: 0.88rem; cursor: pointer; color: var(--text); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+  .tabs .chip[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); box-shadow: none; }
+
+  .facts { margin: 0; display: grid; gap: 18px 24px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .facts dt { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .facts dd { margin: 2px 0; font-weight: 600; overflow-wrap: anywhere; }
+  .facts small { color: var(--muted); font-size: 0.84rem; }
+
+  .meters { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 0.9rem; }
+  .mhead { display: flex; justify-content: space-between; gap: 10px; font-size: 0.9rem; margin-bottom: 6px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .meter { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+  .meter.full i { background: var(--warn); }
+  .meter.over i { background: var(--danger); }
+  .feats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 1rem 0 0; }
+
   .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 1.25rem; }
   .grid3 button { margin-top: 8px; }
-  .usage { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0.75rem 0; font-size: 0.9rem; color: var(--muted); }
-  .usage .over { color: var(--danger); font-weight: 600; }
   .reset { display: flex; gap: 8px; flex: 1 1 100%; flex-wrap: wrap; margin-top: 0.75rem; }
   .reset input { margin: 0; flex: 1 1 240px; }
-  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 1rem 0; padding: 14px 16px; background: var(--surface-2); border-radius: var(--radius-sm); }
-  .metrics dt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .metrics dd { margin: 4px 0 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-family: var(--font-body, inherit); }
-  .metrics dd.small { font-size: 1rem; padding-top: 6px; }
 </style>

@@ -27,11 +27,11 @@
   {#if sent}
     <div class="card" role="status">
       <p><b>Revisa tu correo.</b></p>
-      <p class="meta">Si hay una cuenta con <b>{email}</b>, recibirás un enlace que vale 1 hora. Si no llega, revisa la carpeta de spam.</p>
+      <p class="meta">Si hay una cuenta con <b>{email.trim()}</b>, recibirás en su correo un enlace que vale 1 hora. Si no llega, revisa la carpeta de spam.</p>
     </div>
   {:else}
     <form onsubmit={submit}>
-      <label class="field">Correo <input type="email" bind:value={email} autocomplete="email" required /></label>
+      <label class="field">Correo o usuario <input type="text" bind:value={email} autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required /></label>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       <button class="btn block lg" disabled={busy}>{busy ? 'Enviando…' : 'Enviar enlace'}</button>
     </form>

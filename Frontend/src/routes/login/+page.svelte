@@ -5,7 +5,7 @@
   import { api } from '$lib/api.js';
   import { homeFor } from '$lib/session.svelte.js';
 
-  let email = $state('');
+  let identifier = $state(''); // usuario o correo, en el mismo campo
   let password = $state('');
   let showPass = $state(false);
   let capsOn = $state(false);
@@ -20,15 +20,15 @@
   async function submit(e) {
     e.preventDefault();
     error = '';
-    if (!challenge && (!email.trim() || !password)) {
-      error = 'Escribe tu correo y tu contraseña.';
+    if (!challenge && (!identifier.trim() || !password)) {
+      error = 'Escribe tu usuario o correo y tu contraseña.';
       return;
     }
     busy = true;
     try {
       const r = challenge
         ? await api('/api/auth/login/2fa', { method: 'POST', body: { challenge, code: code.trim() } })
-        : await api('/api/auth/login', { method: 'POST', body: { email: email.trim(), password } });
+        : await api('/api/auth/login', { method: 'POST', body: { identifier: identifier.trim(), password } });
       if (r.needs_2fa) {
         challenge = r.challenge;
         password = '';
@@ -61,7 +61,7 @@
         <span class="hint">{recovery ? 'Escribe uno de tus códigos de respaldo. Cada uno sirve una sola vez.' : 'Abre tu app de autenticación y escribe el código que muestra.'}</span>
       </label>
     {:else}
-      <label class="field">Correo <input type="email" bind:value={email} placeholder="tu@correo.com" autocomplete="email" autocapitalize="none" spellcheck="false" /></label>
+      <label class="field">Usuario o correo <input type="text" bind:value={identifier} placeholder="tu usuario o tu@correo.com" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" /></label>
       <div class="field">
         <div class="row">
           <label for="login-pass">Contraseña</label>

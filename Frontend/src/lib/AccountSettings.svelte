@@ -99,7 +99,7 @@
 <div class="page-head">
   <div>
     <h1>Mi cuenta</h1>
-    <p>{session.me?.name} · {session.me?.email}</p>
+    <p>{session.me?.name} · {session.me?.email}{#if session.me?.username} · usuario <b>{session.me.username}</b>{/if}</p>
   </div>
 </div>
 

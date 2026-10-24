@@ -4,12 +4,21 @@
   import AuthLayout from '$lib/AuthLayout.svelte';
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
-  import { KINDS } from '$lib/format.js';
+  import { KINDS, cleanUsername } from '$lib/format.js';
   import { homeFor } from '$lib/session.svelte.js';
 
   const MIN = 8;
-  let form = $state({ business_name: '', kind: 'barberia', name: '', email: '', password: '', accept_terms: false });
+  let form = $state({ business_name: '', kind: 'barberia', name: '', phone: '', email: '', username: '', password: '', accept_terms: false });
   let confirm = $state('');
+  let userEdited = $state(false); // mientras no lo escriban, el usuario se sugiere desde el correo
+
+  function onUsername(e) {
+    userEdited = true;
+    form.username = cleanUsername(e.currentTarget.value);
+  }
+  function onEmail() {
+    if (!userEdited) form.username = cleanUsername(form.email.split('@')[0]);
+  }
   let showPass = $state(false);
   let touched = $state(false);
   let error = $state('');
@@ -36,7 +45,9 @@
   const problems = $derived({
     business_name: form.business_name.trim().length < 2 ? 'Escribe el nombre de tu negocio.' : '',
     name: form.name.trim().length < 2 ? 'Escribe tu nombre.' : '',
+    phone: form.phone.trim() && form.phone.replace(/\D/g, '').length < 10 ? 'Escribe un celular de 10 dígitos.' : '',
     email: !/^\S+@\S+\.\S+$/.test(form.email.trim()) ? 'Escribe un correo válido.' : '',
+    username: !/^[a-z0-9._-]{3,30}$/.test(form.username) ? 'Usa de 3 a 30 caracteres: letras, números, punto, guion o guion bajo.' : '',
     password: form.password.length < MIN ? `Mínimo ${MIN} caracteres.` : '',
     confirm: confirm !== form.password ? 'Las contraseñas no coinciden.' : '',
     accept_terms: !form.accept_terms ? 'Debes aceptar los términos.' : ''
@@ -53,7 +64,7 @@
     }
     busy = true;
     try {
-      await api('/api/auth/register', { method: 'POST', body: { ...form, business_name: form.business_name.trim(), name: form.name.trim(), email: form.email.trim() } });
+      await api('/api/auth/register', { method: 'POST', body: { ...form, business_name: form.business_name.trim(), name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), username: form.username } });
       goto(homeFor(await api('/api/me'))); // un negocio nuevo pasa por el asistente de inicio
     } catch (err) {
       error = err.message;
@@ -77,26 +88,46 @@
   {/if}
 
   <form onsubmit={submit} novalidate>
-    <div class="grid">
-      <label class="field">Nombre del negocio
-        <input bind:value={form.business_name} placeholder="Ej. Barbería Don Luis" autocomplete="organization" aria-invalid={touched && !!problems.business_name} />
-        {@render err('business_name')}
-      </label>
-      <label class="field">Giro
-        <select bind:value={form.kind}>
-          {#each Object.entries(KINDS) as [value, label]}<option {value}>{label}</option>{/each}
-        </select>
-      </label>
-    </div>
+    <fieldset class="group">
+      <legend>Tu negocio</legend>
+      <div class="grid">
+        <label class="field">Nombre del negocio
+          <input bind:value={form.business_name} placeholder="Ej. Barbería Don Luis" autocomplete="organization" aria-invalid={touched && !!problems.business_name} />
+          {@render err('business_name')}
+        </label>
+        <label class="field">Giro
+          <select bind:value={form.kind}>
+            {#each Object.entries(KINDS) as [value, label]}<option {value}>{label}</option>{/each}
+          </select>
+        </label>
+      </div>
+    </fieldset>
 
-    <div class="grid sep">
-      <label class="field full">Tu nombre <span class="soft">(serás el administrador)</span>
-        <input bind:value={form.name} placeholder="Nombre y apellido" autocomplete="name" aria-invalid={touched && !!problems.name} />
-        {@render err('name')}
-      </label>
-      <label class="field full">Correo electrónico
-        <input type="email" bind:value={form.email} placeholder="negocio@correo.com" autocomplete="email" autocapitalize="none" aria-invalid={touched && !!problems.email} />
+    <fieldset class="group">
+      <legend>Tus datos <span class="soft">(serás el administrador)</span></legend>
+      <div class="grid">
+        <label class="field">Nombre y apellido
+          <input bind:value={form.name} placeholder="Ana López" autocomplete="name" aria-invalid={touched && !!problems.name} />
+          {@render err('name')}
+        </label>
+        <label class="field">Celular <span class="soft">(opcional)</span>
+          <input type="tel" inputmode="tel" bind:value={form.phone} maxlength="30" placeholder="664 123 4567" autocomplete="tel-national" aria-invalid={touched && !!problems.phone} />
+          {@render err('phone')}
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Tu acceso</legend>
+      <div class="grid">
+      <label class="field">Correo electrónico
+        <input type="email" bind:value={form.email} oninput={onEmail} placeholder="negocio@correo.com" autocomplete="email" autocapitalize="none" spellcheck="false" aria-invalid={touched && !!problems.email} />
         {@render err('email')}
+      </label>
+      <label class="field">Usuario <span class="soft">(para entrar)</span>
+        <input value={form.username} oninput={onUsername} placeholder="ana.lopez" maxlength="30" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" aria-invalid={touched && !!problems.username} />
+        <span class="hint">Podrás entrar con tu usuario o con tu correo, sin importar mayúsculas.</span>
+        {@render err('username')}
       </label>
       <div class="field">
         <label for="r-pass">Contraseña</label>
@@ -118,7 +149,8 @@
         <input type={showPass ? 'text' : 'password'} bind:value={confirm} maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.confirm} />
         {@render err('confirm')}
       </label>
-    </div>
+      </div>
+    </fieldset>
 
     <div class="terms">
       <label class="check">
@@ -136,7 +168,9 @@
 
 <style>
   .grid { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
-  .sep { margin-top: 0.25rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+  .group { margin: 0 0 0.25rem; padding: 0; border: 0; }
+  .group + .group { padding-top: 1.1rem; border-top: 1px solid var(--border); }
+  .group legend { padding: 0; margin-bottom: 0.7rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   .soft { font-weight: 400; color: var(--muted); }
   .bad { display: block; margin-top: 0.35rem; font-size: 0.82rem; font-weight: 600; color: var(--danger); }
   .pass { position: relative; margin-top: 0.4rem; }
@@ -155,6 +189,5 @@
   .soft-link { color: inherit; font-weight: 500; }
   @media (min-width: 560px) {
     .grid { grid-template-columns: 1fr 1fr; }
-    .full { grid-column: 1 / -1; }
   }
 </style>

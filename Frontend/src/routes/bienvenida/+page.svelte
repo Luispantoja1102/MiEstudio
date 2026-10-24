@@ -6,7 +6,7 @@
   import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
   import { api } from '$lib/api.js';
-  import { KINDS, ROLES } from '$lib/format.js';
+  import { KINDS, ROLES, cleanUsername } from '$lib/format.js';
   import { homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
   import { ZONES } from '$lib/zones.js';
 
@@ -21,10 +21,11 @@
   let ready = $state(false);
   let biz = $state({ name: '', kind: 'barberia', timezone: 'America/Mexico_City' });
   let branches = $state([]);
+  let place = $state({ address: '', phone: '' }); // dirección y teléfono de la primera sucursal
   let selfBookable = $state(true);
   let hoursSaved = $state(false);
   let added = $state([]);
-  let member = $state({ name: '', email: '', password: '', role: 'staff', bookable: true });
+  let member = $state({ name: '', email: '', username: '', password: '', role: 'staff', bookable: true });
   let addBusy = $state(false);
   let busy = $state(false);
   let error = $state('');
@@ -40,6 +41,7 @@
     try {
       biz = await api('/api/business');
       branches = (await api('/api/branches')).filter((b) => b.active);
+      place = { address: branches[0]?.address ?? '', phone: branches[0]?.phone ?? '' };
       ready = true;
     } catch (e) {
       error = e.message;
@@ -63,8 +65,18 @@
     }
   }
 
-  const saveBusiness = () => api('/api/business', { method: 'PUT', body: { name: biz.name.trim(), kind: biz.kind, timezone: biz.timezone } });
+  const clock = $derived.by(() => {
+    try {
+      return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: biz.timezone }).format(new Date());
+    } catch {
+      return '';
+    }
+  });
 
+  async function saveBusiness() {
+    await api('/api/business', { method: 'PUT', body: { name: biz.name.trim(), kind: biz.kind, timezone: biz.timezone } });
+    if (branches[0]) await api(`/api/branches/${branches[0].id}`, { method: 'PATCH', body: { address: place.address.trim(), phone: place.phone.trim() } });
+  }
   // cada paso guarda lo que recogió antes de avanzar
   async function next() {
     const ok = await run(async () => {
@@ -79,9 +91,11 @@
     error = '';
     addBusy = true;
     try {
-      const r = await api('/api/team', { method: 'POST', body: { ...member, commission_pct: 0 } });
-      added.push({ id: r.id, name: member.name.trim(), email: member.email.trim(), role: member.role });
-      member = { name: '', email: '', password: '', role: member.role, bookable: member.bookable };
+      const r = await api('/api/team', { method: 'POST', body: { ...member, username: member.username || undefined, commission_pct: 0 } });
+      // si no escribió usuario, el servidor genera uno desde el correo: se muestra el que quedó
+      const saved = (await api('/api/team')).find((m) => m.id === r.id);
+      added.push({ id: r.id, name: member.name.trim(), email: member.email.trim(), username: saved?.username ?? '', role: member.role });
+      member = { name: '', email: '', username: '', password: '', role: member.role, bookable: member.bookable };
     } catch (err) {
       error = err.message;
     } finally {
@@ -137,10 +151,14 @@
           <h1>Datos del <em>negocio</em></h1>
           <p class="lead">Aparecen en tu panel y en tu página de reservas. Podrás cambiarlos cuando quieras.</p>
           <label class="field">Nombre del negocio <input bind:value={biz.name} autocomplete="organization" /></label>
+          <div class="two">
+            <label class="field">Dirección <span class="meta">(opcional)</span> <input bind:value={place.address} maxlength="300" placeholder="Calle, número y colonia" autocomplete="street-address" /></label>
+            <label class="field">Teléfono <span class="meta">(opcional)</span> <input type="tel" inputmode="tel" bind:value={place.phone} maxlength="30" placeholder="664 123 4567" autocomplete="tel-national" /></label>
+          </div>
           <label class="field">
             Zona horaria
             <select bind:value={biz.timezone}>{#each zones as [z, l]}<option value={z}>{l}</option>{/each}</select>
-            <span class="hint">Tus citas y recordatorios usan esta hora.</span>
+            <span class="hint">{#if clock}En tu zona son las <b>{clock}</b>. {/if}Tus citas y recordatorios usan esta hora.</span>
           </label>
         {:else if step === 2}
           <h1>Tu <em>horario</em></h1>
@@ -160,7 +178,7 @@
               {#each added as p (p.id)}
                 <li>
                   <span class="av" aria-hidden="true">{p.name.charAt(0).toUpperCase()}</span>
-                  <span class="who"><b>{p.name}</b><small>{p.email}</small></span>
+                  <span class="who"><b>{p.name}</b><small>{p.username ? `${p.username} · ` : ''}{p.email}</small></span>
                   <span class="pill"><Icon name="check" size={12} />{ROLES[p.role]}</span>
                 </li>
               {/each}
@@ -168,7 +186,11 @@
           {/if}
           <form class="addform" onsubmit={addMember}>
             <label class="field full">Nombre completo <input bind:value={member.name} required minlength="2" autocomplete="off" /></label>
-            <label class="field">Correo <input type="email" bind:value={member.email} required autocomplete="off" /></label>
+            <label class="field">Correo <input type="email" bind:value={member.email} required autocomplete="off" autocapitalize="none" spellcheck="false" /></label>
+            <label class="field">Usuario <span class="meta">(opcional)</span>
+              <input value={member.username} oninput={(e) => (member.username = cleanUsername(e.currentTarget.value))} maxlength="30" placeholder="Se genera desde el correo" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" />
+              <span class="hint">Con él o con su correo podrá entrar.</span>
+            </label>
             <label class="field">Contraseña inicial <input type="password" bind:value={member.password} required minlength="8" maxlength="72" autocomplete="new-password" /></label>
             <label class="field">Rol
               <select bind:value={member.role}>{#each Object.entries(ROLES) as [v, l]}<option value={v}>{l}</option>{/each}</select>
@@ -183,6 +205,8 @@
           <dl class="summary">
             <div><dt>Negocio</dt><dd>{biz.name}</dd></div>
             <div><dt>Giro</dt><dd>{KINDS[biz.kind]}</dd></div>
+            {#if place.address || place.phone}<div><dt>Contacto</dt><dd>{[place.address, place.phone].filter(Boolean).join(' · ')}</dd></div>{/if}
+            <div><dt>Para entrar</dt><dd>{session.me?.username ? `usuario ${session.me.username} o tu correo` : 'tu correo'}</dd></div>
             <div><dt>Horario</dt><dd>{selfBookable ? (hoursSaved ? 'Guardado' : 'Sin definir aún') : 'Lo defines en Equipo'}</dd></div>
             <div><dt>Equipo agregado</dt><dd>{added.length ? added.map((p) => p.name).join(', ') : 'Solo tú por ahora'}</dd></div>
           </dl>
@@ -238,6 +262,8 @@
   .kind.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft); }
   .ck { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-contrast); }
   .own { margin-bottom: 1.25rem; }
+  .two { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .two { grid-template-columns: 1fr 1fr; } }
   .ok { display: flex; align-items: center; gap: 6px; margin: 0.75rem 0 0; font-size: 0.9rem; font-weight: 500; color: var(--accent); }
 
   .team { list-style: none; margin: 0 0 1.25rem; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); }

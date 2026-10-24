@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import Avatar from '$lib/Avatar.svelte';
   import { api } from '$lib/api.js';
   import { page } from '$app/state';
   import { BILLING, KINDS, PLANS, formatDay, plural } from '$lib/format.js';
@@ -126,6 +127,7 @@
     {#each businesses as b (b.id)}
       {@const [label, tone] = BILLING[b.billing_state]}
       <a class="item-row link" href="/plataforma/negocios/{b.id}">
+        <Avatar name={b.name} />
         <div class="grow">
           <div class="title">{b.name}</div>
           <div class="meta">{KINDS[b.kind]} · {b.owner_email || 'sin responsable'} · {plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')}</div>

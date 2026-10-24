@@ -170,17 +170,6 @@
   h2 { font-size: 1.35rem; margin-bottom: 0.9rem; }
   .agenda { padding: 1.5rem; }
 
-  /* cifras del día */
-  .kpis { margin: 0 0 1.25rem; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-  .kpi { padding: 1.1rem 1.3rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); }
-  .kpi dt { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
-  .kpi dd { margin: 0; display: grid; gap: 2px; }
-  .kpi .v { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 2.2rem; font-weight: 800; line-height: 1.05; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-  .kpi .v.word { font-size: 1.7rem; }
-  .kpi .of { font-size: 0.85rem; color: var(--muted); }
-  .kpi .sub { font-size: 0.85rem; color: var(--muted); }
-  .kpi.alert .v { color: var(--clay); }
-
   .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .slots li {
     display: grid;
@@ -210,12 +199,6 @@
   @media (max-width: 560px) {
     .agenda { padding: 1rem; }
     .slots li { grid-template-columns: 3.4rem 1fr auto; gap: 6px 10px; padding: 0.8rem; }
-    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .kpi { padding: 0.85rem 0.9rem; }
-    .kpi dt { font-size: 0.8rem; }
-    .kpi .v { font-size: 1.6rem; }
-    .kpi .v.word { font-size: 1.25rem; }
-    .kpi .sub, .kpi .of { font-size: 0.78rem; }
   }
 
   /* Día y Noche: saludo sobre la franja oscura de la barra (ver Shell), franja de color por profesional y horas grandes */

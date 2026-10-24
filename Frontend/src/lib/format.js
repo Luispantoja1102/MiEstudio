@@ -83,3 +83,16 @@ export const PAY_METHODS = { transfer: 'Transferencia', cash: 'Efectivo', card: 
 
 // precio de lista en pesos (los planes vienen en pesos enteros)
 export const pesos = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
+
+// «hace 5 min», «hace 3 h»; pasado un día, la fecha corta
+export const ago = (iso) => {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return 'ahora';
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+};
+
+// El usuario para entrar va en minúsculas: letras, números, punto, guion y guion bajo (3 a 30).
+export const cleanUsername = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30);
