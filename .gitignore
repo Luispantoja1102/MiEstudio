@@ -23,3 +23,7 @@ pgdata/
 .DS_Store
 .vscode/
 .idea/
+
+.claude
+.agents
+Claude.md
