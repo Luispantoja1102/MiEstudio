@@ -132,6 +132,9 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("GET /api/billing", a.billingAdmin(a.getBilling))
 	mux.Handle("POST /api/billing/checkout", a.billingAdmin(a.startCheckout))
 	mux.Handle("GET /api/billing/checkouts/{id}", a.billingAdmin(a.getCheckout))
+	mux.Handle("POST /api/billing/subscribe", a.billingAdmin(a.startSubscription))
+	mux.Handle("GET /api/billing/subscriptions/{id}", a.billingAdmin(a.getSubscription))
+	mux.Handle("POST /api/billing/subscription/cancel", a.billingAdmin(a.cancelSubscription))
 
 	// negocio: privacidad (derechos ARCO y datos de clientes)
 	mux.Handle("GET /api/arco", a.tenant(a.listArco, admin))

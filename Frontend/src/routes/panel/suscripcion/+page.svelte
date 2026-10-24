@@ -26,6 +26,8 @@
     }
     const id = page.url.searchParams.get('checkout');
     if (id) follow(id);
+    const sid = page.url.searchParams.get('subscription');
+    if (sid) followSubscription(sid);
   });
   onDestroy(() => clearTimeout(timer));
 
@@ -53,6 +55,64 @@
     }
   }
 
+  // al volver de Mercado Pago la autorización puede tardar unos segundos en reflejarse
+  async function followSubscription(id, tries = 0) {
+    checking = true;
+    try {
+      const c = await api(`/api/billing/subscriptions/${id}`);
+      if (c.status === 'authorized') {
+        checking = false;
+        notice = '¡Listo! Autorizaste el cobro automático. Mercado Pago cobrará cada mes y tu suscripción se renovará sola.';
+        await Promise.all([load(), loadSession()]);
+        history.replaceState(null, '', '/panel/suscripcion');
+        return;
+      }
+      if (c.status === 'cancelled') {
+        checking = false;
+        notice = 'La suscripción no se completó. Puedes intentarlo de nuevo cuando quieras.';
+        await load();
+        history.replaceState(null, '', '/panel/suscripcion');
+        return;
+      }
+    } catch (e) {
+      error = e.message;
+      checking = false;
+      return;
+    }
+    if (tries < 40) timer = setTimeout(() => followSubscription(id, tries + 1), 3000);
+    else {
+      checking = false;
+      notice = 'Aún no vemos la autorización. Si ya la hiciste, se reflejará en unos minutos.';
+      await load();
+    }
+  }
+
+  async function subscribe(plan) {
+    error = '';
+    busy = `sub-${plan}`;
+    try {
+      const r = await api('/api/billing/subscribe', { method: 'POST', body: { plan } });
+      location.href = r.pay_url;
+    } catch (e) {
+      error = e.message;
+      busy = '';
+    }
+  }
+
+  async function cancelSubscription() {
+    if (!confirm('¿Cancelar el cobro automático? Conservas tu plan hasta el final del periodo ya pagado, y después tendrás que renovar a mano.')) return;
+    error = '';
+    busy = 'cancel';
+    try {
+      await api('/api/billing/subscription/cancel', { method: 'POST', body: {} });
+      notice = 'Cancelamos el cobro automático. Tu plan sigue vigente hasta el final del periodo pagado.';
+      await load();
+    } catch (e) {
+      error = e.message;
+    }
+    busy = '';
+  }
+
   async function pay(plan, months) {
     error = '';
     busy = `${plan}-${months}`;
@@ -68,6 +128,9 @@
   const lim = (n) => (n === null ? 'Sin límite' : n);
   const state = $derived(b ? BILLING[b.billing_state] : ['', '']);
   const needsPlan = $derived(b && ['trialing', 'trial_expired', 'past_due'].includes(b.billing_state));
+  const sub = $derived(b?.subscription ?? null);
+  const subOn = $derived(sub?.status === 'authorized');
+  const nextCharge = $derived(b ? (b.billing_state === 'trialing' ? b.trial_ends_at : b.current_period_end) : null);
 </script>
 
 <div class="page-head">
@@ -101,6 +164,31 @@
     </div>
   </section>
 
+  {#if sub}
+    <section class="card subbox" aria-label="Cobro automático">
+      {#if sub.status === 'authorized'}
+        <div>
+          <span class="badge ok">Cobro automático activo</span>
+          <h2>{money(sub.amount_cents)} cada mes</h2>
+          <p class="meta">Plan {b.plans.find((x) => x.id === sub.plan)?.name ?? sub.plan}. {#if nextCharge}Próximo cobro alrededor del {formatDay(nextCharge)}. {/if}Mercado Pago cobra solo y tu suscripción se renueva.</p>
+        </div>
+      {:else if sub.status === 'paused'}
+        <div>
+          <span class="badge">Pausada</span>
+          <h2>Mercado Pago pausó el cobro</h2>
+          <p class="meta">Suele pasar cuando la tarjeta fue rechazada. Entra a Mercado Pago para reactivarla o vuelve a suscribirte con otra tarjeta.</p>
+        </div>
+      {:else}
+        <div>
+          <span class="badge">Pendiente</span>
+          <h2>Falta autorizar el cobro</h2>
+          <p class="meta">Empezaste una suscripción pero no la terminaste en Mercado Pago. Elige el plan otra vez para continuar.</p>
+        </div>
+      {/if}
+      <button class="btn ghost" disabled={!!busy} onclick={cancelSubscription}>{busy === 'cancel' ? 'Cancelando…' : 'Cancelar cobro automático'}</button>
+    </section>
+  {/if}
+
   <h2 class="sec">{needsPlan ? 'Elige tu plan' : 'Cambiar o renovar'}</h2>
   {#if !b.online}
     <p class="banner">El pago en línea no está habilitado en este momento. Puedes pagar por transferencia y la plataforma registrará tu pago.</p>
@@ -122,14 +210,20 @@
           <li>Soporte {p.support}</li>
         </ul>
         {#if b.online}
-          <button class="btn block" disabled={!!busy} onclick={() => pay(p.id, 1)}>{busy === `${p.id}-1` ? 'Abriendo…' : `Pagar 1 mes · ${pesos(p.price_month)}`}</button>
+          {#if subOn && sub.plan === p.id}
+            <p class="meta"><b>Tu suscripción mensual está activa.</b></p>
+          {:else}
+            <button class="btn block" disabled={!!busy} onclick={() => subscribe(p.id)}>{busy === `sub-${p.id}` ? 'Abriendo…' : subOn ? `Cambiar a este plan · ${pesos(p.price_month)}/mes` : `Suscribirme · ${pesos(p.price_month)}/mes`}</button>
+            <p class="meta">Cobro automático cada mes con tu tarjeta. Cancelas cuando quieras.</p>
+          {/if}
+          <button class="btn ghost block" disabled={!!busy} onclick={() => pay(p.id, 1)}>{busy === `${p.id}-1` ? 'Abriendo…' : `Pagar solo 1 mes · ${pesos(p.price_month)}`}</button>
           <button class="btn ghost block" disabled={!!busy} onclick={() => pay(p.id, 12)}>{busy === `${p.id}-12` ? 'Abriendo…' : `Pagar 1 año · ${pesos(p.price_year)}`}</button>
           <p class="meta">El año cuesta 10 meses: te ahorras 2.</p>
         {/if}
       </div>
     {/each}
   </div>
-  <p class="meta">Al pagar, el periodo se suma al que ya tengas vigente. Pagas con Mercado Pago (tarjeta, transferencia o efectivo en tiendas).</p>
+  <p class="meta">Con la suscripción, el primer cobro es al terminar tu prueba o tu periodo vigente, así no pagas dos veces. Al pagar un mes o un año suelto, el periodo se suma al que ya tengas vigente (tarjeta, transferencia o efectivo en tiendas, por Mercado Pago).</p>
 
   <h2 class="sec">Historial de pagos</h2>
   <div class="list">
@@ -150,6 +244,8 @@
 <style>
   .now { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
   .now h2 { margin: 0.5rem 0 0.2rem; font-size: 1.6rem; }
+  .subbox { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; margin-top: 1rem; }
+  .subbox h2 { margin: 0.5rem 0 0.2rem; font-size: 1.4rem; }
   .usage { display: grid; gap: 4px; font-size: 0.92rem; color: var(--muted); }
   .usage .over { color: var(--danger); font-weight: 600; }
   .sec { font-size: 1.4rem; margin: 2.25rem 0 1rem; }

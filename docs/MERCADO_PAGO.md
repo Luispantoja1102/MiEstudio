@@ -115,8 +115,19 @@ Estados: `pending` → `paid` → `applied` (usado en una venta) | `refunded` | 
 | 4 | Un pago rechazado (`OTHE`) no cambia el plan ni la vigencia. |
 | 5 | Si cierras la ventana antes de volver, el aviso automático igual activa el plan (probar con el túnel funcionando). |
 
-> **Límite actual:** es un pago **por periodo**, no un cargo automático recurrente. Al vencer, el negocio ve el aviso y renueva a mano. Los pagos recurrentes
-> (suscripciones de Mercado Pago) están pendientes.
+### 4b. Cobro automático mensual (suscripción de Mercado Pago)
+
+Además del pago por periodo, el negocio puede **suscribirse**: autoriza su tarjeta una vez y Mercado Pago le cobra cada mes (API `preapproval`, la misma cuenta `MPP_ACCESS_TOKEN`).
+El año sigue siendo un pago suelto.
+
+- **Primer cargo:** al terminar la prueba o el periodo ya pagado (así no se cobra dos veces); si no hay nada que esperar, al autorizar.
+- **Cada cargo** llega por aviso (`subscription_authorized_payment` o `payment`), se consulta en Mercado Pago, debe estar aprobado por el monto exacto del plan y se acredita **una sola vez**.
+- **Cambiar de plan** cancela primero la suscripción anterior en Mercado Pago; si no se pudo cancelar, no se crea otra (no se cobra doble).
+- **Cancelar** (*Suscripción → Cancelar cobro automático*) deja el plan vigente hasta el fin del periodo pagado.
+- Si Mercado Pago pausa o cancela la suscripción (tarjeta rechazada varias veces), el aviso `subscription_preapproval` lo refleja y el negocio ve el aviso para renovar a mano.
+- En el panel de tu aplicación de Mercado Pago, en *Webhooks*, activa los eventos de **Suscripciones** (`subscription_preapproval` y `subscription_authorized_payment`) además de **Pagos**, con la URL `API_PUBLIC_URL/api/webhooks/mercadopago-platform`.
+
+Prueba con cuentas de prueba (token `TEST-`): *Suscripción → Suscribirme*, autoriza con el comprador de prueba y comprueba que *Plataforma → Pagos* registra el primer cargo (puede tardar hasta el día del primer cobro; con prueba terminada es inmediato).
 
 ## 5. Terminal Point (solo con el aparato físico)
 
