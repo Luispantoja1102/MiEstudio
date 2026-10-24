@@ -24,6 +24,5 @@ pgdata/
 .vscode/
 .idea/
 
-.claude/
-.agents/
-Claude.md
+.claude/settings.local.json
+CLAUDE.local.md
