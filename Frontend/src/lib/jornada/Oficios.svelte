@@ -57,7 +57,7 @@
             {#each largos as l, k}
               {@const t = (k + 0.5) / largos.length}
               {@const x = 30 + 340 * t}
-              {@const y = 150 - 4 * t * (1 - t) * 110 + 2}
+              {@const y = 150 - 4 * t * (1 - t) * 55 + 2}
               {@const ang = (t - 0.5) * 70}
               <g transform="translate({x} {y}) rotate({ang})" style="--k: {k}">
                 <line class="pestana" x1="0" y1="0" x2="0" y2={-l * 6.2} pathLength="1" />
