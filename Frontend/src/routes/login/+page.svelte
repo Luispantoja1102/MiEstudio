@@ -1,13 +1,12 @@
 <script>
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
-  import Icon from '$lib/Icon.svelte';
+  import PasswordInput from '$lib/PasswordInput.svelte';
   import { api } from '$lib/api.js';
   import { homeFor } from '$lib/session.svelte.js';
 
   let identifier = $state(''); // usuario o correo, en el mismo campo
   let password = $state('');
-  let showPass = $state(false);
   let capsOn = $state(false);
   let error = $state('');
   let busy = $state(false);
@@ -67,12 +66,7 @@
           <label for="login-pass">Contraseña</label>
           <a class="link" href="/olvide">¿La olvidaste?</a>
         </div>
-        <div class="pass">
-          <input id="login-pass" type={showPass ? 'text' : 'password'} bind:value={password} placeholder="Tu contraseña" autocomplete="current-password" onkeydown={caps} onkeyup={caps} />
-          <button type="button" class="eye" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onclick={() => (showPass = !showPass)}>
-            <Icon name={showPass ? 'eye-off' : 'eye'} size={20} />
-          </button>
-        </div>
+        <PasswordInput id="login-pass" bind:value={password} placeholder="Tu contraseña" autocomplete="current-password" onkeydown={caps} onkeyup={caps} />
         {#if capsOn}<span class="caps">Bloq Mayús está activado.</span>{/if}
       </div>
     {/if}
@@ -99,10 +93,6 @@
   .link { font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--accent); background: none; border: 0; padding: 10px 2px; cursor: pointer; text-decoration: none; }
   .link:hover { text-decoration: underline; }
   .link.muted { color: var(--muted); }
-  .pass { position: relative; margin-top: 0.4rem; }
-  .pass input { padding-right: 3rem; }
-  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
-  .eye:hover { color: var(--text); background: var(--surface-2); }
   .caps { display: block; margin-top: 0.4rem; font-size: 0.82rem; font-weight: 500; color: var(--warn); }
   .code { font-family: ui-monospace, monospace; font-size: 1.15rem; letter-spacing: 0.2em; }
   .links { display: flex; justify-content: space-between; gap: 12px; margin-top: 1rem; }

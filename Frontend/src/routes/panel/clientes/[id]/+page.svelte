@@ -149,9 +149,6 @@
 {/if}
 
 <style>
-  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 0.4rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  .back :global(svg) { transform: rotate(180deg); }
-  .back:hover { color: var(--accent); }
   .notes { margin-top: 2.5rem; }
   .notes h2 { font-size: 1.5rem; }
 </style>

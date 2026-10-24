@@ -67,7 +67,7 @@ const ExampleAdminPassword = "AdminPlataforma123"
 // plataforma con ese correo, le restablece la contraseña, la reactiva y la deja como administrador.
 // Nunca toca a personas que pertenecen a un negocio.
 func (a *API) UpsertPlatformAdmin(ctx context.Context, name, email, password string) (created bool, err error) {
-	email = strings.ToLower(strings.TrimSpace(email))
+	email = lowerTrim(email)
 	if !validEmail(email) || !validPassword(password) {
 		return false, errors.New("correo inválido o contraseña fuera de 8 a 72 caracteres")
 	}

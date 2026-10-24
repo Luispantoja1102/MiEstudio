@@ -59,7 +59,7 @@ func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// el campo "email" acepta también el usuario; el enlace siempre llega al correo de la cuenta
-	who := strings.ToLower(strings.TrimSpace(req.Email))
+	who := lowerTrim(req.Email)
 	if !validEmail(who) && !validUsername(who) {
 		writeErr(w, http.StatusBadRequest, "escribe tu correo o tu usuario")
 		return

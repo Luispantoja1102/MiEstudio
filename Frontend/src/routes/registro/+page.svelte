@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
-  import Icon from '$lib/Icon.svelte';
+  import PasswordInput from '$lib/PasswordInput.svelte';
   import { api } from '$lib/api.js';
   import { KINDS, cleanUsername } from '$lib/format.js';
   import { homeFor } from '$lib/session.svelte.js';
@@ -131,12 +131,7 @@
       </label>
       <div class="field">
         <label for="r-pass">Contraseña</label>
-        <div class="pass">
-          <input id="r-pass" type={showPass ? 'text' : 'password'} bind:value={form.password} placeholder="Mínimo {MIN} caracteres" maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.password} />
-          <button type="button" class="eye" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onclick={() => (showPass = !showPass)}>
-            <Icon name={showPass ? 'eye-off' : 'eye'} size={20} />
-          </button>
-        </div>
+        <PasswordInput id="r-pass" bind:value={form.password} bind:show={showPass} placeholder="Mínimo {MIN} caracteres" maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.password} />
         {#if form.password}
           <div class="meter" aria-label="Seguridad de la contraseña: {strengthLabel[strength]}">
             {#each [1, 2, 3] as bar}<i class:on={strength >= bar} data-level={strength}></i>{/each}
@@ -173,10 +168,6 @@
   .group legend { padding: 0; margin-bottom: 0.7rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   .soft { font-weight: 400; color: var(--muted); }
   .bad { display: block; margin-top: 0.35rem; font-size: 0.82rem; font-weight: 600; color: var(--danger); }
-  .pass { position: relative; margin-top: 0.4rem; }
-  .pass input { padding-right: 3rem; }
-  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
-  .eye:hover { color: var(--text); background: var(--surface-2); }
   .meter { display: grid; grid-template-columns: repeat(3, 1fr) auto; align-items: center; gap: 6px; margin-top: 0.6rem; }
   .meter i { height: 6px; border-radius: 999px; background: var(--border); }
   .meter i.on[data-level='1'] { background: var(--danger); }

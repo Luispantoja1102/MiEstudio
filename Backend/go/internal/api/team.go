@@ -60,8 +60,8 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	req.Username = normUsername(req.Username)
+	req.Email = lowerTrim(req.Email)
+	req.Username = lowerTrim(req.Username)
 	switch {
 	case !validName(req.Name):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
@@ -101,12 +101,7 @@ func (a *API) createTeamMember(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO users (business_id, email, username, password_hash, name, role, bookable, commission_pct)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
 		p.BusinessID, req.Email, req.Username, hash, req.Name, req.Role, req.Bookable, req.CommissionPct).Scan(&id)
-	if code, constraint := pgConstraint(err); code == "23505" {
-		if constraint == "users_username_key" {
-			writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
-			return
-		}
-		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	if writeUserConflict(w, userConflict(err)) {
 		return
 	}
 	if err != nil {

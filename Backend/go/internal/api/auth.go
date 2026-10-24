@@ -73,12 +73,40 @@ type registerReq struct {
 var errEmailTaken = errors.New("correo ya registrado")
 var errUsernameTaken = errors.New("usuario ya registrado")
 
+// lowerTrim limpia un correo o un usuario: sin espacios alrededor y en minúsculas.
+func lowerTrim(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+
+// userConflict traduce el choque de un correo o usuario repetido en la tabla de personas; devuelve nil si el error es otro.
+func userConflict(err error) error {
+	code, constraint := pgConstraint(err)
+	switch {
+	case code != "23505":
+		return nil
+	case constraint == "users_email_key":
+		return errEmailTaken
+	case constraint == "users_username_key":
+		return errUsernameTaken
+	}
+	return nil
+}
+
+// writeUserConflict responde 409 si el error es un correo o usuario repetido; devuelve false si es otra cosa.
+func writeUserConflict(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, errEmailTaken):
+		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	case errors.Is(err, errUsernameTaken):
+		writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
+	default:
+		return false
+	}
+	return true
+}
+
 // El usuario se guarda en minúsculas: letras, números, punto, guion y guion bajo (nunca "@", para no confundirse con un correo).
 var usernameRe = regexp.MustCompile(`^[a-z0-9._-]{3,30}$`)
 
 const usernameHelp = "el usuario debe tener de 3 a 30 caracteres: letras, números, punto, guion o guion bajo"
-
-func normUsername(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
 func validUsername(s string) bool { return usernameRe.MatchString(s) }
 
@@ -129,8 +157,8 @@ func (a *API) registrationInfo(w http.ResponseWriter, r *http.Request) {
 func validateRegister(req *registerReq) string {
 	req.BusinessName = strings.TrimSpace(req.BusinessName)
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	req.Username = normUsername(req.Username)
+	req.Email = lowerTrim(req.Email)
+	req.Username = lowerTrim(req.Username)
 	req.Phone = strings.TrimSpace(req.Phone)
 	switch {
 	case !validName(req.BusinessName) || !validName(req.Name):
@@ -184,10 +212,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	}
 	bizID, userID, err := a.registerBusiness(r.Context(), req, hash, status)
 	switch {
-	case errors.Is(err, errEmailTaken):
-		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
-	case errors.Is(err, errUsernameTaken):
-		writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
+	case writeUserConflict(w, err):
 	case err != nil:
 		serverErr(w)
 	default:
@@ -214,17 +239,13 @@ func (a *API) registerBusiness(ctx context.Context, req registerReq, hash, statu
 		if err == nil {
 			return bizID, userID, nil
 		}
-		code, constraint := pgConstraint(err)
-		switch {
-		case code == "23505" && constraint == "users_email_key":
-			return 0, 0, errEmailTaken
-		case code == "23505" && constraint == "users_username_key":
-			return 0, 0, errUsernameTaken
-		case code == "23505" && constraint == "businesses_slug_key":
-			continue
-		default:
-			return 0, 0, err
+		if conflict := userConflict(err); conflict != nil {
+			return 0, 0, conflict
 		}
+		if code, constraint := pgConstraint(err); code == "23505" && constraint == "businesses_slug_key" {
+			continue
+		}
+		return 0, 0, err
 	}
 	return 0, 0, errors.New("no se pudo asignar un identificador único al negocio")
 }

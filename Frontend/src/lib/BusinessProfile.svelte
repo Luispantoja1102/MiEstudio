@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
-  import { KINDS } from '$lib/format.js';
+  import { KINDS, zoneClock } from '$lib/format.js';
   import { loadSession, planLimit } from '$lib/session.svelte.js';
   import { ZONES } from '$lib/zones.js';
 
@@ -10,7 +10,7 @@
 
   let form = $state(null);
   let slug = $state('');
-  let startTz = '';
+  let startTz = $state('');
   let branch = $state(null); // la única sucursal, solo si el negocio no tiene más
   let error = $state('');
   let saved = $state(false);
@@ -38,14 +38,7 @@
 
   const zones = $derived(form && !ZONES.some(([z]) => z === form.timezone) ? [[form.timezone, form.timezone], ...ZONES] : ZONES);
 
-  const clock = $derived.by(() => {
-    if (!form) return '';
-    try {
-      return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: form.timezone }).format(new Date());
-    } catch {
-      return '';
-    }
-  });
+  const clock = $derived(form ? zoneClock(form.timezone) : '');
 
   async function save(e) {
     e.preventDefault();

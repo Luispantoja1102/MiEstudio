@@ -135,7 +135,7 @@ func validWASignature(secret string, body []byte, header string) bool {
 var optOutWords = map[string]bool{"baja": true, "stop": true, "detener": true, "parar": true, "cancelar": true, "no mas": true, "no quiero": true, "unsubscribe": true}
 
 func isOptOut(text string) bool {
-	t := strings.ToLower(strings.TrimSpace(text))
+	t := lowerTrim(text)
 	t = strings.NewReplacer("á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "¡", "", "!", "", ".", "").Replace(t)
 	if optOutWords[t] {
 		return true

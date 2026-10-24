@@ -124,9 +124,6 @@
 {/if}
 
 <style>
-  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 0.4rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  .back :global(svg) { transform: rotate(180deg); }
-  .back:hover { color: var(--accent); }
   .state { max-width: 560px; margin-top: 2rem; }
   .state h1 { font-size: 1.8rem; }
   .state p { color: var(--muted); margin: 0; }

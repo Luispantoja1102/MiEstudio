@@ -308,9 +308,6 @@
 {/if}
 
 <style>
-  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 0.4rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  .back :global(svg) { transform: rotate(180deg); }
-  .back:hover { color: var(--accent); }
   .card { margin-bottom: 1rem; }
   section:not(.card):not(.kpis) { margin-top: 1.5rem; }
   section h2 { font-size: 1.3rem; }

@@ -68,7 +68,7 @@ func (a *API) publicArco(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
-	req.Name, req.Email, req.Detail = strings.TrimSpace(req.Name), strings.ToLower(strings.TrimSpace(req.Email)), strings.TrimSpace(req.Detail)
+	req.Name, req.Email, req.Detail = strings.TrimSpace(req.Name), lowerTrim(req.Email), strings.TrimSpace(req.Detail)
 	digits := ""
 	if strings.TrimSpace(req.Phone) != "" {
 		if digits = normalizePhone(req.Phone); digits == "" {

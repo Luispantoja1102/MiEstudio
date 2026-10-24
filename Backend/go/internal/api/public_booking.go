@@ -382,7 +382,7 @@ func (a *API) publicBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = lowerTrim(req.Email)
 	req.Notes = strings.TrimSpace(req.Notes)
 	digits := normalizePhone(strings.TrimSpace(req.Phone))
 	start, tErr := time.Parse(time.RFC3339, req.StartsAt)

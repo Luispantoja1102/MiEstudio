@@ -6,7 +6,7 @@
   import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
   import { api } from '$lib/api.js';
-  import { KINDS, ROLES, cleanUsername } from '$lib/format.js';
+  import { KINDS, ROLES, cleanUsername, zoneClock } from '$lib/format.js';
   import { homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
   import { ZONES } from '$lib/zones.js';
 
@@ -65,13 +65,7 @@
     }
   }
 
-  const clock = $derived.by(() => {
-    try {
-      return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: biz.timezone }).format(new Date());
-    } catch {
-      return '';
-    }
-  });
+  const clock = $derived(zoneClock(biz.timezone));
 
   async function saveBusiness() {
     await api('/api/business', { method: 'PUT', body: { name: biz.name.trim(), kind: biz.kind, timezone: biz.timezone } });

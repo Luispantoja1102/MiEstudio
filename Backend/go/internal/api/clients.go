@@ -105,7 +105,7 @@ func (a *API) createClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name, req.Phone = strings.TrimSpace(req.Name), strings.TrimSpace(req.Phone)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = lowerTrim(req.Email)
 	if msg := validContact(req.Name, req.Phone, req.Email); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
@@ -172,7 +172,7 @@ func (a *API) updateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name, req.Phone = strings.TrimSpace(req.Name), strings.TrimSpace(req.Phone)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = lowerTrim(req.Email)
 	if msg := validContact(req.Name, req.Phone, req.Email); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return

@@ -139,7 +139,7 @@ func (a *API) putBookingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
-	s.PrivacyEmail = strings.ToLower(strings.TrimSpace(s.PrivacyEmail))
+	s.PrivacyEmail = lowerTrim(s.PrivacyEmail)
 	s.TransferBank, s.TransferHolder = strings.TrimSpace(s.TransferBank), strings.TrimSpace(s.TransferHolder)
 	s.TransferClabe, s.TransferCard = onlyDigits(s.TransferClabe), onlyDigits(s.TransferCard)
 	s.TransferWhatsApp = strings.TrimSpace(s.TransferWhatsApp)

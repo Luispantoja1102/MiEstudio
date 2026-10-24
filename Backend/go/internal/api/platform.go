@@ -171,10 +171,7 @@ func (a *API) platformCreateBusiness(w http.ResponseWriter, r *http.Request) {
 	}
 	bizID, _, err := a.registerBusiness(r.Context(), req.registerReq, hash, req.Status)
 	switch {
-	case errors.Is(err, errEmailTaken):
-		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
-	case errors.Is(err, errUsernameTaken):
-		writeErr(w, http.StatusConflict, "ese usuario ya está en uso")
+	case writeUserConflict(w, err):
 	case err != nil:
 		serverErr(w)
 	default:
@@ -382,7 +379,7 @@ func (a *API) platformCreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = lowerTrim(req.Email)
 	switch {
 	case !validName(req.Name):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
@@ -398,8 +395,7 @@ func (a *API) platformCreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := a.insertPlatformUser(r.Context(), req.Name, req.Email, req.Password, req.Role)
-	if errors.Is(err, errEmailTaken) {
-		writeErr(w, http.StatusConflict, "ese correo ya está registrado")
+	if writeUserConflict(w, err) {
 		return
 	}
 	if err != nil {
@@ -419,8 +415,8 @@ func (a *API) insertPlatformUser(ctx context.Context, name, email, password, rol
 	err = a.DB.QueryRow(ctx,
 		`INSERT INTO users (business_id, email, username, password_hash, name, role) VALUES (NULL, $1, $2, $3, $4, $5) RETURNING id`,
 		email, a.uniqueUsername(ctx, a.DB, emailLocal(email)), hash, name, role).Scan(&id)
-	if code, constraint := pgConstraint(err); code == "23505" && constraint == "users_email_key" {
-		return 0, errEmailTaken
+	if conflict := userConflict(err); conflict != nil {
+		return 0, conflict
 	}
 	return id, err
 }

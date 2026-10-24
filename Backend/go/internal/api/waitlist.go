@@ -273,7 +273,7 @@ func (a *API) publicWaitlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = lowerTrim(req.Email)
 	digits := normalizePhone(strings.TrimSpace(req.Phone))
 	switch nameLen := utf8.RuneCountInString(req.Name); {
 	case nameLen < 2 || nameLen > 120:

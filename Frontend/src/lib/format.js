@@ -96,3 +96,12 @@ export const ago = (iso) => {
 
 // El usuario para entrar va en minúsculas: letras, números, punto, guion y guion bajo (3 a 30).
 export const cleanUsername = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30);
+
+// Hora actual (HH:MM) en una zona horaria; vacío si la zona no es válida.
+export const zoneClock = (timeZone) => {
+  try {
+    return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone }).format(new Date());
+  } catch {
+    return '';
+  }
+};
