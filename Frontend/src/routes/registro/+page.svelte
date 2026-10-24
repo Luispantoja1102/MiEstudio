@@ -150,6 +150,7 @@
   .meter i.on[data-level='3'] { background: var(--ok, #2f8f5b); }
   .meter b { margin-left: 4px; font-size: 0.78rem; color: var(--muted); }
   .terms { margin-bottom: 1.1rem; }
+  .alt a { display: inline-block; padding: 10px 4px; }
   .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.25rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--border); }
   .soft-link { color: inherit; font-weight: 500; }
   @media (min-width: 560px) {

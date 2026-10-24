@@ -383,7 +383,7 @@
         </div>
       </form>
     {/if}
-    <p class="meta foot"><a href="/aviso/{slug}">Aviso de privacidad</a> · <a href="/arco/{slug}">Ejercer mis derechos</a><br />Reserva hasta {plural(info.max_days_ahead, 'día', 'días')} adelante · cancela hasta {plural(info.cancel_min_hours, 'hora', 'horas')} antes.</p>
+    <p class="meta foot"><a class="flink" href="/aviso/{slug}">Aviso de privacidad</a> · <a class="flink" href="/arco/{slug}">Ejercer mis derechos</a><br />Reserva hasta {plural(info.max_days_ahead, 'día', 'días')} adelante · cancela hasta {plural(info.cancel_min_hours, 'hora', 'horas')} antes.</p>
   {/if}
 </PublicLayout>
 
@@ -403,6 +403,7 @@
   .done { text-align: center; display: grid; gap: 0.5rem; justify-items: center; }
   .done h2 { margin-bottom: 0; }
   .foot { text-align: center; margin-top: 1.5rem; }
+  .flink { display: inline-block; padding: 8px 2px; }
   .chip small { opacity: 0.8; }
   .wait { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

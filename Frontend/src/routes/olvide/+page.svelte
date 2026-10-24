@@ -40,6 +40,7 @@
 </AuthLayout>
 
 <style>
+  .alt a { display: inline-block; padding: 10px 4px; }
   .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.5rem 0 0; }
   .meta { color: var(--muted); font-size: 0.9rem; }
 </style>

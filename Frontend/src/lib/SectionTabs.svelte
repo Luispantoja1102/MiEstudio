@@ -19,7 +19,7 @@
 
 <style>
   .tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 1.5rem; overflow-x: auto; background: var(--surface-2); border-radius: 999px; width: fit-content; max-width: 100%; }
-  a { white-space: nowrap; padding: 6px 16px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
+  a { display: inline-flex; align-items: center; min-height: 40px; white-space: nowrap; padding: 0 16px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
   a:hover { color: var(--text); }
   a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
 </style>

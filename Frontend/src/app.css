@@ -187,6 +187,7 @@ h1, h2, h3 {
   margin: 0 0 0.5em;
   text-wrap: balance;
 }
+p, dd { overflow-wrap: anywhere; }
 p { margin: 0 0 1em; text-wrap: pretty; }
 
 a { color: var(--accent); text-underline-offset: 3px; }

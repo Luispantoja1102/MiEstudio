@@ -66,7 +66,7 @@
 <div class="page-head">
   <div>
     <h1>Planes</h1>
-    <p>Lo que incluye cada suscripción y cuántos negocios la usan.{#if write} Edita precios y límites aquí: se aplican de inmediato.{/if}</p>
+    <p>Lo que incluye cada suscripción y cuántos negocios la usan.{#if write}{' '}Edita precios y límites aquí: se aplican de inmediato.{/if}</p>
   </div>
 </div>
 {#if error}<p class="error" role="alert">{error}</p>{/if}

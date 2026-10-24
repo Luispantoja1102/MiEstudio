@@ -113,7 +113,7 @@
         <button type="button" class="btn ghost sm" onclick={() => (quick = false)}>Cancelar</button>
       </form>
     {:else}
-      <input type="search" placeholder="Buscar cliente por nombre, teléfono o correo" bind:value={query} oninput={search} aria-label="Buscar cliente" style="margin: 0" />
+      <input type="search" placeholder="Nombre, teléfono o correo" bind:value={query} oninput={search} aria-label="Buscar cliente" style="margin: 0" />
       {#each results as c (c.id)}
         <button type="button" class="pick" onclick={() => ((client = c), (results = []))}>{c.name}<small>{c.phone}</small></button>
       {/each}
@@ -175,6 +175,7 @@
 
 <style>
   .stack { display: grid; gap: 1.1rem; }
+  .form-grid { row-gap: 1rem; }
   .lbl { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; font-weight: 500; }
   .pick { display: flex; justify-content: space-between; width: 100%; min-height: 44px; align-items: center; padding: 0 0.9rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
   .pick:hover { border-color: var(--accent); }

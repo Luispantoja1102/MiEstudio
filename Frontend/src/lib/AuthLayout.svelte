@@ -62,7 +62,7 @@
   .sub { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem; }
   header { margin-bottom: 0.25rem; }
   .legal { display: flex; gap: 8px; font-size: 0.82rem; color: var(--muted); margin: 0; }
-  .legal a { color: inherit; }
+  .legal a { display: inline-block; padding: 8px 4px; color: inherit; }
   .legal a:hover { color: var(--text); }
 
   @media (min-width: 900px) {

@@ -49,7 +49,7 @@
 {/if}
 
 <style>
-  .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 1rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 0.4rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; }
   .back :global(svg) { transform: rotate(180deg); }
   .back:hover { color: var(--accent); }
 </style>

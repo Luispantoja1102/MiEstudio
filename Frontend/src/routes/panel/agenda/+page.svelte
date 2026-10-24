@@ -345,21 +345,21 @@
 
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 0.9rem; }
   .seg { display: inline-flex; padding: 4px; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
-  .seg button { min-height: 34px; padding: 0 16px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .seg button { min-height: 40px; padding: 0 16px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.12s var(--ease); }
   .seg button:hover { color: var(--text); }
   .seg button:active { transform: scale(0.96); }
   .seg button[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); }
 
-  .nav { display: flex; align-items: center; gap: 6px; }
+  .nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
   .nb { display: inline-grid; place-items: center; min-width: 40px; height: 40px; padding: 0 14px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease); }
   .nb:not(.today) { padding: 0; }
   .nb:hover { background: var(--surface-2); border-color: var(--muted); }
   .nb:active { transform: scale(0.95); }
   .flip { display: inline-flex; transform: rotate(180deg); }
-  .dateinput, .branchsel { width: auto; height: 40px; min-height: 40px; margin: 0; padding: 0 14px; font-size: 0.88rem; border-radius: 999px; }
+  .dateinput, .branchsel { width: auto; min-width: 0; flex: 1 1 150px; height: 40px; min-height: 40px; margin: 0; padding: 0 14px; font-size: 0.88rem; border-radius: 999px; }
 
   .people { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
-  .people button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .people button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease); }
   .people button:hover { border-color: var(--muted); }
   .people button:active { transform: scale(0.96); }
   .people button[aria-pressed='true'] { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
