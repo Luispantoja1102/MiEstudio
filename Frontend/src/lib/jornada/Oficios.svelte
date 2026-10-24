@@ -91,7 +91,7 @@
 <style>
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .oficios { height: 440vh; }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+  .cuadro { position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden; }
   .pista { display: flex; width: 400vw; height: 100%; transform: translate3d(calc(var(--s) * -300vw), 0, 0); will-change: transform; }
   .silla {
     --q: clamp(0, calc((var(--s) * 3 - var(--i)) * 2.2 + 1), 1);

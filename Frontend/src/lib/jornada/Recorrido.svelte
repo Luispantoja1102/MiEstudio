@@ -118,7 +118,7 @@
 
 <style>
   .recorrido { height: 620vh; background: #0c0c0e; color: #fff; }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+  .cuadro { position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden; }
 
   /* El video, con un acercamiento lento que da profundidad al avanzar */
   .pantalla { position: absolute; inset: 0; transform: scale(calc(1.04 + var(--p) * 0.06)); transform-origin: 50% 55%; will-change: transform; }
@@ -171,7 +171,7 @@
   /* Reducir movimiento o sin JS: póster quieto y los momentos uno tras otro */
   .estatico { height: auto; }
   .estatico .cuadro { position: relative; height: auto; overflow: visible; }
-  .estatico .pantalla { position: sticky; top: 0; height: 100svh; transform: none; }
+  .estatico .pantalla { position: sticky; top: 0; height: 100svh; height: 100dvh; transform: none; }
   .estatico .momento { position: relative; left: auto; bottom: auto; opacity: 1; margin: -60svh auto 40svh; padding: 0 20px; pointer-events: auto; }
   .estatico .lugar, .estatico .titulo, .estatico .texto, .estatico .acciones { transform: none; }
   .estatico .momento:not(.primero):not(:last-of-type) .acciones { display: none; }

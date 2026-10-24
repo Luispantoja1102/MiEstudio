@@ -90,7 +90,7 @@
 
 <style>
   .apertura { height: 300vh; background: var(--ticket); color: var(--tinta); }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; padding: 76px clamp(10px, 2vw, 28px) 34px; }
+  .cuadro { position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden; padding: 76px clamp(10px, 2vw, 28px) 34px; }
 
   .semana {
     position: relative; height: 100%; display: grid; gap: 3px 6px;
@@ -152,7 +152,7 @@
     .semana { grid-template-columns: 0 repeat(3, minmax(0, 1fr)); gap: 3px 4px; }
     .dias span.fin, .cita.fin, .cita.choque { display: none; }
     .horas { display: none; }
-    .titular { grid-column: 2 / 5 !important; grid-template-columns: 1fr; align-content: center; padding: 20px; gap: 14px; }
+    .titular { grid-column: 2 / 5 !important; grid-template-columns: 1fr; align-content: center; align-self: center; padding: 20px; gap: 14px; }
     .h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
     .titular p { font-size: 0.95rem; }
     .cita { padding: 3px 6px; }

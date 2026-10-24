@@ -61,7 +61,7 @@
 <style>
   .madrugada { height: 260vh; background: var(--ticket); color: var(--tinta); }
   .cuadro {
-    position: sticky; top: 0; height: 100svh; overflow: hidden;
+    position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden;
     display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.8fr) minmax(0, 0.9fr); align-items: center; gap: clamp(20px, 3vw, 48px);
     padding: 88px clamp(16px, 4vw, 56px) 40px;
   }
