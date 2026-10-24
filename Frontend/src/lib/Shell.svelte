@@ -17,6 +17,9 @@
       ? page.url.pathname === href
       : [href, ...extra].some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
 
+  // el Inicio lleva una franja oscura detrás de la barra superior y el saludo (solo en los temas Día y Noche)
+  const hero = $derived(page.url.pathname === '/panel');
+
   // celular: cuatro destinos a un toque del pulgar y «Más» con el resto
   const all = $derived(blocks.flatMap((g) => g.items).concat(footer).filter(([, , href]) => href));
   const primary = $derived(all.length > 5 ? all.slice(0, 4) : all);
@@ -56,7 +59,7 @@
     {#if footer.length}<nav class="foot" aria-label="Ajustes">{@render links(footer)}</nav>{/if}
   </aside>
 
-  <div class="main">
+  <div class="main" class:hero>
     <header class="top">
       <span class="biz">{title}</span>
       <div class="tools">
@@ -95,6 +98,29 @@
 <style>
   .shell { display: grid; min-height: 100vh; }
   .main { min-width: 0; } /* evita que el contenido ancho ensanche la página */
+
+  /* franja del Inicio: carbón con los brillos bermellón y azul del héroe de la landing; las tarjetas de cifras la montan */
+  :global(:root[data-theme='light']) .main.hero,
+  :global(:root[data-theme='dark']) .main.hero { position: relative; --band-h: 256px; }
+  @media (max-width: 560px) {
+    :global(:root[data-theme='light']) .main.hero,
+    :global(:root[data-theme='dark']) .main.hero { --band-h: 286px; }
+  }
+  :global(:root[data-theme='light']) .main.hero::before,
+  :global(:root[data-theme='dark']) .main.hero::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: var(--band-h);
+    background: radial-gradient(ellipse 55% 130% at 0% 0%, rgba(207, 84, 68, 0.3), transparent 62%), radial-gradient(ellipse 50% 110% at 100% 100%, rgba(95, 130, 220, 0.2), transparent 60%), var(--side);
+    border-bottom: 1px solid var(--side-line);
+  }
+  :global(:root[data-theme='light']) .main.hero > .top,
+  :global(:root[data-theme='dark']) .main.hero > .top,
+  :global(:root[data-theme='light']) .main.hero > .content,
+  :global(:root[data-theme='dark']) .main.hero > .content { position: relative; z-index: 1; }
+  :global(:root[data-theme='light']) .main.hero > .top,
+  :global(:root[data-theme='dark']) .main.hero > .top { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); --surface: rgba(236, 233, 226, 0.06); --surface-2: rgba(236, 233, 226, 0.12); color: var(--text); }
 
   /* Riel de íconos: la estructura es la misma en todos los temas; el tema solo pone los colores (--side-*) */
   .side {
@@ -137,6 +163,8 @@
   .item:active { transform: scale(0.95); }
   .item:hover { color: var(--side-text); background: var(--side-hover); }
   .item.active { color: var(--side-active-ink); background: var(--side-active); }
+  :global(:root[data-theme='light']) .side .item.active::before,
+  :global(:root[data-theme='dark']) .side .item.active::before { content: ''; position: absolute; left: -24px; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--side-mark); }
   .item.off { cursor: default; opacity: 0.6; }
   .item.off:hover { background: transparent; color: var(--side-muted); }
   .item :global(svg) { width: 22px; height: 22px; stroke-width: 1.4; }

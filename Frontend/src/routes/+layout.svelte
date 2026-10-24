@@ -1,5 +1,6 @@
 <script>
   import '@fontsource-variable/inter';
+  import '@fontsource-variable/archivo/wdth.css';
   import '@fontsource/playfair-display/500.css';
   import '@fontsource/playfair-display/600.css';
   import '@fontsource/playfair-display/700.css';

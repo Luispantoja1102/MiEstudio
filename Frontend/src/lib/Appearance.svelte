@@ -3,7 +3,7 @@
 
   // Cada persona elige su tema claro; el oscuro viene siempre incluido y no se elige aquí: se alterna con el botón de la cabecera.
   const options = {
-    light: ['Azul tinta', 'Marfil fresco con azul profundo (predeterminado).', 'linear-gradient(135deg, #1c2f5c 50%, #f3f1ec 50%)'],
+    light: ['Día', 'Marfil y carbón con bermellón, como la landing (predeterminado).', 'linear-gradient(135deg, #b8402f 50%, #f1eee7 50%)'],
     lino: ['Lino', 'Lino y terracota, editorial y cálido.', 'linear-gradient(135deg, #a8614c 50%, #f8f6f2 50%)'],
     ivory: ['Marfil', 'Marfil solemne con carbón y champán.', 'linear-gradient(135deg, #17171b 50%, #f4efe6 50%)']
   };

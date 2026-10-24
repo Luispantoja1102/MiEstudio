@@ -75,13 +75,9 @@
   });
 </script>
 
-{#if me.business.status === 'trial' && me.business.trial_ends_at}
-  <p class="banner">Prueba gratuita hasta el {formatDay(me.business.trial_ends_at)}.</p>
-{/if}
-
-<div class="page-head">
+<div class="page-head hero-head">
   <div>
-    <h1>Hola, {me.name}</h1>
+    <h1>Hola, <span class="who">{me.name}</span></h1>
     <p>{longDate(today)}</p>
   </div>
   <div class="form-actions" style="margin: 0">
@@ -98,88 +94,100 @@
 {:else if !branches.id}
   <div class="empty">No hay sucursales activas. Crea una en Ajustes para empezar a agendar.</div>
 {:else}
-  <div class="today">
-    <section aria-labelledby="agenda-h">
-      <h2 id="agenda-h">{role === 'staff' ? 'Tu día' : 'Agenda de hoy'}</h2>
-      {#if sorted.length === 0}
-        <div class="empty">
-          Hoy no hay citas todavía.
-          <div style="margin-top: 0.75rem"><a class="btn ghost" href="/panel/agenda">Agendar una cita</a></div>
-        </div>
-      {:else}
-        <ol class="slots">
-          {#each sorted as a (a.id)}
-            <li class:next={next?.id === a.id} class:done={a.status === 'completed' || a.status === 'no_show'}>
-              <time class="when" datetime={a.starts_at}>{fmtTime(a.starts_at, tz)}</time>
-              <div class="what">
-                <b>{a.client_name}</b>
-                <span class="meta">{a.service_name} · <i class="dot" style:background={colorOf(a.staff_id)}></i>{a.staff_name}</span>
-                <span class="tags">
-                  {#if next?.id === a.id}<span class="badge gold">Siguiente</span>{/if}
-                  {#if a.status === 'pending_payment'}<span class="badge clay">Espera anticipo</span>
-                  {:else if a.status === 'completed'}<span class="badge muted">Cobrada</span>
-                  {:else if a.status === 'no_show'}<span class="badge muted">No asistió</span>
-                  {:else if late(a)}<span class="badge clay">Por cobrar</span>
-                  {:else if a.deposit_status === 'paid'}<span class="badge">Anticipo pagado</span>{/if}
-                </span>
-              </div>
-              {#if sells && a.status === 'scheduled'}
-                <a class="btn sm" class:ghost={next?.id !== a.id && !late(a)} href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>
-              {/if}
-            </li>
-          {/each}
-        </ol>
-      {/if}
-    </section>
+  <dl class="kpis" aria-label="Resumen del día">
+    <div class="kpi">
+      <dt>Citas por atender</dt>
+      <dd><b class="v">{upcoming.length}</b><span class="of">de {sorted.length}</span></dd>
+    </div>
+    {#if sales}
+      <div class="kpi">
+        <dt>Ventas de hoy</dt>
+        <dd><b class="v">{money(sales.today.collected_cents)}</b><span class="sub">{plural(sales.today.sales, 'venta', 'ventas')}{diff ? ` · ${diff}` : ''}</span></dd>
+      </div>
+    {/if}
+    {#if sells}
+      <div class="kpi">
+        <dt>Caja</dt>
+        <dd>
+          {#if cash}<b class="v word">Abierta</b><span class="sub">efectivo esperado <b class="num">{money(cash.expected_cents)}</b></span>
+          {:else}<b class="v word">Cerrada</b><span class="sub"><a href="/panel/ventas">abrir caja</a></span>{/if}
+        </dd>
+      </div>
+    {/if}
+    {#if toCharge}
+      <div class="kpi alert">
+        <dt>Sin cobrar</dt>
+        <dd><b class="v">{toCharge}</b><span class="sub">{plural(toCharge, 'cita ya terminó', 'citas ya terminaron')}</span></dd>
+      </div>
+    {/if}
+    {#if waiting}
+      <div class="kpi alert">
+        <dt>Anticipos</dt>
+        <dd><b class="v">{waiting}</b><span class="sub">{plural(waiting, 'cita espera su anticipo', 'citas esperan su anticipo')}</span></dd>
+      </div>
+    {/if}
+  </dl>
 
-    <aside aria-label="Resumen del día">
-      <h2>Hoy en números</h2>
-      <dl class="facts">
-        <div>
-          <dt>Citas</dt>
-          <dd>{plural(upcoming.length, 'por atender', 'por atender')} de {sorted.length}</dd>
-        </div>
-        {#if toCharge}
-          <div><dt>Sin cobrar</dt><dd class="clay">{plural(toCharge, 'cita ya terminó', 'citas ya terminaron')}</dd></div>
-        {/if}
-        {#if waiting}
-          <div><dt>Anticipos</dt><dd class="clay">{plural(waiting, 'cita espera su anticipo', 'citas esperan su anticipo')}</dd></div>
-        {/if}
-        {#if sells}
-          <div>
-            <dt>Caja</dt>
-            <dd>
-              {#if cash}Abierta · efectivo esperado <b class="num">{money(cash.expected_cents)}</b>
-              {:else}Cerrada · <a href="/panel/ventas">abrir caja</a>{/if}
-            </dd>
-          </div>
-        {/if}
-        {#if sales}
-          <div>
-            <dt>Ventas</dt>
-            <dd>
-              <b class="total num">{money(sales.today.collected_cents)}</b>
-              <span class="meta">{plural(sales.today.sales, 'venta', 'ventas')}{diff ? ` · ${diff}` : ''}</span>
-            </dd>
-          </div>
-        {/if}
-      </dl>
-    </aside>
-  </div>
+  {#if me.business.status === 'trial' && me.business.trial_ends_at}
+    <p class="banner">Prueba gratuita hasta el {formatDay(me.business.trial_ends_at)}.</p>
+  {/if}
+
+  <section class="card agenda" aria-labelledby="agenda-h">
+    <h2 id="agenda-h">{role === 'staff' ? 'Tu día' : 'Agenda de hoy'}</h2>
+    {#if sorted.length === 0}
+      <div class="empty">
+        Hoy no hay citas todavía.
+        <div style="margin-top: 0.75rem"><a class="btn ghost" href="/panel/agenda">Agendar una cita</a></div>
+      </div>
+    {:else}
+      <ol class="slots">
+        {#each sorted as a (a.id)}
+          <li class:next={next?.id === a.id} class:done={a.status === 'completed' || a.status === 'no_show'} style:--c={colorOf(a.staff_id)}>
+            <time class="when" datetime={a.starts_at}>{fmtTime(a.starts_at, tz)}</time>
+            <div class="what">
+              <b>{a.client_name}</b>
+              <span class="meta">{a.service_name} · <i class="dot" style:background={colorOf(a.staff_id)}></i>{a.staff_name}</span>
+              <span class="tags">
+                {#if next?.id === a.id}<span class="badge gold">Siguiente</span>{/if}
+                {#if a.status === 'pending_payment'}<span class="badge clay">Espera anticipo</span>
+                {:else if a.status === 'completed'}<span class="badge muted">Cobrada</span>
+                {:else if a.status === 'no_show'}<span class="badge muted">No asistió</span>
+                {:else if late(a)}<span class="badge clay">Por cobrar</span>
+                {:else if a.deposit_status === 'paid'}<span class="badge">Anticipo pagado</span>{/if}
+              </span>
+            </div>
+            {#if sells && a.status === 'scheduled'}
+              <a class="btn sm" class:ghost={next?.id !== a.id && !late(a)} href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>
+            {/if}
+          </li>
+        {/each}
+      </ol>
+    {/if}
+  </section>
 {/if}
 
 <style>
-  .today { display: grid; gap: 28px; grid-template-columns: 1fr; align-items: start; }
-  @media (min-width: 1000px) { .today { grid-template-columns: minmax(0, 1fr) 320px; } }
-  h2 { font-size: 1.35rem; margin-bottom: 0.75rem; }
+  h2 { font-size: 1.35rem; margin-bottom: 0.9rem; }
+  .agenda { padding: 1.5rem; }
 
-  .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  /* cifras del día */
+  .kpis { margin: 0 0 1.25rem; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .kpi { padding: 1.1rem 1.3rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); }
+  .kpi dt { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+  .kpi dd { margin: 0; display: grid; gap: 2px; }
+  .kpi .v { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 2.2rem; font-weight: 800; line-height: 1.05; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .kpi .v.word { font-size: 1.7rem; }
+  .kpi .of { font-size: 0.85rem; color: var(--muted); }
+  .kpi .sub { font-size: 0.85rem; color: var(--muted); }
+  .kpi.alert .v { color: var(--clay); }
+
+  .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .slots li {
     display: grid;
     grid-template-columns: 4.2rem 1fr auto;
     align-items: center;
-    gap: 6px 14px;
-    padding: 0.85rem 1rem;
+    gap: 6px 22px;
+    padding: 1.1rem 1.4rem;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -188,15 +196,11 @@
   .slots li:nth-child(2) { animation-delay: 40ms; }
   .slots li:nth-child(3) { animation-delay: 80ms; }
   .slots li:nth-child(n + 4) { animation-delay: 120ms; }
-  .slots { gap: 14px; }
-  .slots li { padding: 1.35rem 1.6rem; gap: 6px 22px; }
-  aside { padding: 1.75rem 1.75rem 0.75rem; }
-  .when { font-size: 1.6rem; }
   .slots li.next { background: var(--marigold-soft); border-color: var(--marigold); }
   .slots li.done { opacity: 0.7; }
   @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-  .when { font-family: var(--font-body, inherit); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
+  .when { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
   .what { display: grid; min-width: 0; line-height: 1.35; }
   .what .meta { font-size: 0.88rem; color: var(--muted); }
   .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: baseline; }
@@ -204,16 +208,31 @@
   .tags:empty { display: none; }
   .tags:not(:empty) { margin-top: 4px; }
   @media (max-width: 560px) {
+    .agenda { padding: 1rem; }
     .slots li { grid-template-columns: 3.4rem 1fr auto; gap: 6px 10px; padding: 0.8rem; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .kpi { padding: 0.85rem 0.9rem; }
+    .kpi dt { font-size: 0.8rem; }
+    .kpi .v { font-size: 1.6rem; }
+    .kpi .v.word { font-size: 1.25rem; }
+    .kpi .sub, .kpi .of { font-size: 0.78rem; }
   }
 
-  aside { padding: 1.25rem 1.25rem 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-  .facts { margin: 0; display: grid; }
-  .facts > div { padding: 0.8rem 0; border-top: 1px solid var(--border); }
-  .facts > div:first-child { border-top: 0; padding-top: 0; }
-  dt { font-size: 0.85rem; color: var(--muted); margin-bottom: 2px; }
-  dd { margin: 0; }
-  dd .meta { display: block; font-size: 0.88rem; color: var(--muted); }
-  .total { font-size: 1.9rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .clay { color: var(--clay); font-weight: 600; }
+  /* Día y Noche: saludo sobre la franja oscura de la barra (ver Shell), franja de color por profesional y horas grandes */
+  :global(:root[data-theme='light']) .hero-head,
+  :global(:root[data-theme='dark']) .hero-head { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); --surface-2: rgba(236, 233, 226, 0.1); color: var(--text); }
+  :global(:root[data-theme='light']) .who,
+  :global(:root[data-theme='dark']) .who { color: #ee8a7c; }
+  :global(:root[data-theme='light']) .slots li,
+  :global(:root[data-theme='dark']) .slots li { position: relative; overflow: hidden; grid-template-columns: 5rem 1fr auto; padding-left: 1.7rem; }
+  :global(:root[data-theme='light']) .slots li::before,
+  :global(:root[data-theme='dark']) .slots li::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--c); }
+  :global(:root[data-theme='light']) .when,
+  :global(:root[data-theme='dark']) .when { font-size: 1.7rem; line-height: 1; }
+  @media (max-width: 560px) {
+    :global(:root[data-theme='light']) .slots li,
+    :global(:root[data-theme='dark']) .slots li { grid-template-columns: 4rem 1fr auto; padding-left: 1.3rem; }
+    :global(:root[data-theme='light']) .when,
+    :global(:root[data-theme='dark']) .when { font-size: 1.45rem; }
+  }
 </style>
