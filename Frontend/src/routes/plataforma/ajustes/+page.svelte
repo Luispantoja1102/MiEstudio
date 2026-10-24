@@ -6,7 +6,6 @@
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
   import Actividad from '../actividad/+page.svelte';
-  import Equipo from '../equipo/+page.svelte';
   import Planes from '../planes/+page.svelte';
   import Salud from '../salud/+page.svelte';
   import Registro from './registro/+page.svelte';
@@ -23,8 +22,7 @@
       title: 'Operación',
       items: [
         { id: 'salud', label: 'Salud del sistema', desc: 'Correo, Mercado Pago, base de datos y bandeja de salida', icon: 'chart', component: Salud },
-        { id: 'actividad', label: 'Actividad', desc: 'Bitácora de lo que ocurre en la plataforma', icon: 'bell', component: Actividad },
-        { id: 'equipo', label: 'Equipo de plataforma', desc: 'Administradores y soporte, con sus accesos', icon: 'users', component: Equipo }
+        { id: 'actividad', label: 'Actividad', desc: 'Bitácora de lo que ocurre en la plataforma', icon: 'bell', component: Actividad }
       ]
     },
     {
@@ -43,4 +41,4 @@
   }
 </script>
 
-<SettingsHub intro="Planes, registro, salud del sistema, equipo y tu cuenta." {groups} onlogout={logout} />
+<SettingsHub intro="Planes, registro, salud del sistema, actividad y tu cuenta." {groups} onlogout={logout} />

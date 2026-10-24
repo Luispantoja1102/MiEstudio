@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import Avatar from '$lib/Avatar.svelte';
   import { api } from '$lib/api.js';
-  import { ACTIONS, BILLING, KINDS, PLANS, ago, money, plural } from '$lib/format.js';
-  import { session } from '$lib/session.svelte.js';
+  import { BILLING, KINDS, PLANS, ago, money, plural } from '$lib/format.js';
+  import Timeline from '$lib/platform/Timeline.svelte';
+  import { canWritePlatform, session } from '$lib/session.svelte.js';
 
   const MODES = { open: 'Abierto', approval: 'Con aprobación', closed: 'Cerrado' };
   const KIND_TONE = { pending: 'warn', past_due: 'bad', trial_expired: 'bad', trial_ending: 'warn' };
@@ -11,6 +12,7 @@
 
   let d = $state(null);
   let activity = $state([]);
+  let books = $state(null); // finanzas del mes, solo para el administrador
   let error = $state('');
   let showAll = $state(false);
 
@@ -18,6 +20,7 @@
     try {
       d = await api('/api/platform/overview');
       activity = await api('/api/platform/activity?limit=7').catch(() => []);
+      if (canWritePlatform()) books = await api('/api/platform/finance').catch(() => null);
     } catch (e) {
       error = e.message;
     }
@@ -65,15 +68,25 @@
 
   {#if d.mrr_cents !== undefined || d.usage_30d}
     <section class="kpis" aria-label="Cifras del mes">
+      {#if books}
+        <a class="kpi" href="/plataforma/finanzas">
+          <span class="lbl">Ganancia del mes</span>
+          <span class="body"><b class="v">{money(books.profit_cents)}</b><span class="sub">ingresos menos gastos</span></span>
+        </a>
+        <a class="kpi" href="/plataforma/finanzas">
+          <span class="lbl">Cobrado este mes</span>
+          <span class="body"><b class="v">{money(books.revenue_cents)}</b><span class="sub">{books.clients.active} negocios que pagan</span></span>
+        </a>
+        <a class="kpi" href="/plataforma/finanzas?v=gastos">
+          <span class="lbl">Gastos del mes</span>
+          <span class="body"><b class="v">{money(books.expenses_cents)}</b><span class="sub">{books.expenses.length} anotados</span></span>
+        </a>
+      {/if}
       {#if d.mrr_cents !== undefined}
         <div class="kpi">
           <span class="lbl">Ingreso mensual recurrente</span>
           <span class="body"><b class="v">{money(d.mrr_cents)}</b><span class="sub">lo que pagan al mes los activos</span></span>
         </div>
-        <a class="kpi" href="/plataforma/pagos">
-          <span class="lbl">Cobrado este mes</span>
-          <span class="body"><b class="v">{money(d.paid_this_month_cents)}</b><span class="sub">ver pagos</span></span>
-        </a>
       {/if}
       <a class="kpi" href="/plataforma/negocios">
         <span class="lbl">Altas (30 días)</span>
@@ -138,22 +151,7 @@
 
       <section class="card" aria-labelledby="mov">
         <div class="head"><h2 id="mov">Movimientos del equipo</h2><a class="btn ghost sm" href="/plataforma/ajustes?s=actividad">Ver todo</a></div>
-        {#if activity.length === 0}
-          <p class="meta">Aún no hay movimientos.</p>
-        {:else}
-          <ul class="timeline">
-            {#each activity as a (a.id)}
-              <li>
-                <i aria-hidden="true"></i>
-                <div>
-                  <span>{ACTIONS[a.action] ?? a.action}</span>
-                  <small class="meta">{a.actor || 'Sistema'}{#if a.business} · <a href="/plataforma/negocios/{a.business_id}">{a.business}</a>{/if}</small>
-                </div>
-                <time class="when" datetime={a.created_at}>{ago(a.created_at)}</time>
-              </li>
-            {/each}
-          </ul>
-        {/if}
+        <Timeline items={activity} />
       </section>
     </div>
   </div>
@@ -182,8 +180,4 @@
   .recent a:hover { background: var(--surface-2); }
   .recent .who { flex: 1; }
 
-  .timeline li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; font-size: 0.92rem; }
-  .timeline i { width: 8px; height: 8px; margin-top: 0.45rem; border-radius: 50%; background: var(--accent); }
-  .timeline small { display: block; }
-  .timeline a { color: inherit; }
 </style>

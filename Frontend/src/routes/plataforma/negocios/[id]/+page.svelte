@@ -44,6 +44,7 @@
       await fn();
       notice = okMsg;
       await load();
+      window.dispatchEvent(new Event('clients-changed')); // la lista de negocios refresca su estado y plan
     } catch (e) {
       error = e.message;
     }

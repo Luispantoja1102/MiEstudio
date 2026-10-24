@@ -343,6 +343,7 @@ type platformMember struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
 	Email     string `json:"email"`
+	Username  string `json:"username"`
 	Role      string `json:"role"`
 	Active    bool   `json:"active"`
 	TwoFactor bool   `json:"two_factor"`
@@ -350,7 +351,7 @@ type platformMember struct {
 
 func (a *API) platformListTeam(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT id, name, email, role, active, totp_secret_enc IS NOT NULL FROM users WHERE business_id IS NULL ORDER BY id`)
+		`SELECT id, name, email, username, role, active, totp_secret_enc IS NOT NULL FROM users WHERE business_id IS NULL ORDER BY id`)
 	if err != nil {
 		serverErr(w)
 		return
@@ -359,7 +360,7 @@ func (a *API) platformListTeam(w http.ResponseWriter, r *http.Request) {
 	out := []platformMember{}
 	for rows.Next() {
 		var m platformMember
-		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Role, &m.Active, &m.TwoFactor); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.Email, &m.Username, &m.Role, &m.Active, &m.TwoFactor); err != nil {
 			serverErr(w)
 			return
 		}
@@ -373,19 +374,23 @@ func validPlatformRole(r string) bool {
 }
 
 func (a *API) platformCreateTeam(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Name, Email, Password, Role string }
+	var req struct{ Name, Email, Username, Password, Role string } // el usuario es opcional: si falta, se genera desde el correo
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = lowerTrim(req.Email)
+	req.Username = lowerTrim(req.Username)
 	switch {
 	case !validName(req.Name):
 		writeErr(w, http.StatusBadRequest, "el nombre es obligatorio")
 		return
 	case !validEmail(req.Email):
 		writeErr(w, http.StatusBadRequest, "correo inválido")
+		return
+	case req.Username != "" && !validUsername(req.Username):
+		writeErr(w, http.StatusBadRequest, usernameHelp)
 		return
 	case !validPassword(req.Password):
 		writeErr(w, http.StatusBadRequest, "la contraseña debe tener de 8 a 72 caracteres")
@@ -394,7 +399,7 @@ func (a *API) platformCreateTeam(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "rol inválido")
 		return
 	}
-	id, err := a.insertPlatformUser(r.Context(), req.Name, req.Email, req.Password, req.Role)
+	id, err := a.insertPlatformUser(r.Context(), req.Name, req.Email, req.Username, req.Password, req.Role)
 	if writeUserConflict(w, err) {
 		return
 	}
@@ -406,15 +411,19 @@ func (a *API) platformCreateTeam(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"id": id})
 }
 
-func (a *API) insertPlatformUser(ctx context.Context, name, email, password, role string) (int64, error) {
+// insertPlatformUser crea a una persona del equipo de plataforma; con username vacío se genera uno a partir del correo.
+func (a *API) insertPlatformUser(ctx context.Context, name, email, username, password, role string) (int64, error) {
 	hash, err := auth.HashPassword(password)
 	if err != nil {
 		return 0, err
 	}
+	if username == "" {
+		username = a.uniqueUsername(ctx, a.DB, emailLocal(email))
+	}
 	var id int64
 	err = a.DB.QueryRow(ctx,
 		`INSERT INTO users (business_id, email, username, password_hash, name, role) VALUES (NULL, $1, $2, $3, $4, $5) RETURNING id`,
-		email, a.uniqueUsername(ctx, a.DB, emailLocal(email)), hash, name, role).Scan(&id)
+		email, username, hash, name, role).Scan(&id)
 	if conflict := userConflict(err); conflict != nil {
 		return 0, conflict
 	}

@@ -275,3 +275,74 @@ func TestHealthEndpoint(t *testing.T) {
 		t.Fatalf("negocio: %d", r.Status)
 	}
 }
+
+func TestPlatformFinanceAndExpenses(t *testing.T) {
+	f := newPB(t)
+	f.pay(t, map[string]any{"amount_cents": 70000, "months": 1, "plan": "crecimiento", "method": "transfer"})
+	f.pay(t, map[string]any{"amount_cents": 0, "months": 1, "plan": "crecimiento", "method": "courtesy"}) // la cortesía no cuenta como ingreso
+
+	// un gasto del mes y otro con fecha propia (otro mes: no entra en este resumen)
+	if r := f.a.do(t, "POST", "/api/platform/expenses", f.plat, map[string]any{"label": "Servidor", "amount_cents": 25000}); r.Status != 201 {
+		t.Fatalf("anotar gasto: %d %v", r.Status, r.Body)
+	}
+	if r := f.a.do(t, "POST", "/api/platform/expenses", f.plat, map[string]any{"label": "Dominio", "amount_cents": 9000, "day": "2020-01-15"}); r.Status != 201 {
+		t.Fatalf("gasto con fecha: %d %v", r.Status, r.Body)
+	}
+	for name, body := range map[string]map[string]any{
+		"sin concepto": {"label": " ", "amount_cents": 100}, "monto cero": {"label": "Algo", "amount_cents": 0}, "fecha inválida": {"label": "Algo", "amount_cents": 100, "day": "ayer"},
+	} {
+		if r := f.a.do(t, "POST", "/api/platform/expenses", f.plat, body); r.Status != 400 {
+			t.Errorf("gasto inválido (%s): %d", name, r.Status)
+		}
+	}
+
+	r := f.a.do(t, "GET", "/api/platform/finance", f.plat, nil)
+	if r.Status != 200 || r.Body["revenue_cents"] != float64(70000) || r.Body["expenses_cents"] != float64(25000) || r.Body["profit_cents"] != float64(45000) {
+		t.Fatalf("resumen del mes: %d %v", r.Status, r.Body)
+	}
+	if trend := r.Body["trend"].([]any); len(trend) != 6 {
+		t.Fatalf("la tendencia cubre seis meses: %d", len(trend))
+	}
+	if payers := r.Body["payers"].([]any); len(payers) != 1 || payers[0].(map[string]any)["amount_cents"] != float64(70000) {
+		t.Fatalf("quién paga: %v", r.Body["payers"])
+	}
+	if old := f.a.do(t, "GET", "/api/platform/finance?month=2020-01", f.plat, nil); old.Body["expenses_cents"] != float64(9000) || old.Body["revenue_cents"] != float64(0) {
+		t.Fatalf("enero de 2020: %v", old.Body)
+	}
+	if bad := f.a.do(t, "GET", "/api/platform/finance?month=hoy", f.plat, nil); bad.Status != 400 {
+		t.Fatalf("mes inválido: %d", bad.Status)
+	}
+
+	// quitar un gasto
+	id := r.Body["expenses"].([]any)[0].(map[string]any)["id"].(float64)
+	if d := f.a.do(t, "DELETE", path("/api/platform/expenses/", int64(id)), f.plat, nil); d.Status != 204 {
+		t.Fatalf("quitar gasto: %d", d.Status)
+	}
+	if d := f.a.do(t, "DELETE", path("/api/platform/expenses/", int64(id)), f.plat, nil); d.Status != 404 {
+		t.Fatalf("quitar dos veces: %d", d.Status)
+	}
+
+	// soporte y negocios no ven el dinero ni anotan gastos
+	for name, tok := range map[string]string{"soporte": f.support, "negocio": f.admin} {
+		if r := f.a.do(t, "GET", "/api/platform/finance", tok, nil); r.Status != 403 {
+			t.Errorf("%s ve finanzas: %d", name, r.Status)
+		}
+		if r := f.a.do(t, "POST", "/api/platform/expenses", tok, map[string]any{"label": "Algo", "amount_cents": 100}); r.Status != 403 {
+			t.Errorf("%s anota gastos: %d", name, r.Status)
+		}
+	}
+}
+
+func TestPlatformTeamUsername(t *testing.T) {
+	f := newPB(t)
+	r := f.a.do(t, "POST", "/api/platform/team", f.plat, map[string]any{"name": "Luz", "email": "luz@p.com", "username": "Luz.Soporte", "password": "ClaveLarga123", "role": "platform_support"})
+	if r.Status != 201 {
+		t.Fatalf("alta con usuario: %d %v", r.Status, r.Body)
+	}
+	if r := f.a.do(t, "POST", "/api/auth/login", "", map[string]any{"identifier": "LUZ.soporte", "password": "ClaveLarga123"}); r.Status != 200 {
+		t.Fatalf("entrar con el usuario: %d", r.Status)
+	}
+	if r := f.a.do(t, "POST", "/api/platform/team", f.plat, map[string]any{"name": "Otra", "email": "otra@p.com", "username": "luz.soporte", "password": "ClaveLarga123", "role": "platform_support"}); r.Status != 409 {
+		t.Fatalf("usuario repetido: %d", r.Status)
+	}
+}

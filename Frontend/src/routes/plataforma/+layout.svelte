@@ -9,15 +9,16 @@
 
   let { children } = $props();
 
-  const SETTINGS_PATHS = ['/plataforma/planes', '/plataforma/salud', '/plataforma/equipo', '/plataforma/actividad', '/plataforma/cuenta'];
-  // Pocas opciones a la vista; lo demás vive en Ajustes (como en MiConsultorio).
+  const SETTINGS_PATHS = ['/plataforma/planes', '/plataforma/salud', '/plataforma/actividad', '/plataforma/cuenta'];
+  // Como en MiTiendita: Hoy, Clientes, Finanzas y Equipo a la vista; lo demás vive en Ajustes.
   const groups = [
     {
       title: 'Plataforma',
       items: [
-        ['home', 'Resumen', '/plataforma'],
-        ['scissors', 'Negocios', '/plataforma/negocios'],
-        ['wallet', 'Pagos', '/plataforma/pagos']
+        ['home', 'Hoy', '/plataforma'],
+        ['scissors', 'Clientes', '/plataforma/negocios'],
+        ['wallet', 'Finanzas', '/plataforma/finanzas'],
+        ['users', 'Equipo', '/plataforma/equipo']
       ]
     }
   ];

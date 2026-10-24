@@ -272,14 +272,10 @@ func (a *API) platformOverview(w http.ResponseWriter, r *http.Request) {
 		                                       OR EXISTS (SELECT 1 FROM sales y WHERE y.business_id = b.id AND y.created_at >= $1))`, since).Scan(&appts, &online, &salesN, &activeBiz)
 	out["usage_30d"] = map[string]int{"appointments": appts, "online_bookings": online, "sales": salesN, "active_businesses": activeBiz}
 	if isAdmin {
-		var mrr, paid int
-		// ingreso mensual recurrente: lo que cada negocio activo y de pago paga al mes según su último pago
-		a.DB.QueryRow(ctx, `SELECT COALESCE(sum(last.amount_cents / last.months), 0) FROM businesses b
-		   JOIN LATERAL (SELECT amount_cents, months FROM payments p WHERE p.business_id = b.id AND p.method <> 'courtesy' ORDER BY p.created_at DESC, p.id DESC LIMIT 1) last ON true
-		  WHERE (`+stateSQL("$1")+`) = 'active' AND b.current_period_end IS NOT NULL`, now).Scan(&mrr)
+		var paid int
 		a.DB.QueryRow(ctx, `SELECT COALESCE(sum(amount_cents), 0) FROM payments WHERE method <> 'courtesy'
 		   AND created_at >= date_trunc('month', $1::timestamptz AT TIME ZONE 'America/Mexico_City') AT TIME ZONE 'America/Mexico_City'`, now).Scan(&paid)
-		out["mrr_cents"], out["paid_this_month_cents"] = mrr, paid
+		out["mrr_cents"], out["paid_this_month_cents"] = a.mrrCents(ctx, now), paid
 	}
 	writeJSON(w, http.StatusOK, out)
 }

@@ -53,7 +53,7 @@ func (a *API) BootstrapPlatformAdmin(ctx context.Context, name, email, password 
 	if name == "" {
 		name = "Administrador"
 	}
-	if _, err := a.insertPlatformUser(ctx, name, email, password, auth.RolePlatformAdmin); err != nil {
+	if _, err := a.insertPlatformUser(ctx, name, email, "", password, auth.RolePlatformAdmin); err != nil {
 		return err
 	}
 	log.Printf("plataforma: administrador creado: %s", email)
@@ -82,7 +82,7 @@ func (a *API) UpsertPlatformAdmin(ctx context.Context, name, email, password str
 		if strings.TrimSpace(name) == "" {
 			name = "Administrador"
 		}
-		_, err = a.insertPlatformUser(ctx, name, email, password, auth.RolePlatformAdmin)
+		_, err = a.insertPlatformUser(ctx, name, email, "", password, auth.RolePlatformAdmin)
 		return err == nil, err
 	case err != nil:
 		return false, err

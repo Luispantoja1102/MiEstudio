@@ -51,6 +51,8 @@ export const ACTIONS = {
   platform_user_updated: 'Persona de plataforma actualizada',
   settings_changed: 'Ajustes cambiados',
   payment_recorded: 'Pago registrado',
+  platform_expense_added: 'Gasto de la plataforma anotado',
+  platform_expense_removed: 'Gasto de la plataforma quitado',
   password_reset_by_email: 'Contraseña restablecida por correo',
   two_factor_enabled: 'Verificación en dos pasos activada',
   two_factor_disabled: 'Verificación en dos pasos desactivada',
