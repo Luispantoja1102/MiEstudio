@@ -105,5 +105,11 @@
 
   .barra :global(.btn-chico) { min-height: 36px; padding: 0 14px; font-size: 0.88rem; }
   @media (max-width: 900px) { nav { display: none; } }
-  @media (max-width: 420px) { .entrar { display: none; } }
+  /* celular: la barra ocupa el ancho, «Entrar» sigue visible y en pantallas muy angostas se queda solo la marca del logo */
+  @media (max-width: 420px) {
+    .barra { right: 14px; }
+    .barra :global(.logo) { margin-right: auto; }
+    .entrar { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.3); }
+  }
+  @media (max-width: 360px) { .barra :global(.word) { display: none; } }
 </style>

@@ -137,7 +137,7 @@
   .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: var(--carta); color: var(--tinta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08); }
   .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.4rem; font-weight: 650; }
   .t-nombre span { font-family: var(--texto); font-size: 0.9rem; font-weight: 500; color: var(--tinta-suave); align-self: center; }
-  .hoyos { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; gap: 16px; }
+  .hoyos { display: grid; grid-template-columns: repeat(5, minmax(0, 44px)); justify-content: space-between; gap: 16px; }
   .hoyos span { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(var(--ink-rgb) / 0.25); }
   .hoyos .usada { background: var(--eucalipto); box-shadow: inset 0 3px 4px rgb(0 0 0 / 0.35); transform: scale(clamp(0, calc(var(--q) * 1.8 - var(--k) * 0.2), 1)); }
   .t-saldo { margin: 22px 0 0; color: var(--tinta-suave); }
@@ -152,6 +152,6 @@
     .oficios { height: auto; }
     .cuadro { position: relative; height: auto; }
     .pista { display: block; width: auto; transform: none; }
-    .silla { --q: 1; width: auto; height: auto; grid-template-columns: 1fr; padding-block: 72px; }
+    .silla { --q: 1; width: auto; height: auto; grid-template-columns: minmax(0, 1fr); padding-block: 72px; }
   }
 </style>
