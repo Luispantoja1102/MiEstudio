@@ -65,7 +65,7 @@ func (a *API) getBilling(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"plan": cur, "billing_state": p.BillingState, "trial_ends_at": trialEnds, "current_period_end": periodEnd,
 		"plans": a.plans(ctx), "usage": a.usageOf(ctx, a.DB, p.BusinessID), "payments": a.paymentsOf(ctx, p.BusinessID, 24),
-		"online": a.onlineBillingEnabled(), "grace_days": pastDueGraceDays,
+		"online": a.onlineBillingEnabled(), "grace_days": pastDueGraceDays, "subscription": mandateJSON(a.liveMandate(ctx, p.BusinessID)),
 	})
 }
 
@@ -229,7 +229,14 @@ func (a *API) platformMPWebhook(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if topic != "payment" || payID == "" || !a.onlineBillingEnabled() {
+	if !a.onlineBillingEnabled() {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if a.subscriptionWebhook(w, r, topic, payID) {
+		return
+	}
+	if topic != "payment" || payID == "" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -243,6 +250,18 @@ func (a *API) platformMPWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serverErr(w)
+		return
+	}
+	if rest, ok := strings.CutPrefix(pay.Ref, depMandateRef); ok { // cargo de la suscripción automática
+		if mid, err := strconv.ParseInt(rest, 10, 64); err == nil {
+			if m, err := loadMandate(ctx, a.DB, "id = $1", mid); err == nil && m != nil {
+				if _, err := a.settleMandatePayment(ctx, m, payID); err != nil {
+					serverErr(w)
+					return
+				}
+			}
+		}
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	rest, found := strings.CutPrefix(pay.Ref, depSubRef)
@@ -360,7 +379,7 @@ func (a *API) billingPass(ctx context.Context) {
 			subject = "Tu prueba de Barbella terminó"
 			body = fmt.Sprintf("La prueba de %s terminó y tu cuenta está en pausa (tus datos están a salvo). Elige un plan para reactivarla:\n%s\n", b.Name, link)
 		case "active":
-			if b.CurrentPeriodEnd != nil && b.CurrentPeriodEnd.Sub(now) <= 5*24*time.Hour {
+			if b.CurrentPeriodEnd != nil && b.CurrentPeriodEnd.Sub(now) <= 5*24*time.Hour && !a.hasAuthorizedMandate(ctx, b.ID) {
 				kind, key = "renewal_soon", b.CurrentPeriodEnd.Format("2006-01-02")
 				subject = "Tu suscripción de Barbella vence pronto"
 				body = fmt.Sprintf("La suscripción de %s vence el %s. Renuévala para no perder el acceso:\n%s\n", b.Name, b.CurrentPeriodEnd.Format("2006-01-02"), link)

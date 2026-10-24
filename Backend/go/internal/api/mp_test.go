@@ -45,6 +45,17 @@ type fakeMP struct {
 	paySeq        int
 	payRefundFail string
 	searchFail    bool
+
+	// suscripciones (preapproval)
+	pres          map[string]*fakePre
+	authPays      map[string]string // id de cargo autorizado → id del pago
+	preFail       bool
+	preCancelFail bool
+}
+
+type fakePre struct {
+	ID, Status, Ref string
+	Body            map[string]any
 }
 
 type fakePay struct {
@@ -233,6 +244,61 @@ func newFakeMP(t *testing.T) *fakeMP {
 		}
 		p.Refunds++
 		w.Write([]byte(`{}`))
+	}))
+	f.pres, f.authPays = map[string]*fakePre{}, map[string]string{}
+	mux.HandleFunc("POST /preapproval", guard(func(w http.ResponseWriter, r *http.Request) {
+		if f.preFail {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"message":"invalid preapproval"}`))
+			return
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		id := fmt.Sprintf("pre-%d", len(f.pres)+1)
+		ref, _ := body["external_reference"].(string)
+		f.pres[id] = &fakePre{ID: id, Status: "pending", Ref: ref, Body: body}
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "status": "pending", "init_point": "https://mp.test/subscribe/" + id})
+	}))
+	mux.HandleFunc("GET /preapproval/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := f.pres[r.PathValue("id")]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"not found"}`))
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"id": p.ID, "status": p.Status, "external_reference": p.Ref})
+	}))
+	mux.HandleFunc("PUT /preapproval/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := f.pres[r.PathValue("id")]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"not found"}`))
+			return
+		}
+		if f.preCancelFail {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"message":"boom"}`))
+			return
+		}
+		var body struct{ Status string }
+		json.NewDecoder(r.Body).Decode(&body)
+		p.Status = body.Status
+		json.NewEncoder(w).Encode(map[string]any{"id": p.ID, "status": p.Status})
+	}))
+	mux.HandleFunc("GET /authorized_payments/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		payID, ok := f.authPays[r.PathValue("id")]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"not found"}`))
+			return
+		}
+		pre := ""
+		for _, p := range f.pres {
+			if f.payments[payID] != nil && p.Ref == f.payments[payID].Ref {
+				pre = p.ID
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"id": r.PathValue("id"), "preapproval_id": pre, "status": "processed", "payment": map[string]any{"id": json.Number(payID), "status": f.payments[payID].Status}})
 	}))
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
@@ -968,4 +1034,24 @@ func TestMPOAuthStateSecretIsIndependent(t *testing.T) {
 	if _, ok := a.verifyState(derived); ok {
 		t.Fatal("un estado derivado de JWT no debe valer con un secreto propio")
 	}
+}
+
+// authorize simula que el negocio autorizó la suscripción en Mercado Pago.
+func (f *fakeMP) authorize(preID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pres[preID].Status = "authorized"
+}
+
+// charge simula un cargo mensual de la suscripción: devuelve el id del cargo autorizado y el del pago.
+func (f *fakeMP) charge(preID string, amount float64, status string) (authID, payID string) {
+	f.mu.Lock()
+	ref := f.pres[preID].Ref
+	f.mu.Unlock()
+	payID = f.pay(ref, amount, status)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	authID = "AP-" + payID
+	f.authPays[authID] = payID
+	return authID, payID
 }
