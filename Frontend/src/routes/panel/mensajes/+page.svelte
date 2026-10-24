@@ -50,7 +50,7 @@
   <p class="meta">Cargando…</p>
 {:else}
   {#if !meta.mail_enabled}
-    <p class="banner" role="status">El correo aún no está configurado en el servidor (SMTP), así que nada de esto se enviará todavía.</p>
+    <p class="banner" role="status">El correo aún no está habilitado en este servidor, así que nada de esto se enviará todavía. Pide a quien administra la plataforma que lo active.</p>
   {/if}
 
   <form class="card" onsubmit={save}>

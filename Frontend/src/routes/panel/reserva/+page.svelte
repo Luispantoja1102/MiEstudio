@@ -196,7 +196,7 @@
         {#if meta.mail_enabled}
           0 = sin recordatorios. Solo se envían a quien los aceptó y dejó su correo.
         {:else}
-          El servidor aún no tiene correo configurado (SMTP_HOST y MAIL_FROM en .env), por eso no se envían correos.
+          Este servidor aún no tiene el correo habilitado, por eso no se envían correos.
         {/if}
       </span>
     </label>
@@ -209,7 +209,7 @@
           {#if meta.whatsapp_available}
             Solo a quien lo aceptó al reservar. Sale con la plantilla de recordatorio aprobada por Meta; quien responde «BAJA» deja de recibirlos.
           {:else}
-            El servidor aún no tiene WhatsApp configurado (WHATSAPP_TOKEN y WHATSAPP_PHONE_ID en .env).
+            Este servidor aún no tiene WhatsApp habilitado.
           {/if}
         </span>
       </span>

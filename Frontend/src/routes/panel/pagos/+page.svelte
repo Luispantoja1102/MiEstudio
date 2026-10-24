@@ -7,7 +7,6 @@
 
   let status = $state(null);
   let terminals = $state([]);
-  let token = $state('');
   let choice = $state({}); // branch_id -> terminal_id
   let error = $state('');
   let notice = $state('');
@@ -69,10 +68,6 @@
     }
   }
 
-  const connect = (e) => {
-    e.preventDefault();
-    return run(() => api('/api/payments/mercadopago/token', { method: 'PUT', body: { access_token: token } }), 'Cuenta conectada.').then(() => (token = ''));
-  };
   const register = (b) => run(() => api('/api/payments/mercadopago/terminals', { method: 'PUT', body: { branch_id: b.id, terminal_id: choice[b.id] } }), `Terminal registrada en ${b.name}.`);
   const disconnect = () => confirm('¿Desconectar Mercado Pago? Dejarás de poder cobrar con la terminal.') && run(() => api('/api/payments/mercadopago', { method: 'DELETE' }), 'Cuenta desconectada.');
   const labelOf = (id) => status?.terminals.find((t) => t.branch_id === id)?.label;
@@ -89,12 +84,12 @@
 {#if notice}<p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">{notice}</p>{/if}
 
 {#if status && !status.enabled}
-  <div class="card"><h2>No habilitado</h2><p class="meta" style="margin: 0">Este servidor no tiene configurada la clave de cifrado (<code>TOKEN_ENC_KEY</code>), así que no puede guardar credenciales de Mercado Pago. Pide a quien administra la plataforma que la configure.</p></div>
+  <div class="card"><h2>No habilitado</h2><p class="meta" style="margin: 0">Este servidor aún no puede guardar la conexión con Mercado Pago. Pide a quien administra la plataforma que lo configure.</p></div>
 {:else if status}
   <section class="card">
     <h2>1. Cuenta de Mercado Pago</h2>
     {#if status.connected}
-      <p class="ok">✓ Cuenta conectada{status.source === 'oauth' ? ' con Mercado Pago' : ' con token manual'}</p>
+      <p class="ok">✓ Cuenta conectada con Mercado Pago</p>
       <div class="form-actions">
         {#if status.oauth_available}<button class="btn ghost sm" onclick={connectOAuth} disabled={busy}>Volver a conectar</button>{/if}
         <button class="btn ghost sm" onclick={disconnect} disabled={busy}>Desconectar</button>
@@ -103,15 +98,9 @@
       {#if status.oauth_available}
         <p class="meta">Te llevaremos a Mercado Pago para que autorices a Barbella a cobrar con tu terminal. No compartimos tu contraseña.</p>
         <button class="btn" onclick={connectOAuth} disabled={busy}>{busy ? 'Redirigiendo…' : 'Conectar con Mercado Pago'}</button>
+      {:else}
+        <p class="meta">La conexión con Mercado Pago aún no está habilitada en este servidor. Pide a quien administra la plataforma que la active.</p>
       {/if}
-      <details class="manual" open={!status.oauth_available}>
-        <summary>{status.oauth_available ? 'Usar un token manual (avanzado)' : 'Conectar con un token de acceso'}</summary>
-        <p class="meta">Pega el <b>access token de producción</b> de tu aplicación en <i>Mercado Pago → Tu negocio → Configuración → Credenciales</i>. Se guarda cifrado y nunca se vuelve a mostrar.</p>
-        <form onsubmit={connect}>
-          <label class="field">Access token <input type="password" bind:value={token} autocomplete="off" placeholder="APP_USR-…" required /></label>
-          <button class="btn" disabled={busy}>{busy ? 'Comprobando…' : 'Conectar'}</button>
-        </form>
-      </details>
     {/if}
   </section>
 
@@ -137,8 +126,4 @@
 <style>
   h2 { font-size: 1.3rem; }
   .ok { color: var(--accent); font-weight: 600; }
-  .manual { margin-top: 1rem; }
-  .manual summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 32px; }
-  .manual[open] summary { margin-bottom: 0.75rem; }
-  code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
 </style>
