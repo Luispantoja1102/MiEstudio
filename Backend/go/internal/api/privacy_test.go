@@ -30,10 +30,10 @@ func TestAddBusinessDays(t *testing.T) {
 
 func TestLegalInfoAndTermsAcceptanceAreRecorded(t *testing.T) {
 	a := newTestAPI(t)
-	a.Operator = Operator{Name: "MiEstudio SA de CV", Address: "Calle 1", Email: "privacidad@miestudio.mx"}
+	a.Operator = Operator{Name: "Hyperion", Address: "Calle 1", Email: "caresia-info@caresia.mx"}
 	r := a.do(t, "GET", "/api/legal", "", nil)
 	op, _ := r.Body["operator"].(map[string]any)
-	if r.Status != 200 || r.Body["version"] != NoticeVersion || op["email"] != "privacidad@miestudio.mx" {
+	if r.Status != 200 || r.Body["version"] != NoticeVersion || op["name"] != "Hyperion" || op["email"] != "caresia-info@caresia.mx" {
 		t.Fatalf("legal: %d %v", r.Status, r.Body)
 	}
 	a.mustRegister(t, "Barbería", "a@x.com")

@@ -108,6 +108,12 @@ func Load() (Config, error) {
 	c.WhatsAppBase = strings.TrimRight(strings.TrimSpace(os.Getenv("WHATSAPP_API_BASE")), "/")
 	c.WhatsAppVerifyToken, c.WhatsAppAppSecret = strings.TrimSpace(os.Getenv("WHATSAPP_VERIFY_TOKEN")), strings.TrimSpace(os.Getenv("WHATSAPP_APP_SECRET"))
 	c.LegalName, c.LegalAddress, c.LegalEmail = strings.TrimSpace(os.Getenv("LEGAL_NAME")), strings.TrimSpace(os.Getenv("LEGAL_ADDRESS")), strings.TrimSpace(os.Getenv("LEGAL_EMAIL"))
+	if c.LegalName == "" {
+		c.LegalName = "Hyperion" // quien opera la plataforma
+	}
+	if c.LegalEmail == "" {
+		c.LegalEmail = "caresia-info@caresia.mx" // correo de contacto para privacidad y dudas
+	}
 	c.TrustedProxies = strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
 	c.AppURL = strings.TrimRight(strings.TrimSpace(os.Getenv("APP_URL")), "/")
 	if c.AppURL == "" {

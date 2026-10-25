@@ -2,6 +2,7 @@
   import Icon from '$lib/Icon.svelte';
   import Logo from '$lib/Logo.svelte';
   import ThemeToggle from '$lib/ThemeToggle.svelte';
+  import { legalLink } from '$lib/legal/legal.svelte.js';
 
   // title + accent forman el titular: la última palabra va en cursiva con color de acento
   let { title, accent = '', subtitle = '', wide = false, children } = $props();
@@ -33,7 +34,7 @@
       </header>
       {@render children()}
     </div>
-    <p class="legal"><a href="/terminos">Términos</a><span aria-hidden="true">·</span><a href="/privacidad">Aviso de privacidad</a></p>
+    <p class="legal"><a href="/terminos" onclick={(e) => legalLink(e, 'terminos')}>Términos</a><span aria-hidden="true">·</span><a href="/privacidad" onclick={(e) => legalLink(e, 'privacidad')}>Aviso de privacidad</a></p>
   </main>
 </div>
 

@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import AuthLayout from '$lib/AuthLayout.svelte';
   import PasswordInput from '$lib/PasswordInput.svelte';
+  import { legalLink } from '$lib/legal/legal.svelte.js';
   import { api } from '$lib/api.js';
   import { KINDS, cleanUsername } from '$lib/format.js';
   import { homeFor } from '$lib/session.svelte.js';
@@ -150,7 +151,7 @@
     <div class="terms">
       <label class="check">
         <input type="checkbox" bind:checked={form.accept_terms} />
-        <span>Acepto los <a href="/terminos" target="_blank" rel="noopener">términos</a> y el <a href="/privacidad" target="_blank" rel="noopener">aviso de privacidad</a></span>
+        <span>Acepto los <a href="/terminos" target="_blank" rel="noopener" onclick={(e) => legalLink(e, 'terminos')}>términos</a> y el <a href="/privacidad" target="_blank" rel="noopener" onclick={(e) => legalLink(e, 'privacidad')}>aviso de privacidad</a></span>
       </label>
       {@render err('accept_terms')}
     </div>

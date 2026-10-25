@@ -2,6 +2,7 @@
   // 21:00. Planes, preguntas y el cierre de la jornada.
   import { onMount } from 'svelte';
   import Logo from '$lib/Logo.svelte';
+  import { legalLink } from '$lib/legal/legal.svelte.js';
 
   // Respaldo por si no carga el catálogo; la fuente es GET /api/plans
   let plans = $state([
@@ -104,7 +105,7 @@
     </div>
     <nav aria-label="Producto"><h3>Producto</h3><a href="#madrugada">La jornada</a><a href="#oficios">Oficios</a><a href="#planes">Planes</a><a href="#preguntas">Preguntas</a></nav>
     <nav aria-label="Cuenta"><h3>Cuenta</h3><a href="/registro">Crear cuenta</a><a href="/login">Iniciar sesión</a></nav>
-    <nav aria-label="Legal"><h3>Legal</h3><a href="/privacidad">Aviso de privacidad</a><a href="/terminos">Términos</a></nav>
+    <nav aria-label="Legal"><h3>Legal</h3><a href="/privacidad" onclick={(e) => legalLink(e, 'privacidad')}>Aviso de privacidad</a><a href="/terminos" onclick={(e) => legalLink(e, 'terminos')}>Términos</a></nav>
   </div>
   <p class="envoltura copy">© {new Date().getFullYear()} Barbella</p>
 </footer>

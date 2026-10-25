@@ -14,9 +14,9 @@ const ClientNoticeVersion = "2026-10"
 
 // Operator son los datos de quien opera la plataforma, que el aviso de privacidad debe mostrar.
 type Operator struct {
-	Name    string // LEGAL_NAME: razón social o nombre del responsable
-	Address string // LEGAL_ADDRESS: domicilio
-	Email   string // LEGAL_EMAIL: correo para solicitudes de privacidad
+	Name    string // LEGAL_NAME: razón social o nombre del responsable (por omisión, Hyperion)
+	Address string // LEGAL_ADDRESS: domicilio (opcional)
+	Email   string // LEGAL_EMAIL: correo de contacto para solicitudes de privacidad y dudas
 }
 
 func (a *API) legalInfo(w http.ResponseWriter, r *http.Request) {
