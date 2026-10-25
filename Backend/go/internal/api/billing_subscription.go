@@ -167,7 +167,7 @@ func (a *API) startSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 	ref := depMandateRef + strconv.FormatInt(id, 10)
 	body := map[string]any{
-		"reason":             fmt.Sprintf("Barbella %s · suscripción mensual", plan.Name),
+		"reason":             firstRunes(fmt.Sprintf("Barbella %s · suscripción mensual", plan.Name), 60), // Mercado Pago rechaza más de 60 caracteres
 		"external_reference": ref,
 		"payer_email":        email,
 		"back_url":           a.AppURL + "/panel/suscripcion?subscription=" + strconv.FormatInt(id, 10),
@@ -365,4 +365,12 @@ func (a *API) subscriptionWebhook(w http.ResponseWriter, r *http.Request, topic,
 		return true
 	}
 	return false
+}
+
+// firstRunes recorta un texto a n caracteres (no bytes).
+func firstRunes(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
 }

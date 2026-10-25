@@ -251,3 +251,12 @@ func TestAutoRenewalNoticeIsSkippedWhileSubscribed(t *testing.T) {
 		t.Fatalf("con cobro automático no se avisa de vencimiento: %d correos", n)
 	}
 }
+
+func TestReasonNeverExceedsMercadoPagoLimit(t *testing.T) {
+	if got := firstRunes(strings.Repeat("ñ", 80), 60); len([]rune(got)) != 60 {
+		t.Fatalf("recorte: %d", len([]rune(got)))
+	}
+	if firstRunes("corto", 60) != "corto" {
+		t.Fatal("un texto corto no cambia")
+	}
+}
