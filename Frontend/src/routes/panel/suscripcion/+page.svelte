@@ -10,6 +10,7 @@
   let error = $state('');
   let notice = $state('');
   let busy = $state('');
+  let payerEmail = $state('');
   let checking = $state(false);
   let timer;
 
@@ -91,7 +92,7 @@
     error = '';
     busy = `sub-${plan}`;
     try {
-      const r = await api('/api/billing/subscribe', { method: 'POST', body: { plan } });
+      const r = await api('/api/billing/subscribe', { method: 'POST', body: { plan, payer_email: payerEmail.trim() || undefined } });
       location.href = r.pay_url;
     } catch (e) {
       error = e.message;
@@ -193,6 +194,13 @@
   {#if !b.online}
     <p class="banner">El pago en línea no está habilitado en este momento. Puedes pagar por transferencia y la plataforma registrará tu pago.</p>
   {/if}
+  {#if b.online}
+    <label class="payer">
+      <span>Correo de tu cuenta de Mercado Pago (opcional)</span>
+      <input type="email" bind:value={payerEmail} placeholder="el mismo con el que entras a Mercado Pago" autocomplete="email" />
+      <small class="meta">Si lo dejas vacío usamos el de tu usuario. Para suscribirte debes entrar a Mercado Pago con este correo.</small>
+    </label>
+  {/if}
   <div class="plans">
     {#each b.plans as p (p.id)}
       <div class="card plan" class:current={p.id === b.plan.id}>
@@ -246,6 +254,7 @@
   .now h2 { margin: 0.5rem 0 0.2rem; font-size: 1.6rem; }
   .subbox { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; margin-top: 1rem; }
   .subbox h2 { margin: 0.5rem 0 0.2rem; font-size: 1.4rem; }
+  .payer { display: grid; gap: 6px; max-width: 480px; margin: 0 0 1rem; }
   .usage { display: grid; gap: 4px; font-size: 0.92rem; color: var(--muted); }
   .usage .over { color: var(--danger); font-weight: 600; }
   .sec { font-size: 1.4rem; margin: 2.25rem 0 1rem; }

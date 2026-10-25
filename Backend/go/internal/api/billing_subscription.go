@@ -92,7 +92,8 @@ func (a *API) startSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Plan string `json:"plan"`
+		Plan       string `json:"plan"`
+		PayerEmail string `json:"payer_email"` // opcional: el correo de la cuenta de Mercado Pago con la que se va a pagar
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -101,6 +102,11 @@ func (a *API) startSubscription(w http.ResponseWriter, r *http.Request) {
 	plan, ok := a.planByID(ctx, req.Plan)
 	if !ok {
 		writeErr(w, http.StatusBadRequest, "elige un plan")
+		return
+	}
+	req.PayerEmail = strings.ToLower(strings.TrimSpace(req.PayerEmail))
+	if req.PayerEmail != "" && !validEmail(req.PayerEmail) {
+		writeErr(w, http.StatusBadRequest, "el correo de tu cuenta de Mercado Pago no es válido")
 		return
 	}
 	var status string
@@ -113,10 +119,12 @@ func (a *API) startSubscription(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "tu cuenta no puede suscribirse en línea ahora; contáctanos")
 		return
 	}
-	var email string
-	if err := a.DB.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, p.UserID).Scan(&email); err != nil {
-		serverErr(w)
-		return
+	email := req.PayerEmail
+	if email == "" {
+		if err := a.DB.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, p.UserID).Scan(&email); err != nil {
+			serverErr(w)
+			return
+		}
 	}
 
 	// Una sola suscripción por negocio: la anterior se cancela primero (si no se pudiera cancelar, no se crea otra: no se cobra doble).

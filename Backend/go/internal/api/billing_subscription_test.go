@@ -260,3 +260,16 @@ func TestReasonNeverExceedsMercadoPagoLimit(t *testing.T) {
 		t.Fatal("un texto corto no cambia")
 	}
 }
+
+func TestSubscribeUsesTheMercadoPagoEmailTheAdminGives(t *testing.T) {
+	b := newBO(t)
+	if r := b.a.do(t, "POST", "/api/billing/subscribe", b.admin, map[string]any{"plan": "basico", "payer_email": "  Comprador@MP.com "}); r.Status != 201 {
+		t.Fatalf("subscribe: %d %v", r.Status, r.Body)
+	}
+	if got := b.mp.pres["pre-1"].Body["payer_email"]; got != "comprador@mp.com" {
+		t.Fatalf("payer_email: %v", got)
+	}
+	if r := b.a.do(t, "POST", "/api/billing/subscribe", b.admin, map[string]any{"plan": "basico", "payer_email": "no-es-correo"}); r.Status != 400 || len(b.mp.pres) != 1 {
+		t.Fatalf("correo inválido: %d pres=%d", r.Status, len(b.mp.pres))
+	}
+}
