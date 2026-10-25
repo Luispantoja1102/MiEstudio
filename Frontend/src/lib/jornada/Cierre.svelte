@@ -124,17 +124,18 @@
   .periodo button[aria-pressed='true'] { background: var(--tinta); color: var(--ticket); }
   .periodo button:focus-visible { outline: 3px solid var(--bermellon); outline-offset: 2px; }
   .lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--tinta); }
-  .plan { display: flex; flex-direction: column; padding: 28px 28px 0; }
+  /* cada plan comparte las filas de la lista: título, texto, precio, equivalencia, lista y botón quedan a la misma altura */
+  .plan { position: relative; display: grid; grid-row: span 6; grid-template-rows: subgrid; padding: 40px 28px 28px; }
   .plan + .plan { border-left: 1px solid rgb(var(--ink-rgb) / 0.18); }
-  .plan.fuerte { background: var(--carta); box-shadow: inset 0 0 0 2px var(--tinta); border-radius: 0 0 14px 14px; padding-bottom: 28px; }
+  .plan.fuerte { background: var(--carta); box-shadow: inset 0 0 0 2px var(--tinta); border-radius: 0 0 14px 14px; }
   h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.9rem; font-weight: 650; }
   h3 { flex-wrap: wrap; }
-  h3 span { order: -1; flex-basis: 100%; margin-bottom: -6px; font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
-  .desc { margin: 8px 0 22px; min-height: 2.8em; color: var(--tinta-suave); line-height: 1.4; }
+  h3 span { position: absolute; top: 16px; left: 28px; font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
+  .desc { margin: 8px 0 22px; color: var(--tinta-suave); line-height: 1.4; }
   .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
   .precio small { font-family: var(--texto); font-stretch: 100%; font-size: 1rem; font-weight: 500; margin-left: 4px; }
   .equiv { margin: 8px 0 22px; font-size: 0.9rem; color: var(--tinta-suave); }
-  ul { margin: 0 0 28px; padding: 0; list-style: none; display: grid; gap: 10px; flex: 1; }
+  ul { margin: 0 0 28px; padding: 0; list-style: none; display: grid; align-content: start; gap: 10px; }
   li { position: relative; padding-left: 20px; line-height: 1.35; }
   li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 9px; height: 2px; background: currentColor; }
   li.no { color: rgb(var(--ink-rgb) / 0.4); text-decoration: line-through; text-decoration-thickness: 1px; }
