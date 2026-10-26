@@ -23,9 +23,20 @@
   let manual = $state(false); // cobrar la tarjeta sin la terminal
   let error = $state('');
   let busy = $state(false);
-  let phase = $state('idle'); // idle | waiting | cancelling
-  let chargeId = '';
-  let timer;
+  let phase = $state('idle'); // idle | waiting
+  let notice = $state('');
+  let chargeId = $state(''); // el cobro ya enviado a la terminal (vacío mientras se envía)
+  // cada intento de cobro tiene su número: al cancelar o cerrar el número cambia y el intento viejo se retira solo
+  let run = 0;
+  let abort = null;
+
+  const TERMINAL_WAIT_MS = 3 * 60 * 1000; // lo que se espera a que el cliente pague en la terminal
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // las peticiones del navegador no tienen tiempo límite: sin esto una conexión colgada deja el cobro esperando para siempre
+  const within = (promise, ms, message) => {
+    let timer;
+    return Promise.race([promise, new Promise((_, rej) => (timer = setTimeout(() => rej(new Error(message)), ms)))]).finally(() => clearTimeout(timer));
+  };
 
   const none = $derived(due <= 0);
   const cardCents = $derived(none ? 0 : method === 'card' ? due : method === 'split' ? Math.min(Math.max(toCents(cardPart || '0') || 0, 0), due) : 0);
@@ -60,16 +71,13 @@
     reference = '';
     manual = false;
     error = '';
+    notice = '';
     busy = false;
     phase = 'idle';
     chargeId = '';
-    stop();
+    run += 1;
   }
-  onDestroy(stop);
-  function stop() {
-    clearInterval(timer);
-    timer = undefined;
-  }
+  onDestroy(() => (run += 1));
   function pick(id) {
     if (locked) return;
     method = id;
@@ -78,61 +86,98 @@
   }
 
   // Cobro en la terminal: se envía, se espera la aprobación y recién entonces se registra la venta.
-  async function chargeTerminal() {
+  // Si algo no responde (la terminal, la conexión) se corta con un mensaje en lugar de quedarse esperando.
+  async function chargeTerminal(mine) {
     phase = 'waiting';
-    const c = await api('/api/payments/point/charges', { method: 'POST', body: { branch_id: branchId, amount_cents: cardCents } });
+    chargeId = '';
+    const c = await within(
+      api('/api/payments/point/charges', { method: 'POST', body: { branch_id: branchId, amount_cents: cardCents } }),
+      25000,
+      'La terminal no respondió. Revisa que esté prendida y con internet, y vuelve a intentar.'
+    );
     chargeId = c.id;
-    return new Promise((resolve, reject) => {
-      timer = setInterval(async () => {
-        try {
-          const s = await api(`/api/payments/point/charges/${chargeId}`);
-          if (s.status === 'open') return;
-          stop();
-          if (s.status === 'approved') resolve(chargeId);
-          else reject(new Error(s.detail || 'El cobro no se completó en la terminal.'));
-        } catch {
-          /* se reintenta en el siguiente ciclo */
-        }
-      }, 2000);
-    });
-  }
-  async function cancelTerminal() {
-    phase = 'cancelling';
-    try {
-      await api(`/api/payments/point/charges/${chargeId}/cancel`, { method: 'POST' });
-    } catch (e) {
-      error = e.message;
+    if (mine !== run) {
+      // se canceló mientras se enviaba: el cobro ya quedó en la terminal, hay que quitarlo
+      cancelRemote(c.id);
+      throw new Error('cancelado');
     }
-    stop();
+    const started = Date.now();
+    let fails = 0;
+    while (mine === run) {
+      await sleep(2000);
+      if (mine !== run) break;
+      if (Date.now() - started > TERMINAL_WAIT_MS) {
+        cancelRemote(c.id);
+        throw new Error('Pasaron 3 minutos sin que se pagara en la terminal. Se canceló el cobro; vuelve a intentar.');
+      }
+      let s;
+      try {
+        s = await within(api(`/api/payments/point/charges/${c.id}`), 10000, 'sin respuesta');
+        fails = 0;
+      } catch {
+        if (++fails >= 5) throw new Error('Se perdió la conexión mientras se esperaba la terminal. Revisa en la terminal si el cobro se aprobó antes de volver a intentar.');
+        continue;
+      }
+      if (s.status === 'open') continue;
+      if (s.status === 'approved') return c.id;
+      throw new Error(s.detail || 'El cobro no se completó en la terminal.');
+    }
+    throw new Error('cancelado');
+  }
+  const cancelRemote = (id) => api(`/api/payments/point/charges/${id}/cancel`, { method: 'POST' }).catch(() => {});
+
+  // «Cancelar cobro»: libera el diálogo al instante y quita el cobro de la terminal.
+  async function cancelTerminal() {
+    const id = chargeId;
+    run += 1;
+    abort?.(new Error('cancelado'));
+    busy = false;
     phase = 'idle';
+    chargeId = '';
+    notice = 'Cobro cancelado. Puedes elegir otra forma de pago.';
+    if (!id) return;
+    try {
+      await within(api(`/api/payments/point/charges/${id}/cancel`, { method: 'POST' }), 15000, 'sin respuesta');
+    } catch {
+      notice = '';
+      error = 'No pude cancelar el cobro en la terminal. Cancélalo desde la terminal antes de volver a cobrar.';
+    }
   }
 
   async function confirm(e) {
     e?.preventDefault();
     if (locked) return;
     error = '';
+    notice = '';
     if (!none) {
       if (cashCents > 0 && receivedCents > 0 && short > 0) return (error = `Efectivo insuficiente. Faltan ${money(short)}`);
       if (method === 'split' && (cardCents <= 0 || cardCents >= due)) return (error = 'Escribe cuánto pagan con tarjeta, menos del total.');
       if (cardCents > 0 && cardCents < 100 && point?.ok && !manual) return (error = 'La terminal cobra desde $1.00.');
     }
     busy = true;
+    const mine = ++run;
     try {
       const payments = [];
       if (cashCents > 0) payments.push({ method: 'cash', amount_cents: cashCents, received_cents: receivedCents >= cashCents ? receivedCents : null });
       if (cardCents > 0) {
-        if (usesTerminal) payments.push({ method: 'mp_point', amount_cents: cardCents, mp_charge_id: await chargeTerminal() });
+        if (usesTerminal) {
+          const cancelled = new Promise((_, rej) => (abort = rej));
+          payments.push({ method: 'mp_point', amount_cents: cardCents, mp_charge_id: await Promise.race([chargeTerminal(mine), cancelled]) });
+        }
         else payments.push({ method: 'card', amount_cents: cardCents });
       }
       if (method === 'transfer' && !none) payments.push({ method: 'transfer', amount_cents: due, reference: reference.trim() });
-      await onpay(payments);
+      // registrar la venta repite sin riesgo (lleva su propio identificador), así que se puede reintentar
+      await within(onpay(payments), 45000, 'El servidor tardó demasiado. Revisa tu conexión; si la venta ya quedó registrada aparecerá en el historial.');
       open = false;
     } catch (err) {
-      error = err.message;
+      if (err.message !== 'cancelado') error = err.message;
     } finally {
-      busy = false;
-      phase = 'idle';
-      stop();
+      if (mine === run) {
+        busy = false;
+        phase = 'idle';
+      }
+      abort = null;
     }
   }
 
@@ -176,9 +221,9 @@
       {#if cardCents > 0 && point}
         <div class="point" class:ok={point.ok && !manual} class:bad={!point.ok && !manual} role="status" aria-live="polite">
           {#if phase !== 'idle'}
-            <strong>{phase === 'cancelling' ? 'Cancelando…' : 'Pasa o inserta la tarjeta en la terminal'}</strong>
-            <span>Cobrando {money(cardCents)}. No cierres esta ventana.</span>
-            <button type="button" class="btn ghost sm" disabled={phase === 'cancelling'} onclick={cancelTerminal}>Cancelar cobro</button>
+            <strong>{chargeId ? 'Pasa o inserta la tarjeta en la terminal' : 'Enviando el cobro a la terminal…'}</strong>
+            <span>Cobrando {money(cardCents)}. Puedes cancelar si el cliente ya no paga.</span>
+            <button type="button" class="btn ghost sm" onclick={cancelTerminal}>Cancelar cobro</button>
           {:else if manual}
             <span>Cobra <b>{money(cardCents)}</b> en tu terminal y confirma cuando salga aprobado.</span>
             {#if point.ok}<button type="button" class="btn ghost sm" onclick={() => (manual = false)}>Usar la terminal conectada</button>{/if}
@@ -218,6 +263,7 @@
       {/if}
     {/if}
 
+    {#if notice}<p class="note" role="status">{notice}</p>{/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}
 
     <div class="acts">
