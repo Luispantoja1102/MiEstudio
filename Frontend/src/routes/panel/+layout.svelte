@@ -8,6 +8,7 @@
   import { page } from '$app/state';
   import { api } from '$lib/api.js';
   import { hasPos, homeFor, isPlatform, loadSession, session } from '$lib/session.svelte.js';
+  import { syncPrintStation } from '$lib/pos/printing.svelte.js';
 
   let { children } = $props();
 
@@ -73,6 +74,7 @@
       await loadSession();
       if (isPlatform()) goto('/plataforma');
       else if (homeFor(session.me) === '/bienvenida') goto('/bienvenida', { replaceState: true });
+      else syncPrintStation(); // la computadora de la caja empieza a recibir los tickets de los otros dispositivos
     } catch {
       goto('/login');
     }

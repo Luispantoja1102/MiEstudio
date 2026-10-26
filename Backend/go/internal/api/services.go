@@ -15,6 +15,7 @@ type service struct {
 	PriceCents  int     `json:"price_cents"`
 	Active      bool    `json:"active"`
 	Online      bool    `json:"online_bookable"`
+	CategoryID  *int64  `json:"category_id"`
 	StaffIDs    []int64 `json:"staff_ids"`
 }
 
@@ -37,7 +38,7 @@ func validService(name string, duration, buffer, price int) string {
 func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT s.id, s.name, s.duration_min, s.buffer_min, s.price_cents, s.active, s.online_bookable,
+		`SELECT s.id, s.name, s.duration_min, s.buffer_min, s.price_cents, s.active, s.online_bookable, s.category_id,
 		        COALESCE(array_agg(ss.user_id ORDER BY ss.user_id) FILTER (WHERE ss.user_id IS NOT NULL), '{}')
 		 FROM services s LEFT JOIN service_staff ss ON ss.service_id = s.id
 		 WHERE s.business_id = $1 GROUP BY s.id ORDER BY s.name`, p.BusinessID)
@@ -49,7 +50,7 @@ func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
 	out := []service{}
 	for rows.Next() {
 		var s service
-		if err := rows.Scan(&s.ID, &s.Name, &s.DurationMin, &s.BufferMin, &s.PriceCents, &s.Active, &s.Online, &s.StaffIDs); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.DurationMin, &s.BufferMin, &s.PriceCents, &s.Active, &s.Online, &s.CategoryID, &s.StaffIDs); err != nil {
 			serverErr(w)
 			return
 		}
@@ -65,6 +66,7 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 		DurationMin int    `json:"duration_min"`
 		BufferMin   int    `json:"buffer_min"`
 		PriceCents  int    `json:"price_cents"`
+		CategoryID  *int64 `json:"category_id"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
@@ -75,10 +77,13 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
+	if !a.categoryAllowed(w, r, p.BusinessID, req.CategoryID) {
+		return
+	}
 	var id int64
 	err := a.DB.QueryRow(r.Context(),
-		`INSERT INTO services (business_id, name, duration_min, buffer_min, price_cents) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-		p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents).Scan(&id)
+		`INSERT INTO services (business_id, name, duration_min, buffer_min, price_cents, category_id) VALUES ($1,$2,$3,$4,$5, NULLIF($6::bigint, 0)) RETURNING id`,
+		p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents, req.CategoryID).Scan(&id)
 	if err != nil {
 		serverErr(w)
 		return
@@ -99,9 +104,13 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 		PriceCents  *int    `json:"price_cents"`
 		Active      *bool   `json:"active"`
 		Online      *bool   `json:"online_bookable"`
+		CategoryID  *int64  `json:"category_id"` // ausente = sin cambio; 0 = quitar la categoría
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
+		return
+	}
+	if !a.categoryAllowed(w, r, p.BusinessID, req.CategoryID) {
 		return
 	}
 	if req.Name != nil {
@@ -129,9 +138,10 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 	tag, err := a.DB.Exec(r.Context(),
 		`UPDATE services SET name = COALESCE($3, name), duration_min = COALESCE($4, duration_min),
 		   buffer_min = COALESCE($5, buffer_min), price_cents = COALESCE($6, price_cents), active = COALESCE($7, active),
-		   online_bookable = COALESCE($8, online_bookable)
+		   online_bookable = COALESCE($8, online_bookable),
+		   category_id = CASE WHEN $9::bigint IS NULL THEN category_id WHEN $9::bigint = 0 THEN NULL ELSE $9::bigint END
 		 WHERE id = $1 AND business_id = $2`,
-		id, p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents, req.Active, req.Online)
+		id, p.BusinessID, req.Name, req.DurationMin, req.BufferMin, req.PriceCents, req.Active, req.Online, req.CategoryID)
 	if err != nil {
 		serverErr(w)
 		return
@@ -141,6 +151,23 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// categoryAllowed revisa que la categoría (si se indica y no es 0) sea del negocio; si no, responde 400.
+func (a *API) categoryAllowed(w http.ResponseWriter, r *http.Request, bizID int64, id *int64) bool {
+	if id == nil || *id == 0 {
+		return true
+	}
+	ok, err := a.categoryInBiz(r.Context(), a.DB, bizID, *id)
+	if err != nil {
+		serverErr(w)
+		return false
+	}
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "esa categoría no existe")
+		return false
+	}
+	return true
 }
 
 // setServiceStaff reemplaza la lista de profesionales que hacen el servicio.

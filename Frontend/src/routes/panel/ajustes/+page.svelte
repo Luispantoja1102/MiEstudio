@@ -6,8 +6,9 @@
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
   import { onMount } from 'svelte';
-  import { hasMercadoPago, planLimit, session } from '$lib/session.svelte.js';
+  import { hasMercadoPago, hasPos, planLimit, session } from '$lib/session.svelte.js';
   import Equipo from '../equipo/+page.svelte';
+  import Impresora from './impresora/+page.svelte';
   import Mensajes from '../mensajes/+page.svelte';
   import Pagos from '../pagos/+page.svelte';
   import Privacidad from '../privacidad/+page.svelte';
@@ -38,6 +39,7 @@
       title: 'Dinero',
       items: [
         { id: 'suscripcion', label: 'Suscripción y plan', desc: 'Tu plan de Barbella y tus pagos', icon: 'wallet', component: Suscripcion, roles: A },
+        { id: 'impresora', label: 'Impresora y ticket', desc: 'Térmica, cajón y estación de impresión', icon: 'receipt', component: Impresora, roles: [...A, 'cashier', 'reception'] },
         { id: 'pagos', label: 'Mercado Pago', desc: 'Cobro con tarjeta y terminal', icon: 'card', component: Pagos, roles: A }
       ]
     },
@@ -61,7 +63,7 @@
   const groups = $derived(
     all.map((g) => ({
       ...g,
-      items: g.items.filter((i) => (i.id !== 'pagos' || hasMercadoPago()) && (i.id !== 'sucursales' || manyBranches))
+      items: g.items.filter((i) => (i.id !== 'pagos' || hasMercadoPago()) && (i.id !== 'sucursales' || manyBranches) && (i.id !== 'impresora' || hasPos()))
     }))
   );
 

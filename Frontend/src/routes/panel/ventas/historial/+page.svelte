@@ -8,6 +8,7 @@
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
+  import { autoPrints, clearPrintIssue, printInBrowser, printSale, printing } from '$lib/pos/printing.svelte.js';
 
   const tz = session.me.business.timezone || 'America/Tijuana';
   const isAdmin = session.me.role === 'admin';
@@ -61,6 +62,13 @@
     }
   }
 
+  // con térmica o estación sale directo; con el navegador se abre la ventana del ticket
+  function reprint() {
+    clearPrintIssue();
+    if (autoPrints()) printSale(sale);
+    else printInBrowser(sale);
+  }
+
   const sum = $derived(rows.filter((r) => r.status === 'paid').reduce((n, r) => n + r.total_cents, 0));
 </script>
 
@@ -100,10 +108,11 @@
 
 <Modal bind:open title={sale ? `Venta #${sale.folio}` : 'Venta'}>
   {#if sale}
-    <Receipt {sale} business={session.me.business.name} />
+    <div class="preview"><Receipt {sale} {tz} /></div>
     {#if error}<p class="error" role="alert" style="margin-top: 1rem">{error}</p>{/if}
+    {#if printing.issue}<p class="error" role="alert" style="margin-top: 1rem">No se imprimió el ticket. {printing.issue}</p>{/if}
     <div class="form-actions" style="justify-content: center; margin-top: 1rem">
-      <button class="btn ghost" onclick={() => window.print()}>Imprimir</button>
+      <button class="btn ghost" disabled={printing.busy} onclick={reprint}>{printing.busy ? 'Imprimiendo…' : 'Imprimir'}</button>
       {#if isAdmin && sale.status === 'paid' && !voiding}<button class="btn ghost" onclick={() => (voiding = true)}>Cancelar venta</button>{/if}
     </div>
     {#if voiding}
@@ -120,6 +129,7 @@
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 1rem; }
   .row { width: 100%; text-align: left; font: inherit; color: var(--text); cursor: pointer; }
   .row:hover { border-color: var(--accent); }
+  .preview { display: grid; justify-items: center; max-height: 60vh; overflow-y: auto; padding: 0.75rem; background: var(--surface-2); border-radius: var(--radius-sm); }
   .folio { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 3rem; }
   b { font-variant-numeric: tabular-nums; }
 </style>

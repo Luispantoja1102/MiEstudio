@@ -13,7 +13,29 @@ type product struct {
 	PriceCents int    `json:"price_cents"`
 	CostCents  *int   `json:"cost_cents,omitempty"` // solo lo ve el administrador
 	Stock      int    `json:"stock"`
+	MinStock   int    `json:"min_stock"` // por debajo (o igual) es «poco stock»; 0 = sin aviso
+	Barcode    string `json:"barcode"`
 	Active     bool   `json:"active"`
+}
+
+// validStock revisa la existencia mínima y el código de barras (único por negocio; vacío = sin código).
+func validStock(min int, barcode string) string {
+	switch {
+	case min < 0 || min > 1_000_000:
+		return "existencia mínima inválida"
+	case len(barcode) > 64 || strings.ContainsAny(barcode, " \t\r\n"):
+		return "el código de barras no puede llevar espacios ni pasar de 64 caracteres"
+	}
+	return ""
+}
+
+// writeBarcodeTaken responde 409 si el error es el código repetido; devuelve si lo era.
+func writeBarcodeTaken(w http.ResponseWriter, err error) bool {
+	if code, name := pgConstraint(err); code == "23505" && name == "products_barcode_key" {
+		writeErr(w, http.StatusConflict, "ese código de barras ya lo tiene otro producto")
+		return true
+	}
+	return false
 }
 
 func validProduct(name string, price, stock int) string {
@@ -31,7 +53,7 @@ func validProduct(name string, price, stock int) string {
 func (a *API) listProducts(w http.ResponseWriter, r *http.Request) {
 	p := auth.FromContext(r.Context())
 	rows, err := a.DB.Query(r.Context(),
-		`SELECT id, name, price_cents, cost_cents, stock, active FROM products WHERE business_id = $1 ORDER BY name`, p.BusinessID)
+		`SELECT id, name, price_cents, cost_cents, stock, min_stock, barcode, active FROM products WHERE business_id = $1 ORDER BY name`, p.BusinessID)
 	if err != nil {
 		serverErr(w)
 		return
@@ -41,7 +63,7 @@ func (a *API) listProducts(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x product
 		var cost int
-		if err := rows.Scan(&x.ID, &x.Name, &x.PriceCents, &cost, &x.Stock, &x.Active); err != nil {
+		if err := rows.Scan(&x.ID, &x.Name, &x.PriceCents, &cost, &x.Stock, &x.MinStock, &x.Barcode, &x.Active); err != nil {
 			serverErr(w)
 			return
 		}
@@ -60,12 +82,19 @@ func (a *API) createProduct(w http.ResponseWriter, r *http.Request) {
 		PriceCents int    `json:"price_cents"`
 		CostCents  int    `json:"cost_cents"`
 		Stock      int    `json:"stock"`
+		MinStock   int    `json:"min_stock"`
+		Barcode    string `json:"barcode"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
+	req.Barcode = strings.TrimSpace(req.Barcode)
+	if msg := validStock(req.MinStock, req.Barcode); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
 	if msg := validProduct(req.Name, req.PriceCents, req.Stock); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
@@ -83,8 +112,11 @@ func (a *API) createProduct(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 	var id int64
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO products (business_id, name, price_cents, cost_cents, stock) VALUES ($1, $2, $3, $4, 0) RETURNING id`,
-		p.BusinessID, req.Name, req.PriceCents, req.CostCents).Scan(&id); err != nil {
+		`INSERT INTO products (business_id, name, price_cents, cost_cents, stock, min_stock, barcode) VALUES ($1, $2, $3, $4, 0, $5, $6) RETURNING id`,
+		p.BusinessID, req.Name, req.PriceCents, req.CostCents, req.MinStock, req.Barcode).Scan(&id); err != nil {
+		if writeBarcodeTaken(w, err) {
+			return
+		}
 		serverErr(w)
 		return
 	}
@@ -112,10 +144,27 @@ func (a *API) updateProduct(w http.ResponseWriter, r *http.Request) {
 		Name       *string `json:"name"`
 		PriceCents *int    `json:"price_cents"`
 		CostCents  *int    `json:"cost_cents"`
+		MinStock   *int    `json:"min_stock"`
+		Barcode    *string `json:"barcode"`
 		Active     *bool   `json:"active"`
 	}
 	if !decode(w, r, &req) {
 		writeErr(w, http.StatusBadRequest, "solicitud inválida")
+		return
+	}
+	if req.Barcode != nil {
+		t := strings.TrimSpace(*req.Barcode)
+		req.Barcode = &t
+	}
+	min, code := 0, ""
+	if req.MinStock != nil {
+		min = *req.MinStock
+	}
+	if req.Barcode != nil {
+		code = *req.Barcode
+	}
+	if msg := validStock(min, code); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	if req.Name != nil {
@@ -139,10 +188,14 @@ func (a *API) updateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	tag, err := a.DB.Exec(r.Context(),
 		`UPDATE products SET name = COALESCE($3, name), price_cents = COALESCE($4, price_cents),
-		   cost_cents = COALESCE($5, cost_cents), active = COALESCE($6, active)
+		   cost_cents = COALESCE($5, cost_cents), active = COALESCE($6, active),
+		   min_stock = COALESCE($7, min_stock), barcode = COALESCE($8, barcode)
 		 WHERE id = $1 AND business_id = $2`,
-		id, p.BusinessID, req.Name, req.PriceCents, req.CostCents, req.Active)
+		id, p.BusinessID, req.Name, req.PriceCents, req.CostCents, req.Active, req.MinStock, req.Barcode)
 	if err != nil {
+		if writeBarcodeTaken(w, err) {
+			return
+		}
 		serverErr(w)
 		return
 	}

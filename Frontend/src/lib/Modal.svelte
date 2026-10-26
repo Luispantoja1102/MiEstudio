@@ -1,6 +1,7 @@
 <script>
   // Diálogo nativo: gestiona foco, Escape y fondo. Cierra con el botón o al hacer clic fuera.
-  let { open = $bindable(false), title = '', children } = $props();
+  // locked: mientras algo está en curso (p. ej. cobro en terminal) no se cierra con Esc, clic fuera ni la ×.
+  let { open = $bindable(false), title = '', locked = false, children } = $props();
   let dlg;
 
   $effect(() => {
@@ -10,11 +11,17 @@
   });
 </script>
 
-<dialog bind:this={dlg} onclose={() => (open = false)} onclick={(e) => e.target === dlg && (open = false)} aria-label={title}>
+<dialog
+  bind:this={dlg}
+  oncancel={(e) => locked && e.preventDefault()}
+  onclose={() => (open = false)}
+  onclick={(e) => e.target === dlg && !locked && (open = false)}
+  aria-label={title}
+>
   <div class="box">
     <header>
       <h2>{title}</h2>
-      <button class="x" onclick={() => (open = false)} aria-label="Cerrar">×</button>
+      <button class="x" onclick={() => (open = false)} disabled={locked} aria-label="Cerrar">×</button>
     </header>
     {#if open}{@render children()}{/if}
   </div>

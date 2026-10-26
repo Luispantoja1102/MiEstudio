@@ -75,6 +75,10 @@ type saleOut struct {
 	ID            int64            `json:"id"`
 	Folio         int              `json:"folio"`
 	BranchID      int64            `json:"branch_id"`
+	BusinessName  string           `json:"business_name"` // encabezado del ticket
+	BranchName    string           `json:"branch_name"`
+	BranchAddress string           `json:"branch_address"`
+	BranchPhone   string           `json:"branch_phone"`
 	ClientID      *int64           `json:"client_id"`
 	ClientName    string           `json:"client_name"`
 	AppointmentID *int64           `json:"appointment_id"`
@@ -649,13 +653,14 @@ func soleStaff(lines []pricedLine) *int64 {
 func loadSale(ctx context.Context, q queryer, bizID, id int64) (*saleOut, error) {
 	var s saleOut
 	err := q.QueryRow(ctx,
-		`SELECT s.id, s.folio, s.branch_id, s.client_id, COALESCE(c.name, ''), s.appointment_id, COALESCE(cu.name, ''),
+		`SELECT s.id, s.folio, s.branch_id, bz.name, br.name, br.address, br.phone, s.client_id, COALESCE(c.name, ''), s.appointment_id, COALESCE(cu.name, ''),
 		        s.subtotal_cents, s.discount_cents, s.total_cents, s.tip_cents, s.tip_staff_id, COALESCE(tu.name, ''),
 		        s.note, s.status, s.void_reason, COALESCE(vu.name, ''), s.created_at
-		 FROM sales s LEFT JOIN clients c ON c.id = s.client_id LEFT JOIN users cu ON cu.id = s.cashier_id
+		 FROM sales s JOIN businesses bz ON bz.id = s.business_id JOIN branches br ON br.id = s.branch_id
+		 LEFT JOIN clients c ON c.id = s.client_id LEFT JOIN users cu ON cu.id = s.cashier_id
 		 LEFT JOIN users tu ON tu.id = s.tip_staff_id LEFT JOIN users vu ON vu.id = s.voided_by
 		 WHERE s.id = $1 AND s.business_id = $2`, id, bizID).
-		Scan(&s.ID, &s.Folio, &s.BranchID, &s.ClientID, &s.ClientName, &s.AppointmentID, &s.Cashier,
+		Scan(&s.ID, &s.Folio, &s.BranchID, &s.BusinessName, &s.BranchName, &s.BranchAddress, &s.BranchPhone, &s.ClientID, &s.ClientName, &s.AppointmentID, &s.Cashier,
 			&s.SubtotalCents, &s.DiscountCents, &s.TotalCents, &s.TipCents, &s.TipStaffID, &s.TipStaffName,
 			&s.Note, &s.Status, &s.VoidReason, &s.VoidedBy, &s.CreatedAt)
 	if err != nil {
