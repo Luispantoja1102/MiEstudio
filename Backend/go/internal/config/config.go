@@ -32,6 +32,7 @@ type Config struct {
 	// Correo saliente (confirmaciones y recordatorios). Sin SMTP_HOST y MAIL_FROM no se envía nada.
 	SMTPHost, SMTPUser, SMTPPass, MailFrom string
 	SMTPPort                               int
+	SignupVerifyOff                        bool // SIGNUP_VERIFY=off: no pedir el código del correo al registrarse
 	SMTPSecure                             bool
 
 	// WhatsApp Business (API en la nube de Meta). Sin WHATSAPP_TOKEN y WHATSAPP_PHONE_ID no se envía nada.
@@ -93,6 +94,7 @@ func Load() (Config, error) {
 		}
 		c.SMTPPort = n
 	}
+	c.SignupVerifyOff = strings.EqualFold(strings.TrimSpace(os.Getenv("SIGNUP_VERIFY")), "off")
 	c.MailFrom = strings.TrimSpace(os.Getenv("MAIL_FROM"))
 	if c.MailFrom == "" && c.SMTPUser != "" && strings.Contains(c.SMTPUser, "@") {
 		c.MailFrom = "Barbella <" + c.SMTPUser + ">"

@@ -44,6 +44,7 @@ func main() {
 	a.PlatformMPToken, a.PlatformWebhookSecret, a.PlatformNoticeTo = cfg.PlatformMPToken, cfg.PlatformWebhookSecret, cfg.PlatformNoticeTo
 	a.Operator = api.Operator{Name: cfg.LegalName, Address: cfg.LegalAddress, Email: cfg.LegalEmail}
 	a.AppURL, a.PublicURL, a.MPWebhookSecret = cfg.AppURL, cfg.PublicURL, cfg.MPWebhookSecret
+	a.SignupVerifyOff = cfg.SignupVerifyOff
 	if smtp.Enabled() {
 		a.Mailer = smtp
 	} else {

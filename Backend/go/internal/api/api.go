@@ -20,14 +20,15 @@ import (
 )
 
 type API struct {
-	DB         *pgxpool.Pool
-	Secret     string
-	Limiter    *ratelimit.Limiter // nil desactiva el límite de intentos
-	StaticDir  string             // si se define, sirve el frontend compilado
-	Now        func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
-	Production bool               // rechaza claves de ejemplo en el alta del administrador
-	EncKey     []byte             // 32 bytes: cifra los tokens de Mercado Pago (vacío = integración deshabilitada)
-	MPBase     string             // URL base de Mercado Pago (para pruebas); vacío usa la oficial
+	DB              *pgxpool.Pool
+	Secret          string
+	Limiter         *ratelimit.Limiter // nil desactiva el límite de intentos
+	StaticDir       string             // si se define, sirve el frontend compilado
+	Now             func() time.Time   // reloj inyectable para pruebas; nil usa time.Now
+	Production      bool               // rechaza claves de ejemplo en el alta del administrador
+	SignupVerifyOff bool               // SIGNUP_VERIFY=off: el registro no pide el código del correo
+	EncKey          []byte             // 32 bytes: cifra los tokens de Mercado Pago (vacío = integración deshabilitada)
+	MPBase          string             // URL base de Mercado Pago (para pruebas); vacío usa la oficial
 
 	// OAuth de Mercado Pago (aplicación de la plataforma)
 	OAuthState     []byte // firma del state del OAuth; vacío = se deriva de Secret
@@ -78,6 +79,7 @@ func (a *API) Routes() http.Handler {
 	// públicas
 	mux.HandleFunc("GET /health", a.health)
 	mux.HandleFunc("GET /api/auth/registration", a.registrationInfo)
+	mux.HandleFunc("POST /api/auth/register/code", a.sendSignupCode)
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
 	mux.HandleFunc("POST /api/auth/logout", a.logout)

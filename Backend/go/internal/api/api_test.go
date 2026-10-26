@@ -82,6 +82,10 @@ func (a *API) do(t *testing.T, method, path, token string, body any) resp {
 // mustRegister crea un negocio y devuelve el token de su administrador.
 func (a *API) mustRegister(t *testing.T, biz, email string) string {
 	t.Helper()
+	// estas pruebas no son del código del correo (eso lo cubre signup_verify_test.go): se registra sin pedirlo
+	prev := a.SignupVerifyOff
+	a.SignupVerifyOff = true
+	defer func() { a.SignupVerifyOff = prev }()
 	r := a.do(t, "POST", "/api/auth/register", "", map[string]any{
 		"business_name": biz, "kind": "barberia", "name": "Dueño", "email": email, "password": "supersecreta1", "accept_terms": true,
 	})

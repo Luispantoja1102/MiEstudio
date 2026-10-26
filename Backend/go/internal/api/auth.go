@@ -68,6 +68,7 @@ type registerReq struct {
 	Phone        string `json:"phone"`    // opcional: queda en la primera sucursal
 	Password     string `json:"password"`
 	AcceptTerms  bool   `json:"accept_terms"` // términos y aviso de privacidad de la plataforma
+	EmailCode    string `json:"email_code"`   // código de 6 dígitos que llegó al correo (si el servidor lo exige)
 }
 
 var errEmailTaken = errors.New("correo ya registrado")
@@ -150,7 +151,7 @@ func (a *API) registrationMode(ctx context.Context) string {
 }
 
 func (a *API) registrationInfo(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"mode": a.registrationMode(r.Context())})
+	writeJSON(w, http.StatusOK, map[string]any{"mode": a.registrationMode(r.Context()), "email_verification": a.signupVerifyRequired()})
 }
 
 // validateRegister limpia y valida los datos de alta de un negocio.
@@ -204,6 +205,10 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		serverErr(w)
+		return
+	}
+	if fail := a.consumeSignupCode(r.Context(), req.Email, req.EmailCode); fail != nil {
+		writeFail(w, fail)
 		return
 	}
 	status := "trial"

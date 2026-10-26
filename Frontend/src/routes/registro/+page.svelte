@@ -19,16 +19,44 @@
   }
   function onEmail() {
     if (!userEdited) form.username = cleanUsername(form.email.split('@')[0]);
+    codeSent = false; // otro correo, otro código
+    code = '';
   }
   let showPass = $state(false);
   let touched = $state(false);
   let error = $state('');
   let busy = $state(false);
   let mode = $state('open');
+  let verify = $state(false); // el servidor pide verificar el correo con un código
+  let codeSent = $state(false);
+  let code = $state('');
+  let wait = $state(0); // segundos para poder pedir otro código
+  let timer;
+
+  async function sendCode() {
+    await api('/api/auth/register/code', { method: 'POST', body: { email: form.email.trim() } });
+    codeSent = true;
+    wait = 60;
+    clearInterval(timer);
+    timer = setInterval(() => (wait = Math.max(0, wait - 1)), 1000);
+  }
+  async function resend() {
+    error = '';
+    busy = true;
+    try {
+      await sendCode();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      busy = false;
+    }
+  }
 
   onMount(async () => {
     try {
-      mode = (await api('/api/auth/registration')).mode;
+      const info = await api('/api/auth/registration');
+      mode = info.mode;
+      verify = !!info.email_verification;
     } catch {}
   });
 
@@ -65,7 +93,11 @@
     }
     busy = true;
     try {
-      await api('/api/auth/register', { method: 'POST', body: { ...form, business_name: form.business_name.trim(), name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), username: form.username } });
+      if (verify && !codeSent) {
+        await sendCode(); // primero se comprueba que el correo es de quien se registra
+        return;
+      }
+      await api('/api/auth/register', { method: 'POST', body: { ...form, email_code: code.replace(/\D/g, ''), business_name: form.business_name.trim(), name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), username: form.username } });
       goto(homeFor(await api('/api/me'))); // un negocio nuevo pasa por el asistente de inicio
     } catch (err) {
       error = err.message;
@@ -155,8 +187,17 @@
       </label>
       {@render err('accept_terms')}
     </div>
+    {#if verify && codeSent}
+      <div class="verify" role="status">
+        <label class="field">Código de verificación
+          <input bind:value={code} inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="Código de 6 dígitos" />
+          <span class="hint">Te lo mandamos a {form.email.trim()}. Vale 10 minutos.</span>
+        </label>
+        <button type="button" class="link" disabled={busy || wait > 0} onclick={resend}>{wait > 0 ? `Pedir otro código en ${wait} s` : 'Pedir otro código'}</button>
+      </div>
+    {/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button class="btn block lg" disabled={busy || mode === 'closed'}>{busy ? 'Creando…' : 'Crear mi negocio'}</button>
+    <button class="btn block lg" disabled={busy || mode === 'closed' || (verify && codeSent && code.replace(/\D/g, '').length !== 6)}>{busy ? (codeSent ? 'Creando…' : 'Enviando código…') : verify && !codeSent ? 'Enviar código a mi correo' : verify ? 'Verificar y crear mi negocio' : 'Crear mi negocio'}</button>
   </form>
 
   <p class="alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a> · <a class="soft-link" href="/">Volver al inicio</a></p>
@@ -176,6 +217,10 @@
   .meter i.on[data-level='3'] { background: var(--ok, #2f8f5b); }
   .meter b { margin-left: 4px; font-size: 0.78rem; color: var(--muted); }
   .terms { margin-bottom: 1.1rem; }
+  .verify { margin: 0 0 1.1rem; padding: 1rem 1rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+  .verify input { letter-spacing: 0.4em; font-size: 1.3rem; text-align: center; font-variant-numeric: tabular-nums; }
+  .verify .link { margin: 0 0 0.4rem; padding: 10px 2px; font: inherit; font-size: 0.88rem; font-weight: 500; color: var(--accent); background: none; border: 0; cursor: pointer; }
+  .verify .link:disabled { color: var(--muted); cursor: default; }
   .alt a { display: inline-block; padding: 10px 4px; }
   .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.25rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--border); }
   .soft-link { color: inherit; font-weight: 500; }
