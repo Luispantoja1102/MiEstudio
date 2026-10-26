@@ -55,7 +55,7 @@ func TestForgotIsIdenticalForKnownAndUnknownAccounts(t *testing.T) {
 	if !strings.Contains(fm.last().Text, "https://app.test/restablecer?token=") {
 		t.Fatal("falta el enlace")
 	}
-	if r := a.do(t, "POST", "/api/auth/forgot", "", map[string]any{"email": "no-es-correo"}); r.Status != 400 {
+	if r := a.do(t, "POST", "/api/auth/forgot", "", map[string]any{"email": "no es correo ni usuario"}); r.Status != 400 {
 		t.Fatalf("correo inválido: %d", r.Status)
 	}
 }

@@ -19,12 +19,27 @@ func (p *posFx) stampsOf(t *testing.T, client int64) map[string]any {
 func TestLoyaltyStampsRedeemAndCard(t *testing.T) {
 	p := newPOS(t)
 	a := p.a
-	day := func(d string) { a.Now = func() time.Time { t0, _ := time.Parse(time.RFC3339, d+"T18:00:00Z"); return t0 } }
+	day := func(d string) {
+		a.Now = func() time.Time { t0, _ := time.Parse(time.RFC3339, d+"T18:00:00Z"); return t0 }
+	}
 	day("2026-11-02")
 	p.openCash(t, p.admin, 0)
 	maria := id(a.do(t, "POST", "/api/clients", p.admin, map[string]any{"name": "María Pérez López", "phone": "6641112233"}))
 	sell := func(client any, lines ...any) *saleOut {
-		body := map[string]any{"lines": lines, "payments": []any{cash(15000)}}
+		// cada línea cuesta lo que su servicio o producto: Corte $150, Barba $80, Cera $120
+		total := 0
+		for _, l := range lines {
+			m := l.(map[string]any)
+			switch {
+			case m["product_id"] != nil:
+				total += 12000 * m["qty"].(int)
+			case m["service_id"] == p.barba:
+				total += 8000
+			default:
+				total += 15000
+			}
+		}
+		body := map[string]any{"lines": lines, "payments": []any{cash(total)}}
 		if client != nil {
 			body["client_id"] = client
 		}

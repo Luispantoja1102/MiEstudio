@@ -60,7 +60,10 @@ func TestGoogleCalendarURL(t *testing.T) {
 }
 
 func TestConfirmationMailOffersCalendar(t *testing.T) {
-	text, html := func() (string, string) { _, t, h := renderMail("booking", false, sampleMailCtx(), "https://app.test"); return t, h }()
+	text, html := func() (string, string) {
+		_, t, h := renderMail("booking", false, sampleMailCtx(), "https://app.test")
+		return t, h
+	}()
 	for _, body := range []string{text, html} {
 		if !strings.Contains(body, "calendar.google.com") || !strings.Contains(body, "cita.ics") {
 			t.Fatalf("el correo debe ofrecer el calendario:\n%s", body)
@@ -129,6 +132,7 @@ func TestCalendarFeedLifecycleAndPrivacy(t *testing.T) {
 		t.Fatalf("con nombres debía incluir al cliente:\n%s", body)
 	}
 	// la cita de otra persona no aparece
+	f.setHours(t, f.ana, 1, "09:00", "14:00")
 	f.mustBook(t, f.ana, at(monday, "10:00"))
 	if body := string(a.do(t, "GET", path, "", nil).Raw); strings.Count(body, "BEGIN:VEVENT") != 1 {
 		t.Fatalf("solo debe haber la cita de Marco:\n%s", body)
