@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import QRCode from 'qrcode';
   import { api } from '$lib/api.js';
+  import CalendarFeed from '$lib/CalendarFeed.svelte';
   import { session } from '$lib/session.svelte.js';
 
   // Cuenta propia: contraseña, verificación en dos pasos y cierre de sesiones. Lo usan el panel y la plataforma.
@@ -169,6 +170,8 @@
     <button class="btn" disabled={busy} onclick={startSetup}>Activar verificación en dos pasos</button>
   {/if}
 </section>
+
+{#if ['admin', 'staff'].includes(session.me?.role)}<CalendarFeed />{/if}
 
 <section class="card sec">
   <h2>Sesiones</h2>

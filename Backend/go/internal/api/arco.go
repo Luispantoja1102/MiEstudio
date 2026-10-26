@@ -372,6 +372,9 @@ func (a *API) eraseClient(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, q := range []string{
 		`UPDATE clients SET name = 'Cliente eliminado', phone = '', email = '', birthday = NULL, reminders_consent = false, marketing_consent = false, whatsapp_consent = false, unsub_token = NULL, anonymized_at = $2 WHERE id = $1`,
+		`DELETE FROM loyalty_stamps WHERE client_id = $1`,
+		`DELETE FROM loyalty_redemptions WHERE client_id = $1`,
+		`UPDATE clients SET loyalty_token = NULL WHERE id = $1`,
 		`DELETE FROM client_notes WHERE client_id = $1`,
 		`UPDATE appointments SET notes = '', public_token = NULL, reminders_consent = false, privacy_accepted_at = NULL WHERE client_id = $1`,
 		`DELETE FROM notifications WHERE appointment_id IN (SELECT id FROM appointments WHERE client_id = $1)`,

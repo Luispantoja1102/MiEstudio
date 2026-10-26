@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"mime"
@@ -23,6 +24,15 @@ type Message struct {
 	Text    string
 	HTML    string
 	ReplyTo string // opcional: a quién llega la respuesta (por ejemplo, la persona que se registró)
+	// Attachments son archivos adjuntos (por ejemplo, el .ics de una cita).
+	Attachments []Attachment
+}
+
+// Attachment es un archivo adjunto de un correo.
+type Attachment struct {
+	Name        string
+	ContentType string
+	Data        []byte
 }
 
 // Sender entrega correos. La API depende de esta interfaz para poder capturarlos en las pruebas.
@@ -125,9 +135,11 @@ func (s *SMTP) Send(ctx context.Context, m Message) error {
 	return c.Quit()
 }
 
-// Build arma el mensaje: multipart/alternative con partes quoted-printable.
+// Build arma el mensaje: multipart/alternative con partes quoted-printable y, si hay adjuntos, dentro de un multipart/mixed.
 func Build(from, to string, m Message) []byte {
-	boundary := fmt.Sprintf("miestudio-%d", time.Now().UnixNano())
+	stamp := time.Now().UnixNano()
+	altBoundary := fmt.Sprintf("miestudio-%d", stamp)
+	mixBoundary := fmt.Sprintf("miestudio-mix-%d", stamp)
 	var b bytes.Buffer
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	h("From", from)
@@ -138,26 +150,63 @@ func Build(from, to string, m Message) []byte {
 	h("Subject", mime.QEncoding.Encode("utf-8", clean(m.Subject)))
 	h("Date", time.Now().Format(time.RFC1123Z))
 	h("MIME-Version", "1.0")
+
+	// el cuerpo (solo texto, o texto y HTML); con adjuntos se escribe dentro de un multipart/mixed
+	var body bytes.Buffer
+	qp := func(s string) {
+		q := quotedprintable.NewWriter(&body)
+		_, _ = q.Write([]byte(s))
+		_ = q.Close()
+	}
+	var bodyType string
 	if m.HTML == "" {
-		h("Content-Type", "text/plain; charset=UTF-8")
-		h("Content-Transfer-Encoding", "quoted-printable")
+		bodyType = "text/plain; charset=UTF-8"
+		qp(m.Text)
+	} else {
+		bodyType = fmt.Sprintf(`multipart/alternative; boundary="%s"`, altBoundary)
+		part := func(ctype, text string) {
+			fmt.Fprintf(&body, "--%s\r\nContent-Type: %s; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", altBoundary, ctype)
+			qp(text)
+			body.WriteString("\r\n")
+		}
+		part("text/plain", m.Text)
+		part("text/html", m.HTML)
+		fmt.Fprintf(&body, "--%s--\r\n", altBoundary)
+	}
+
+	if len(m.Attachments) == 0 {
+		h("Content-Type", bodyType)
+		if m.HTML == "" {
+			h("Content-Transfer-Encoding", "quoted-printable")
+		}
 		b.WriteString("\r\n")
-		w := quotedprintable.NewWriter(&b)
-		_, _ = w.Write([]byte(m.Text))
-		_ = w.Close()
+		b.Write(body.Bytes())
 		return b.Bytes()
 	}
-	h("Content-Type", fmt.Sprintf(`multipart/alternative; boundary="%s"`, boundary))
+
+	h("Content-Type", fmt.Sprintf(`multipart/mixed; boundary="%s"`, mixBoundary))
 	b.WriteString("\r\n")
-	part := func(ctype, body string) {
-		fmt.Fprintf(&b, "--%s\r\nContent-Type: %s; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", boundary, ctype)
-		w := quotedprintable.NewWriter(&b)
-		_, _ = w.Write([]byte(body))
-		_ = w.Close()
-		b.WriteString("\r\n")
+	fmt.Fprintf(&b, "--%s\r\nContent-Type: %s\r\n", mixBoundary, bodyType)
+	if m.HTML == "" {
+		b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	}
-	part("text/plain", m.Text)
-	part("text/html", m.HTML)
-	fmt.Fprintf(&b, "--%s--\r\n", boundary)
+	b.WriteString("\r\n")
+	b.Write(body.Bytes())
+	b.WriteString("\r\n")
+	for _, a := range m.Attachments {
+		name := clean(a.Name)
+		ctype := clean(a.ContentType)
+		if ctype == "" {
+			ctype = "application/octet-stream"
+		}
+		fmt.Fprintf(&b, "--%s\r\nContent-Type: %s; name=%q\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=%q\r\n\r\n", mixBoundary, ctype, name, name)
+		enc := base64.StdEncoding.EncodeToString(a.Data)
+		for len(enc) > 76 {
+			b.WriteString(enc[:76] + "\r\n")
+			enc = enc[76:]
+		}
+		b.WriteString(enc + "\r\n")
+	}
+	fmt.Fprintf(&b, "--%s--\r\n", mixBoundary)
 	return b.Bytes()
 }

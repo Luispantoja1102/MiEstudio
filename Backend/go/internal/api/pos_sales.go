@@ -201,6 +201,10 @@ func (a *API) createSale(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if err := a.awardStamp(ctx, tx, saleID); err != nil { // el sello de la tarjeta de lealtad, si está activa
+		serverErr(w)
+		return
+	}
 	if err := tx.Commit(ctx); err != nil {
 		if code, c := pgConstraint(err); code == "23505" && c == "sales_one_paid_per_appointment" {
 			writeErr(w, http.StatusConflict, "esa cita ya fue cobrada")
@@ -939,6 +943,11 @@ func (a *API) voidSale(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE sales SET status = 'void', void_reason = $2, voided_at = now(), voided_by = $3 WHERE id = $1`, id, req.Reason, p.UserID); err != nil {
+		serverErr(w)
+		return
+	}
+	// una venta cancelada no deja sello (si ya se canjeó con otros, el sello queda)
+	if _, err := tx.Exec(ctx, `DELETE FROM loyalty_stamps WHERE sale_id = $1 AND redemption_id IS NULL`, id); err != nil {
 		serverErr(w)
 		return
 	}

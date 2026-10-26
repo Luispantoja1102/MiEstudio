@@ -4,6 +4,8 @@
   import { api } from '$lib/api.js';
   import { METHODS, formatDate, money, toCents, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
+  import { directPrinting } from '$lib/pos/printer.svelte.js';
+  import { printCashClose, printing } from '$lib/pos/printing.svelte.js';
 
   let cash = $state(null);
   let history = $state([]);
@@ -15,6 +17,7 @@
   let counted = $state('');
   let closeNote = $state('');
   let closing = $state(false);
+  let lastClosed = $state(null); // id del turno recién cerrado, para imprimir su corte
 
   async function load() {
     if (!branches.id) return (ready = true);
@@ -51,6 +54,7 @@
 
   const open = (e) => {
     e.preventDefault();
+    lastClosed = null;
     const c = toCents(opening || '0');
     if (Number.isNaN(c)) return (error = 'Escribe un monto válido');
     return act(() => api('/api/cash/open', { method: 'POST', body: { branch_id: branches.id, opening_cents: c } }), 'Caja abierta.').then(() => (opening = ''));
@@ -69,6 +73,8 @@
     if (Number.isNaN(c)) return (error = 'Escribe el efectivo contado');
     return act(async () => {
       const r = await api('/api/cash/close', { method: 'POST', body: { branch_id: branches.id, counted_cents: c, note: closeNote } });
+      lastClosed = r.id;
+      if (directPrinting()) printCashClose(r.id); // con térmica el corte sale solo
       notice = r.diff_cents === 0 ? 'Caja cerrada: cuadra exacto.' : `Caja cerrada con ${r.diff_cents > 0 ? 'sobrante' : 'faltante'} de ${money(Math.abs(r.diff_cents))}.`;
     }, '').then(() => ((counted = ''), (closeNote = ''), (closing = false)));
   };
@@ -84,7 +90,13 @@
 </div>
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">{notice}</p>{/if}
+{#if notice}
+  <p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">
+    {notice}
+    {#if lastClosed}<button class="btn ghost sm" style="margin-left: 8px" disabled={printing.busy} onclick={() => printCashClose(lastClosed)}>{printing.busy ? 'Imprimiendo…' : 'Imprimir corte'}</button>{/if}
+  </p>
+{/if}
+{#if printing.issue}<p class="error" role="alert">No se imprimió el corte. {printing.issue}</p>{/if}
 
 {#if !ready}
   <p class="meta">Cargando…</p>
@@ -105,6 +117,7 @@
       <div><dt>Salidas</dt><dd>−{money(cash.moves_out_cents)}</dd></div>
       <div class="total"><dt>Efectivo esperado en caja</dt><dd>{money(cash.expected_cents)}</dd></div>
     </dl>
+    <p><button class="btn ghost sm" disabled={printing.busy} onclick={() => printCashClose(cash.id)}>Imprimir corte parcial</button></p>
     <h3>Ventas de esta caja · {plural(cash.sales, 'venta', 'ventas')} · {money(cash.sales_cents)}{#if cash.tip_cents} + {money(cash.tip_cents)} de propinas{/if}</h3>
     <ul class="methods">
       {#each cash.by_method as m}<li><span>{METHODS[m.method]}</span><b>{money(m.amount_cents)}</b><small>{plural(m.count, 'pago', 'pagos')}</small></li>{:else}<li class="meta">Todavía no hay ventas.</li>{/each}
@@ -165,6 +178,7 @@
           <div class="grow"><div class="title">{formatDate(s.opened_at)}</div><div class="meta">{s.opened_by} · {plural(s.sales, 'venta', 'ventas')} · {money(s.sales_cents)}</div></div>
           <span class="meta">Esperado {money(s.expected_cents)} · contado {money(s.counted_cents)}</span>
           <span class="badge" class:warn={s.diff_cents !== 0}>{diffLabel(s.diff_cents)}</span>
+          <button class="btn ghost sm" aria-label="Imprimir el corte" disabled={printing.busy} onclick={() => printCashClose(s.id)}>Imprimir</button>
         </div>
       {/each}
     </div>

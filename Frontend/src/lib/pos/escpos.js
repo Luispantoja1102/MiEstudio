@@ -179,6 +179,86 @@ export function buildReceipt(t, { cols = 42, openDrawer = false } = {}) {
   return p.build();
 }
 
+/**
+ * Corte de caja en texto. `t` ya trae todo en pesos (ver printer.svelte.js → cashCloseData):
+ * { shop, branch, address, phone, closed, turn, dateText, openedClock, openedBy, closedClock, closedBy,
+ *   sales, soldAmount, tips, average, voidedCount, voidedAmount, methods: [[etiqueta, monto]], collected,
+ *   opening, cashIn, movesIn, movesOut, expected, counted, verdict, diffAmount,
+ *   movements: [[texto, monto con signo]], note, tickets: [[texto, monto]], printedText }
+ */
+export function buildCashClose(t, { cols = 42 } = {}) {
+  const p = new EscPos({ cols });
+  const half = Math.floor(cols / 2);
+  const section = (title) => p.feed(1).bold().line(String(title).toUpperCase()).bold(false).rule();
+  p.init();
+
+  p.align('center').bold().size(2).wrapped(String(t.shop || 'Barbella').toUpperCase(), { cols: half });
+  p.size(1).bold(false);
+  if (t.branch) p.line(t.branch);
+  if (t.address) p.wrapped(t.address);
+  if (t.phone) p.line(`Tel. ${t.phone}`);
+  p.align('left').rule('=');
+  p.align('center').bold().size(2).wrapped('CORTE DE CAJA', { cols: half });
+  p.size(1).line(t.closed ? 'Z - FINAL' : 'X - PARCIAL').bold(false);
+  p.align('left').rule('=');
+
+  p.lr('Turno No.', String(t.turn));
+  p.lr('Fecha', t.dateText || '');
+  p.lr('Abrió', `${t.openedClock} ${t.openedBy || ''}`.trim());
+  p.lr(t.closed ? 'Cerró' : 'Corte', t.closed ? `${t.closedClock} ${t.closedBy || ''}`.trim() : 'Caja abierta');
+
+  section('Resumen');
+  p.lr('Ventas', String(t.sales));
+  p.lr('Vendido (sin propinas)', money(t.soldAmount));
+  p.lr('Propinas', money(t.tips));
+  if (t.sales) p.lr('Promedio por venta', money(t.average));
+  if (t.voidedCount) p.lr(`Canceladas (${t.voidedCount})`, money(t.voidedAmount));
+
+  section('Cobrado por forma de pago');
+  for (const [label, amount] of t.methods || []) p.lr(label, money(amount));
+  p.rule().bold().size(2);
+  p.lines(leftRight('COBRADO', money(t.collected), half));
+  p.size(1).bold(false);
+
+  section('Cuadre del cajón');
+  p.lr('  Fondo inicial', money(t.opening));
+  p.lr('+ Ventas en efectivo', money(t.cashIn));
+  if (Number(t.movesIn)) p.lr('+ Entradas', money(t.movesIn));
+  if (Number(t.movesOut)) p.lr('- Salidas', `-${money(t.movesOut)}`);
+  p.rule().bold().lr('= Debe haber', money(t.expected)).bold(false);
+  if (t.closed) {
+    p.bold().lr('  Se contó', money(t.counted)).bold(false);
+    p.feed(1).align('center').bold().size(2).wrapped(`[ ${String(t.verdict || '').toUpperCase()} ]`, { cols: half });
+    p.size(1);
+    if (Number(t.diffAmount)) p.line(money(Math.abs(t.diffAmount)));
+    p.bold(false).align('left');
+  }
+
+  if ((t.movements || []).length) {
+    section('Entradas y salidas');
+    for (const [label, amount] of t.movements) p.lr(label, amount);
+  }
+  if (t.note) {
+    section('Observaciones');
+    p.wrapped(t.note);
+  }
+  if ((t.tickets || []).length) {
+    section(`Ventas del turno - ${t.tickets.length}`);
+    for (const [label, amount] of t.tickets) p.lr(label, amount);
+  }
+
+  // firmas
+  const w = Math.floor((cols - 4) / 2);
+  p.feed(3);
+  p.line('-'.repeat(w) + '    ' + '-'.repeat(w));
+  p.line(`${'Entregó'.padEnd(w)}    Recibió`);
+  p.line(String(t.closedBy || t.openedBy || '').toUpperCase().slice(0, w));
+  p.feed(1).align('center');
+  if (t.printedText) p.line(`Impreso ${t.printedText}`);
+  p.line('Hecho con Barbella').align('left').feed(3).cut();
+  return p.build();
+}
+
 /** Ticket corto para «Imprimir prueba». */
 export function buildTestPage({ cols = 42, shop = 'Barbella', openDrawer = false } = {}) {
   const p = new EscPos({ cols });

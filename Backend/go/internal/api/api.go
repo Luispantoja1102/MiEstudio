@@ -89,6 +89,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/point/oauth/callback", a.mpCallback) // el navegador vuelve aquí desde Mercado Pago
 
 	// reserva en línea (sin sesión)
+	mux.HandleFunc("GET /api/public-card/{token}", a.publicCard)
 	mux.HandleFunc("GET /api/public-appointments/{token}", a.publicAppointment)
 	mux.HandleFunc("POST /api/public-appointments/{token}/cancel", a.publicCancel)
 	mux.HandleFunc("POST /api/public-appointments/{token}/confirm", a.publicConfirm)
@@ -165,6 +166,9 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/services", a.tenant(a.createService, admin))
 	mux.Handle("PATCH /api/services/{id}", a.tenant(a.updateService, admin))
 	mux.Handle("PUT /api/services/{id}/staff", a.tenant(a.setServiceStaff, admin))
+	mux.Handle("GET /api/me/calendar", a.tenant(a.feedState))
+	mux.Handle("POST /api/me/calendar", a.tenant(a.feedUpdate))
+	mux.HandleFunc("GET /api/calendar/{file}", a.publicFeed)
 	mux.Handle("GET /api/service-categories", a.tenant(a.listServiceCategories))
 	mux.Handle("POST /api/service-categories", a.tenant(a.createServiceCategory, admin))
 	mux.Handle("PATCH /api/service-categories/{id}", a.tenant(a.renameServiceCategory, admin))
@@ -214,6 +218,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/cash/movements", a.tenant(a.posOnly(a.cashMovement), sell...))
 	mux.Handle("POST /api/cash/close", a.tenant(a.posOnly(a.closeCash), sell...))
 	mux.Handle("GET /api/cash/sessions", a.tenant(a.posOnly(a.listCashSessions), sell...))
+	mux.Handle("GET /api/cash/sessions/{id}", a.tenant(a.posOnly(a.getCashSession), sell...))
 	mux.Handle("POST /api/sales", a.tenant(a.posOnly(a.createSale), sell...))
 	mux.Handle("GET /api/sales", a.tenant(a.posOnly(a.listSales), sell...))
 	mux.Handle("GET /api/sales/{id}", a.tenant(a.posOnly(a.getSale), sell...))
@@ -226,6 +231,11 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("POST /api/packages", a.tenant(a.posOnly(a.createPackage), admin))
 	mux.Handle("PATCH /api/packages/{id}", a.tenant(a.posOnly(a.updatePackage), admin))
 	mux.Handle("GET /api/clients/{id}/packages", a.tenant(a.posOnly(a.listClientPackages), sell...))
+	mux.Handle("GET /api/loyalty", a.tenant(a.posOnly(a.getLoyaltySettings), sell...))
+	mux.Handle("PUT /api/loyalty", a.tenant(a.posOnly(a.putLoyaltySettings), admin))
+	mux.Handle("GET /api/clients/{id}/loyalty", a.tenant(a.posOnly(a.clientLoyalty), sell...))
+	mux.Handle("POST /api/clients/{id}/loyalty/redeem", a.tenant(a.posOnly(a.redeemLoyalty), sell...))
+	mux.Handle("POST /api/clients/{id}/loyalty/link", a.tenant(a.posOnly(a.loyaltyLink), sell...))
 	mux.Handle("POST /api/sales/{id}/void", a.tenant(a.posOnly(a.voidSale), admin))
 	mux.Handle("POST /api/products/{id}/stock", a.tenant(a.posOnly(a.adjustStock), admin))
 	mux.Handle("GET /api/products/{id}/movements", a.tenant(a.posOnly(a.listStockMovements), admin))
@@ -235,6 +245,8 @@ func (a *API) Routes() http.Handler {
 
 	// negocio: reportes (ventas: administrador; comisiones: administrador y profesionales, cada quien lo suyo)
 	mux.Handle("GET /api/reports/sales", a.tenant(a.posOnly(a.salesReport), admin))
+	mux.Handle("GET /api/reports/occupancy", a.tenant(a.posOnly(a.occupancyReport), admin))
+	mux.Handle("GET /api/reports/retention", a.tenant(a.posOnly(a.retentionReport), admin))
 	mux.Handle("GET /api/reports/commissions", a.tenant(a.posOnly(a.commissionsReport), admin, "staff"))
 
 	// negocio: terminal Mercado Pago

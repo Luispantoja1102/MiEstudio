@@ -8,7 +8,7 @@
 //  - "image": imprime el mismo diseño de la ventana del ticket (se convierte en imagen). Es el valor por defecto.
 //  - "text":  ticket en texto plano ESC/POS (más rápido, sin diseño).
 import { METHODS } from '$lib/format.js';
-import { buildReceipt, buildTestPage, money } from './escpos.js';
+import { buildCashClose, buildReceipt, buildTestPage, money } from './escpos.js';
 import { buildRasterTicket, renderTicketBitmap } from './ticketRaster.js';
 
 const KEY = 'barbella_printer';
@@ -358,6 +358,55 @@ export function receiptData(sale, tz = 'America/Tijuana') {
     voidReason: void_ ? sale.void_reason : '',
     thanks: '¡Gracias por tu visita!'
   };
+}
+
+/** Corte de caja (como lo entrega /api/cash/sessions/{id}) → datos del ticket en pesos. */
+export function cashCloseData(r, tz = 'America/Tijuana') {
+  const pesos = (c) => (c || 0) / 100;
+  const part = (iso, opts) => new Intl.DateTimeFormat('es-MX', { timeZone: tz, hour12: false, ...opts }).format(new Date(iso));
+  const clock = (iso) => part(iso, { hour: '2-digit', minute: '2-digit' });
+  const closed = Boolean(r.closed_at);
+  const diff = pesos(r.diff_cents);
+  return {
+    shop: r.business_name,
+    branch: r.branch_name,
+    address: r.branch_address,
+    phone: r.branch_phone,
+    closed,
+    turn: r.id,
+    dateText: part(r.opened_at, { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, ''),
+    openedClock: clock(r.opened_at),
+    openedBy: r.opened_by,
+    closedClock: closed ? clock(r.closed_at) : '',
+    closedBy: r.closed_by,
+    sales: r.sales,
+    soldAmount: pesos(r.sales_cents),
+    tips: pesos(r.tip_cents),
+    average: r.sales ? pesos(Math.round(r.sales_cents / r.sales)) : 0,
+    voidedCount: r.voided_count,
+    voidedAmount: pesos(r.voided_cents),
+    methods: r.by_method.map((m) => [METHODS[m.method] || m.method, pesos(m.amount_cents)]),
+    collected: pesos(r.by_method.reduce((n, m) => n + m.amount_cents, 0)),
+    opening: pesos(r.opening_cents),
+    cashIn: pesos(r.cash_in_cents),
+    movesIn: pesos(r.moves_in_cents),
+    movesOut: pesos(r.moves_out_cents),
+    expected: pesos(r.expected_cents),
+    counted: pesos(r.counted_cents),
+    diffAmount: diff,
+    verdict: diff === 0 ? 'Cuadra' : diff > 0 ? 'Sobrante' : 'Faltante',
+    movements: (r.movements || []).map((m) => [`${clock(m.created_at)} ${m.concept}`, `${m.kind === 'in' ? '+' : '-'}${money(pesos(m.amount_cents))}`]),
+    note: r.note,
+    tickets: (r.tickets || []).map((t) => [`${clock(t.created_at)} #${t.folio}${t.status === 'void' ? ' (cancelada)' : ''}`, money(pesos(t.total_cents + t.tip_cents))]),
+    printedText: part(new Date().toISOString(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(/\./g, '')
+  };
+}
+
+/** Imprime el corte en la térmica: con diseño (imagen de la vista /imprimir/corte/[id]) o, si falla, en texto. */
+export async function printCashCloseDirect(report, { tz } = {}) {
+  const bytes = await designBytes(`/imprimir/corte/${report.id}`);
+  if (bytes) return printBytes(bytes, { timeoutMs: imageTimeout(bytes) });
+  return printBytes(buildCashClose(cashCloseData(report, tz), { cols: cols() }));
 }
 
 /**

@@ -1,6 +1,8 @@
 <script>
   import { onMount } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
+  import Occupancy from '$lib/reports/Occupancy.svelte';
+  import Retention from '$lib/reports/Retention.svelte';
   import { api } from '$lib/api.js';
   import { METHODS, money, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
@@ -13,6 +15,7 @@
   let from = $state(addDays(today, -6));
   let to = $state(today);
   let r = $state(null);
+  let view = $state('ventas'); // ventas | ocupacion | retencion
   let error = $state('');
 
   async function load() {
@@ -35,6 +38,8 @@
     from = addDays(today, -days);
     load();
   }
+  // los reportes de ocupación y retención usan el mismo periodo y la misma sucursal
+  const branch = $derived(branches.id && branches.list.length > 1 ? branches.id : 0);
   const maxDay = $derived(Math.max(1, ...(r?.by_day.map((d) => d.total_cents) ?? [0])));
   const KIND = { service: 'Servicio', product: 'Producto' };
 </script>
@@ -42,8 +47,14 @@
 <div class="page-head">
   <div>
     <h1>Reportes</h1>
-    <p>Ventas del periodo. Las ventas canceladas no cuentan.</p>
+    <p>{view === 'ventas' ? 'Ventas del periodo. Las ventas canceladas no cuentan.' : view === 'ocupacion' ? 'Qué tanto se llena tu agenda y cuándo.' : 'Qué clientes regresan y a quiénes estás perdiendo.'}</p>
   </div>
+</div>
+
+<div class="chips views" role="tablist" aria-label="Tipo de reporte">
+  {#each [['ventas', 'Ingresos'], ['ocupacion', 'Ocupación'], ['retencion', 'Retención']] as [id, label]}
+    <button class="chip" role="tab" aria-selected={view === id} onclick={() => (view = id)}>{label}</button>
+  {/each}
 </div>
 
 <div class="toolbar">
@@ -51,12 +62,18 @@
     <button class="chip" onclick={() => preset(0)}>Hoy</button>
     <button class="chip" onclick={() => preset(6)}>7 días</button>
     <button class="chip" onclick={() => preset(29)}>30 días</button>
+    <button class="chip" onclick={() => preset(89)}>90 días</button>
   </div>
   <label class="check">Del <input type="date" bind:value={from} onchange={load} style="width: auto; margin: 0 0 0 6px" /></label>
   <label class="check">al <input type="date" bind:value={to} onchange={load} style="width: auto; margin: 0 0 0 6px" /></label>
   <BranchPicker onchange={load} />
 </div>
 
+{#if view === 'ocupacion'}
+  <Occupancy {from} {to} {branch} />
+{:else if view === 'retencion'}
+  <Retention {from} {to} {branch} />
+{:else}
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
 {#if r}
@@ -105,8 +122,11 @@
     </section>
   {/if}
 {/if}
+{/if}
 
 <style>
+  .views { margin: 0 0 1rem; }
+  .views .chip[aria-selected='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
   .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .kpis .card { display: grid; gap: 2px; }

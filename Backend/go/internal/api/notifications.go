@@ -57,7 +57,7 @@ type mailCtx struct {
 	Status                            string
 	Business, Branch, Address, Phone  string
 	Service, Staff, ClientName, Email string
-	Starts                            time.Time
+	Starts, Ends                      time.Time
 	Loc                               *time.Location
 	Token                             *string
 	CancelMinHours                    int
@@ -69,12 +69,12 @@ func loadMailCtx(ctx context.Context, q queryer, apptID int64) (*mailCtx, error)
 	var tz string
 	err := q.QueryRow(ctx,
 		`SELECT ap.business_id, ap.status, b.name, b.timezone, br.name, br.address, br.phone, s.name, u.name, c.name, c.email,
-		        ap.starts_at, ap.public_token, COALESCE(bs.cancel_min_hours, 2), COALESCE(bs.reminder_hours, 0)
+		        ap.starts_at, ap.ends_at, ap.public_token, COALESCE(bs.cancel_min_hours, 2), COALESCE(bs.reminder_hours, 0)
 		   FROM appointments ap JOIN businesses b ON b.id = ap.business_id JOIN branches br ON br.id = ap.branch_id
 		   JOIN services s ON s.id = ap.service_id JOIN users u ON u.id = ap.staff_id JOIN clients c ON c.id = ap.client_id
 		   LEFT JOIN booking_settings bs ON bs.business_id = ap.business_id
 		  WHERE ap.id = $1`, apptID).Scan(&m.BizID, &m.Status, &m.Business, &tz, &m.Branch, &m.Address, &m.Phone, &m.Service, &m.Staff,
-		&m.ClientName, &m.Email, &m.Starts, &m.Token, &m.CancelMinHours, &m.ReminderHours)
+		&m.ClientName, &m.Email, &m.Starts, &m.Ends, &m.Token, &m.CancelMinHours, &m.ReminderHours)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +135,7 @@ func renderMail(kind string, moved bool, m *mailCtx, appURL string) (subject, te
 		if kind == "reminder" && link != "" {
 			fmt.Fprintf(&t, "\nSi ya no quieres recibir recordatorios: %s?baja=1\n", link)
 		}
+		fmt.Fprintf(&t, "\nAgregar a Google Calendar: %s\n(También va adjunto el archivo cita.ics para Outlook o Apple Calendar.)\n", m.googleCalendarURL())
 	}
 	fmt.Fprintf(&t, "\n— %s\n", m.Business)
 
@@ -152,6 +153,7 @@ func renderMail(kind string, moved bool, m *mailCtx, appURL string) (subject, te
 			fmt.Fprintf(&h, `<p style="margin:20px 0 0"><a href="%s" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#1c2f5c;color:#fff;text-decoration:none">Ver o cancelar mi cita</a></p>`, esc(link))
 			fmt.Fprintf(&h, `<p style="margin:8px 0 0;font-size:13px;color:#5b6864">Puedes cancelar hasta %d h antes.</p>`, m.CancelMinHours)
 		}
+		fmt.Fprintf(&h, `<p style="margin:16px 0 0;font-size:14px">📅 <a href="%s" style="color:#1c2f5c">Agregar a Google Calendar</a> <span style="color:#5b6864">· o abre el archivo adjunto «cita.ics» (Outlook, Apple Calendar).</span></p>`, esc(m.googleCalendarURL()))
 		if kind == "reminder" && link != "" {
 			fmt.Fprintf(&h, `<p style="margin:20px 0 0;font-size:12px;color:#5b6864"><a href="%s?baja=1" style="color:#5b6864">Dejar de recibir recordatorios</a></p>`, esc(link))
 		}
@@ -186,10 +188,12 @@ func (a *API) enqueueMail(ctx context.Context, q execQueryer, apptID int64, kind
 		return nil
 	}
 	subject, text, htmlBody := renderMail(kind, moved, m, a.AppURL)
+	// el .ics va con el correo; su SEQUENCE es la hora del envío, así cada cambio de la cita reemplaza al anterior
+	ics := m.icsFile(kind == "cancellation", a.now().Unix(), m.manageURL(a.AppURL))
 	_, err = q.Exec(ctx,
-		`INSERT INTO notifications (business_id, appointment_id, kind, for_starts_at, to_addr, subject, body_text, body_html, send_after)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (appointment_id, kind, for_starts_at, channel) DO NOTHING`,
-		m.BizID, apptID, kind, m.Starts, m.Email, subject, text, htmlBody, a.now())
+		`INSERT INTO notifications (business_id, appointment_id, kind, for_starts_at, to_addr, subject, body_text, body_html, ics, send_after)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (appointment_id, kind, for_starts_at, channel) DO NOTHING`,
+		m.BizID, apptID, kind, m.Starts, m.Email, subject, text, htmlBody, ics, a.now())
 	return err
 }
 
@@ -244,7 +248,7 @@ type queued struct {
 	ClientID, WaitlistID    int64
 	Channel, Payload        string
 	Kind, To, Subject, Text string
-	HTML                    string
+	HTML, ICS               string
 	ForStarts               time.Time
 	Attempts                int
 }
@@ -256,7 +260,7 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 		`UPDATE notifications SET attempts = attempts + 1, send_after = $2
 		  WHERE id IN (SELECT id FROM notifications WHERE status = 'pending' AND send_after <= $1
 		                  AND ((channel = 'email' AND $4) OR (channel = 'whatsapp' AND $5)) ORDER BY send_after LIMIT $3 FOR UPDATE SKIP LOCKED)
-		  RETURNING id, COALESCE(appointment_id, 0), COALESCE(client_id, 0), COALESCE(waitlist_id, 0), channel, COALESCE(payload::text, ''), kind, to_addr, subject, body_text, body_html,
+		  RETURNING id, COALESCE(appointment_id, 0), COALESCE(client_id, 0), COALESCE(waitlist_id, 0), channel, COALESCE(payload::text, ''), kind, to_addr, subject, body_text, body_html, ics,
 		            COALESCE(for_starts_at, 'epoch'), attempts`, now, now.Add(notifClaim), notifBatch, a.mailEnabled(), a.waEnabled())
 	if err != nil {
 		return nil, err
@@ -265,7 +269,7 @@ func (a *API) claimNotifications(ctx context.Context, now time.Time) ([]queued, 
 	var out []queued
 	for rows.Next() {
 		var q queued
-		if err := rows.Scan(&q.ID, &q.ApptID, &q.ClientID, &q.WaitlistID, &q.Channel, &q.Payload, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ForStarts, &q.Attempts); err != nil {
+		if err := rows.Scan(&q.ID, &q.ApptID, &q.ClientID, &q.WaitlistID, &q.Channel, &q.Payload, &q.Kind, &q.To, &q.Subject, &q.Text, &q.HTML, &q.ICS, &q.ForStarts, &q.Attempts); err != nil {
 			return nil, err
 		}
 		out = append(out, q)
@@ -386,7 +390,15 @@ func (a *API) ProcessNotifications(ctx context.Context) (int, error) {
 			if q.Channel == "whatsapp" {
 				err = a.sendWhatsApp(sctx, q)
 			} else {
-				err = a.Mailer.Send(sctx, mail.Message{To: q.To, Subject: q.Subject, Text: q.Text, HTML: q.HTML})
+				msg := mail.Message{To: q.To, Subject: q.Subject, Text: q.Text, HTML: q.HTML}
+				if q.ICS != "" {
+					method := "PUBLISH"
+					if q.Kind == "cancellation" {
+						method = "CANCEL"
+					}
+					msg.Attachments = []mail.Attachment{{Name: "cita.ics", ContentType: "text/calendar; charset=UTF-8; method=" + method, Data: []byte(q.ICS)}}
+				}
+				err = a.Mailer.Send(sctx, msg)
 			}
 			cancel()
 			switch {

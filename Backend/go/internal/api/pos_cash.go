@@ -363,3 +363,75 @@ func (a *API) listCashSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+type cashTicket struct {
+	Folio      int       `json:"folio"`
+	CreatedAt  time.Time `json:"created_at"`
+	TotalCents int       `json:"total_cents"`
+	TipCents   int       `json:"tip_cents"`
+	Status     string    `json:"status"`
+	Methods    []string  `json:"methods"`
+}
+
+// cashReport es el corte de una caja listo para imprimir: el resumen con el encabezado del negocio,
+// lo cancelado y los tickets del turno.
+type cashReport struct {
+	cashSummary
+	BusinessName  string       `json:"business_name"`
+	BranchName    string       `json:"branch_name"`
+	BranchAddress string       `json:"branch_address"`
+	BranchPhone   string       `json:"branch_phone"`
+	VoidedCount   int          `json:"voided_count"`
+	VoidedCents   int          `json:"voided_cents"`
+	Tickets       []cashTicket `json:"tickets"`
+}
+
+// getCashSession devuelve el corte de una caja (cerrada, o abierta como corte parcial).
+func (a *API) getCashSession(w http.ResponseWriter, r *http.Request) {
+	p := auth.FromContext(r.Context())
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	c, err := summarizeCash(ctx, a.DB, p.BusinessID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeErr(w, http.StatusNotFound, "no encontrado")
+		return
+	}
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	out := cashReport{cashSummary: *c, Tickets: []cashTicket{}}
+	if err := a.DB.QueryRow(ctx,
+		`SELECT bz.name, br.name, br.address, br.phone FROM businesses bz, branches br WHERE bz.id = $1 AND br.id = $2`,
+		p.BusinessID, c.BranchID).Scan(&out.BusinessName, &out.BranchName, &out.BranchAddress, &out.BranchPhone); err != nil {
+		serverErr(w)
+		return
+	}
+	if err := a.DB.QueryRow(ctx,
+		`SELECT count(*), COALESCE(sum(total_cents), 0) FROM sales WHERE cash_session_id = $1 AND status = 'void'`, id).Scan(&out.VoidedCount, &out.VoidedCents); err != nil {
+		serverErr(w)
+		return
+	}
+	rows, err := a.DB.Query(ctx,
+		`SELECT s.folio, s.created_at, s.total_cents, s.tip_cents, s.status,
+		        COALESCE(array_agg(DISTINCT sp.method) FILTER (WHERE sp.method IS NOT NULL), '{}')
+		 FROM sales s LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+		 WHERE s.cash_session_id = $1 GROUP BY s.id ORDER BY s.created_at, s.id LIMIT 500`, id)
+	if err != nil {
+		serverErr(w)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t cashTicket
+		if err := rows.Scan(&t.Folio, &t.CreatedAt, &t.TotalCents, &t.TipCents, &t.Status, &t.Methods); err != nil {
+			serverErr(w)
+			return
+		}
+		out.Tickets = append(out.Tickets, t)
+	}
+	writeJSON(w, http.StatusOK, out)
+}

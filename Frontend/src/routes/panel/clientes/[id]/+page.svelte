@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import Icon from '$lib/Icon.svelte';
+  import ClientLoyalty from '$lib/loyalty/ClientLoyalty.svelte';
   import { api } from '$lib/api.js';
   import { formatDate } from '$lib/format.js';
   import { canSeeNotes, hasPos, session } from '$lib/session.svelte.js';
@@ -98,6 +99,8 @@
       {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}
     </div>
   </form>
+
+  {#if sells && form}<ClientLoyalty clientId={id} name={form.name} phone={form.phone} />{/if}
 
   {#if packages.length}
     <section class="card" style="margin-top: 1.25rem">

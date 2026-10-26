@@ -22,6 +22,8 @@
   let products = $state([]);
   let packages = $state([]); // catálogo de paquetes
   let clientPkgs = $state([]); // paquetes vigentes del cliente del ticket
+  let loyalty = $state(null); // tarjeta de lealtad del cliente del ticket (null si está apagada)
+  let loyaltyMsg = $state('');
   let staff = $state([]);
   let appts = $state([]);
   let point = $state({ ok: false, message: '', code: '' });
@@ -216,6 +218,27 @@
       .then((r) => client?.id === cid && (clientPkgs = r.filter((k) => k.status === 'active')))
       .catch(() => (clientPkgs = []));
   });
+  // tarjeta de lealtad del cliente: sellos y, si ya completó, el canje del premio
+  $effect(() => {
+    const cid = client?.id;
+    loyaltyMsg = '';
+    if (!cid) {
+      loyalty = null;
+      return;
+    }
+    api(`/api/clients/${cid}/loyalty`)
+      .then((l) => client?.id === cid && (loyalty = l.enabled ? l : null))
+      .catch(() => (loyalty = null));
+  });
+  async function redeemReward() {
+    if (!confirm(`¿Canjear el premio «${loyalty.reward}»? Después aplica el descuento con «Descuento».`)) return;
+    try {
+      loyalty = await api(`/api/clients/${client.id}/loyalty/redeem`, { method: 'POST' });
+      loyaltyMsg = `Premio canjeado: ${loyalty.reward}. Aplica el descuento al servicio con «Descuento».`;
+    } catch (err) {
+      error = err.message;
+    }
+  }
   const unitOf = (serviceId) => lines.find((l) => l.kind === 'service' && l.id === serviceId)?.unit ?? 0;
   const serviceQty = (serviceId) => lines.filter((l) => l.kind === 'service' && l.id === serviceId).reduce((n, l) => n + l.qty, 0);
   const pkgUsed = (k) => prepaid.filter((p) => p.method === 'package' && p.cpId === k.id).length;
@@ -589,6 +612,18 @@
         {/if}
       </div>
 
+      {#if loyalty}
+        <div class="loyal" class:ready={loyalty.ready}>
+          {#if loyalty.ready}
+            <span>🎁 Premio listo: <b>{loyalty.reward}</b></span>
+            <button class="btn sm" onclick={redeemReward}>Canjear</button>
+          {:else}
+            <span>⭐ {loyalty.stamps} de {loyalty.visits_required} sellos</span>
+          {/if}
+        </div>
+      {/if}
+      {#if loyaltyMsg}<p class="ok-msg" role="status">{loyaltyMsg}</p>{/if}
+
       {#if lines.length === 0}
         <div class="t-empty">
           {#if receipt}
@@ -817,6 +852,9 @@
   .pick { display: flex; justify-content: space-between; width: 100%; min-height: 40px; align-items: center; padding: 0 0.8rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
   .pick small { color: var(--muted); }
 
+  .loyal { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.88rem; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .loyal.ready { background: var(--accent-soft); color: var(--accent); }
+  .ok-msg { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: var(--ok); background: var(--ok-soft); border-radius: var(--radius-sm); }
   .t-empty { display: grid; justify-items: center; gap: 4px; padding: 1.5rem 1rem; text-align: center; }
   .t-empty p { margin: 0; }
   .done-ico { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 6px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }

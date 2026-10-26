@@ -9,7 +9,7 @@ import { api } from '$lib/api.js';
 import { branches, loadBranches } from '$lib/branch.svelte.js';
 import { newToken } from '$lib/format.js';
 import { session } from '$lib/session.svelte.js';
-import { directPrinting, printReceiptDirect } from './printer.svelte.js';
+import { directPrinting, printCashCloseDirect, printReceiptDirect } from './printer.svelte.js';
 
 const KEY = 'barbella_print_route';
 
@@ -139,6 +139,23 @@ export async function printSale(sale) {
   try {
     if (printRoute.mode === 'remote') await sendToStation(sale, cash);
     else await printReceiptDirect(sale, { openDrawer: cash, tz: tz() });
+  } catch (error) {
+    printing.issue = error.message || 'La impresora no respondió.';
+  } finally {
+    printing.busy = false;
+  }
+}
+
+// ── imprimir el corte de caja (se pide el detalle con el id del turno)
+export const cashCloseUrl = (id, autoprint = false) => `/imprimir/corte/${id}${autoprint ? '?autoprint=1' : ''}`;
+
+/** Imprime el corte del turno `id`: en la térmica si este dispositivo la tiene; si no, abre la ventana del corte. */
+export async function printCashClose(id) {
+  printing.issue = '';
+  if (!directPrinting()) return window.open(cashCloseUrl(id, true), '_blank', 'noopener');
+  printing.busy = true;
+  try {
+    await printCashCloseDirect(await api(`/api/cash/sessions/${id}`), { tz: tz() });
   } catch (error) {
     printing.issue = error.message || 'La impresora no respondió.';
   } finally {

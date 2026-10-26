@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import { hasMercadoPago, hasPos, planLimit, session } from '$lib/session.svelte.js';
   import Equipo from '../equipo/+page.svelte';
+  import Fidelidad from './fidelidad/+page.svelte';
   import Impresora from './impresora/+page.svelte';
   import Mensajes from '../mensajes/+page.svelte';
   import Pagos from '../pagos/+page.svelte';
@@ -30,6 +31,7 @@
     {
       title: 'Clientes',
       items: [
+        { id: 'fidelidad', label: 'Tarjeta de lealtad', desc: 'Sellos y premio para tus clientes frecuentes', icon: 'user-plus', component: Fidelidad, roles: A },
         { id: 'reserva', label: 'Reservas en línea', desc: 'Tu página, anticipos y recordatorios', icon: 'globe', component: Reserva, roles: A },
         { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta', icon: 'globe', component: Mensajes, roles: A },
         { id: 'privacidad', label: 'Privacidad y ARCO', desc: 'Aviso y solicitudes de tus clientes', icon: 'shield', component: Privacidad, roles: A }
@@ -63,7 +65,7 @@
   const groups = $derived(
     all.map((g) => ({
       ...g,
-      items: g.items.filter((i) => (i.id !== 'pagos' || hasMercadoPago()) && (i.id !== 'sucursales' || manyBranches) && (i.id !== 'impresora' || hasPos()))
+      items: g.items.filter((i) => (i.id !== 'pagos' || hasMercadoPago()) && (i.id !== 'sucursales' || manyBranches) && (i.id !== 'impresora' || hasPos()) && (i.id !== 'fidelidad' || hasPos()))
     }))
   );
 
