@@ -26,3 +26,6 @@ pgdata/
 
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Correo de deploy (se genera en el CI)
+deploy-status.*

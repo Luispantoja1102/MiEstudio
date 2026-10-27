@@ -1,0 +1,119 @@
+name: Deploy al VPS
+
+# Publica en el VPS cuando el CI de main termina en verde y manda un correo con el resultado (éxito o fallo).
+# Secretos del repositorio: VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_HOST (usuario@servidor), PROD_URL (https://tu-dominio),
+# MAIL_USERNAME y MAIL_PASSWORD (el correo que envía), MAIL_TO (a quién avisar; varios separados por coma).
+# Opcionales: VPS_PATH (carpeta en el servidor, por defecto ~/barbella), VPS_DEPLOY_CMD (por defecto: docker compose up -d --build), MAIL_SERVER.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Si el CI falló no se publica nada: el correo lo reporta como fallo.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HOST: ${{ secrets.VPS_HOST }}
+      VPS_PATH: ${{ secrets.VPS_PATH || '~/barbella' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Llave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # Los .env viven solo en el servidor: no se tocan. No se borra nada que el servidor tenga y el repositorio no.
+      - name: Subir código
+        run: rsync -az --exclude .env --exclude '.env.*' --exclude .git --exclude node_modules --exclude .claude ./ "$HOST:$VPS_PATH/"
+
+      - name: Reconstruir y arrancar
+        env:
+          DEPLOY_CMD: ${{ secrets.VPS_DEPLOY_CMD || 'docker compose up -d --build' }}
+        run: ssh "$HOST" "cd $VPS_PATH && $DEPLOY_CMD && docker image prune -f && docker builder prune -f --filter until=24h"
+
+      # /health responde 200 solo si la API está viva y puede hablar con la base de datos.
+      - name: Comprobar que responde
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+        run: |
+          for i in $(seq 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${PROD_URL%/}/health")
+            [ "$code" = 200 ] && exit 0
+            sleep 5
+          done
+          echo "/health respondió $code"; exit 1
+
+  # Correo de estado. Corre después del deploy, en éxito y en fallo.
+  # continue-on-error: un fallo al armar o enviar el correo no cambia el resultado del workflow.
+  notify:
+    name: Avisar el resultado por correo
+    needs: [deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Preparar el correo
+        id: mail
+        env:
+          # Si el CI falló, el deploy se omitió: se reporta como fallo.
+          DEPLOY_RESULT: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && needs.deploy.result || 'failure' }}
+          CI_FAILED: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}
+          COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message }}
+          COMMIT_AUTHOR: ${{ github.event.workflow_run.head_commit.author.name || github.actor }}
+          PUSHER: ${{ github.event.workflow_run.actor.login || github.actor }}
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PROD_URL: ${{ secrets.PROD_URL }}
+          SERVICE_NAME: Barbella
+          MAIL_READY: ${{ secrets.MAIL_USERNAME != '' && secrets.MAIL_PASSWORD != '' && secrets.MAIL_TO != '' }}
+        run: node scripts/deploy-mail.mjs
+
+      - name: Enviar el correo
+        if: steps.mail.outputs.ready == 'true'
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@67ce3558d613188179559c61d3565140cf389968 # v22
+        with:
+          server_address: ${{ secrets.MAIL_SERVER || 'smtp.gmail.com' }}
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: "Barbella <${{ secrets.MAIL_USERNAME }}>"
+          to: ${{ secrets.MAIL_TO }}
+          subject: ${{ steps.mail.outputs.subject }}
+          body: file://deploy-status.txt
+          html_body: file://deploy-status.html
+          priority: ${{ steps.mail.outputs.result == 'success' && 'normal' || 'high' }}
