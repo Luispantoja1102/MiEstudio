@@ -30,6 +30,8 @@ type bizRow struct {
 
 	Plan             string     `json:"plan"`
 	PlanName         string     `json:"plan_name"`
+	RequestedPlan    string     `json:"requested_plan"` // lo que pidió al registrarse y aún no se activa; vacío si no hay
+	RequestedName    string     `json:"requested_plan_name"`
 	BillingState     string     `json:"billing_state"` // pending, trialing, trial_expired, active, past_due o suspended
 	CurrentPeriodEnd *time.Time `json:"current_period_end"`
 	SuspendedReason  string     `json:"suspended_reason"`
@@ -49,19 +51,25 @@ const bizSelect = `SELECT b.id, b.name, b.slug, b.kind, b.status, b.trial_ends_a
 	(SELECT count(*) FROM users u WHERE u.business_id = b.id),
 	(SELECT count(*) FROM clients c WHERE c.business_id = b.id),
 	COALESCE((SELECT u.email FROM users u WHERE u.business_id = b.id AND u.role = 'admin' ORDER BY u.id LIMIT 1), ''),
-	b.plan, b.current_period_end, b.suspended_reason,
+	b.plan, b.current_period_end, b.suspended_reason, COALESCE(b.requested_plan, ''),
 	(SELECT max(p.created_at) FROM payments p WHERE p.business_id = b.id AND p.method <> 'courtesy')
 	FROM businesses b`
 
 func scanBiz(row pgx.Row, now time.Time) (bizRow, error) {
 	var b bizRow
 	err := row.Scan(&b.ID, &b.Name, &b.Slug, &b.Kind, &b.Status, &b.TrialEndsAt, &b.CreatedAt, &b.Users, &b.Clients, &b.OwnerEmail,
-		&b.Plan, &b.CurrentPeriodEnd, &b.SuspendedReason, &b.LastPayment)
+		&b.Plan, &b.CurrentPeriodEnd, &b.SuspendedReason, &b.RequestedPlan, &b.LastPayment)
 	if err != nil {
 		return b, err
 	}
 	if pl, ok := defaultPlan(b.Plan); ok {
 		b.PlanName = pl.Name
+	}
+	if b.RequestedPlan == b.Plan { // ya es el que tiene: no hay nada que aprobar
+		b.RequestedPlan = ""
+	}
+	if pl, ok := defaultPlan(b.RequestedPlan); ok {
+		b.RequestedName = pl.Name
 	}
 	b.BillingState = BillingState(b.Status, b.TrialEndsAt, b.CurrentPeriodEnd, now)
 	if b.Status == "trial" && b.TrialEndsAt != nil {
@@ -251,6 +259,7 @@ func (a *API) platformUpdateBusiness(w http.ResponseWriter, r *http.Request) {
 		`UPDATE businesses SET status = COALESCE($2, status), name = COALESCE($3, name),
 		   trial_ends_at = CASE WHEN $5 THEN $9::timestamptz + interval '14 days' ELSE COALESCE($4, trial_ends_at) END,
 		   plan = COALESCE($6, plan), current_period_end = COALESCE($7, current_period_end),
+		   requested_plan = CASE WHEN $6::text IS NOT NULL AND requested_plan = $6::text THEN NULL ELSE requested_plan END,
 		   suspended_reason = CASE WHEN COALESCE($2, status) = 'suspended' THEN COALESCE($8, suspended_reason) ELSE '' END
 		 WHERE id = $1`, id, req.Status, req.Name, trialEnds, startTrial, req.Plan, periodEnd, req.SuspendedReason, a.now())
 	if err != nil {

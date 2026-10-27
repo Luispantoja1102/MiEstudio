@@ -178,8 +178,13 @@ func TestABusinessCannotGrantItselfAPlanOrASubscription(t *testing.T) {
 		return
 	}
 	plan, status, end, trial := state()
-	if plan != "crecimiento" || status != "trial" || end != nil || trial == nil || strings.HasPrefix(*trial, "2099") {
-		t.Fatalf("el alta no acepta plan ni vigencia del cliente: %s %s %v %v", plan, status, end, trial)
+	if plan != "basico" || status != "trial" || end != nil || trial == nil || strings.HasPrefix(*trial, "2099") {
+		t.Fatalf("el alta no concede plan ni vigencia: solo arranca en Básico y pide el plan: %s %s %v %v", plan, status, end, trial)
+	}
+	var requested string
+	a.DB.QueryRow(t.Context(), `SELECT COALESCE(requested_plan, '') FROM businesses`).Scan(&requested)
+	if requested != "pro" { // pedir el plan es solo una solicitud que la plataforma aprueba o no
+		t.Fatalf("el plan pedido debe quedar como solicitud: %q", requested)
 	}
 	// ni desde los datos del negocio, ni con los endpoints de la plataforma
 	a.do(t, "PUT", "/api/business", tok, map[string]any{"name": "Listo", "kind": "barberia", "timezone": "America/Mexico_City", "plan": "pro", "status": "active", "current_period_end": "2099-01-01T00:00:00Z"})
@@ -197,7 +202,7 @@ func TestABusinessCannotGrantItselfAPlanOrASubscription(t *testing.T) {
 			t.Fatalf("un negocio no usa %s %s: %d", c.method, c.path, r.Status)
 		}
 	}
-	if p, s, e, _ := state(); p != "crecimiento" || s != "trial" || e != nil {
+	if p, s, e, _ := state(); p != "basico" || s != "trial" || e != nil {
 		t.Fatalf("el negocio no debe cambiar su propio plan: %s %s %v", p, s, e)
 	}
 	// el cobro en línea de la suscripción no se acredita sin el pago real ni con un monto elegido por el cliente
@@ -208,7 +213,7 @@ func TestABusinessCannotGrantItselfAPlanOrASubscription(t *testing.T) {
 			t.Fatal("el monto del cobro lo decide el servidor")
 		}
 	}
-	if p, s, e, _ := state(); p != "crecimiento" || s != "trial" || e != nil {
+	if p, s, e, _ := state(); p != "basico" || s != "trial" || e != nil {
 		t.Fatalf("abrir un cobro no activa la suscripción: %s %s %v", p, s, e)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -92,6 +93,8 @@ func (a *API) mustRegister(t *testing.T, biz, email string) string {
 	if r.Status != http.StatusCreated {
 		t.Fatalf("register %s: %d %v", email, r.Status, r.Body)
 	}
+	// el registro público arranca en Básico; las pruebas parten de un negocio con todo incluido (Crecimiento)
+	a.DB.Exec(context.Background(), `UPDATE businesses SET plan = 'crecimiento', requested_plan = NULL WHERE id = (SELECT business_id FROM users WHERE lower(email) = $1)`, strings.ToLower(email))
 	return r.Body["token"].(string)
 }
 

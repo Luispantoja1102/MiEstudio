@@ -60,15 +60,17 @@ func pgConstraint(err error) (code, name string) {
 }
 
 type registerReq struct {
-	BusinessName string `json:"business_name"`
-	Kind         string `json:"kind"`
-	Name         string `json:"name"`
-	Email        string `json:"email"`
-	Username     string `json:"username"` // opcional: si falta se genera a partir del correo
-	Phone        string `json:"phone"`    // opcional: queda en la primera sucursal
-	Password     string `json:"password"`
-	AcceptTerms  bool   `json:"accept_terms"` // términos y aviso de privacidad de la plataforma
-	EmailCode    string `json:"email_code"`   // código de 6 dígitos que llegó al correo (si el servidor lo exige)
+	BusinessName  string `json:"business_name"`
+	Kind          string `json:"kind"`
+	Name          string `json:"name"`
+	Email         string `json:"email"`
+	Username      string `json:"username"` // opcional: si falta se genera a partir del correo
+	Phone         string `json:"phone"`    // opcional: queda en la primera sucursal
+	Password      string `json:"password"`
+	AcceptTerms   bool   `json:"accept_terms"` // términos y aviso de privacidad de la plataforma
+	EmailCode     string `json:"email_code"`   // código de 6 dígitos que llegó al correo (si el servidor lo exige)
+	Plan          string `json:"plan"`         // plan que pide al registrarse; mientras se aprueba, prueba el Básico
+	requestedPlan string // lo fija el registro público; el alta que hace la plataforma no lo usa
 }
 
 var errEmailTaken = errors.New("correo ya registrado")
@@ -202,6 +204,15 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "debes aceptar los términos y el aviso de privacidad")
 		return
 	}
+	// sin plan elegido se pide el Básico; uno inexistente se rechaza
+	if req.Plan == "" {
+		req.Plan = "basico"
+	}
+	if !a.planExists(r.Context(), req.Plan) {
+		writeErr(w, http.StatusBadRequest, "el plan elegido no existe")
+		return
+	}
+	req.requestedPlan = req.Plan
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		serverErr(w)
@@ -265,9 +276,10 @@ func (a *API) createBusiness(ctx context.Context, req registerReq, slug, hash, s
 	defer tx.Rollback(ctx)
 
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO businesses (name, slug, kind, status, trial_ends_at)
-		 VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'trial' THEN now() + interval '14 days' END) RETURNING id`,
-		req.BusinessName, slug, req.Kind, status).Scan(&bizID); err != nil {
+		`INSERT INTO businesses (name, slug, kind, status, trial_ends_at, plan, requested_plan)
+		 VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'trial' THEN now() + interval '14 days' END,
+		   CASE WHEN $5 = '' THEN 'crecimiento' ELSE 'basico' END, NULLIF($5, '')) RETURNING id`,
+		req.BusinessName, slug, req.Kind, status, req.requestedPlan).Scan(&bizID); err != nil {
 		return 0, 0, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO branches (business_id, name, phone) VALUES ($1, 'Principal', $2)`, bizID, req.Phone); err != nil {

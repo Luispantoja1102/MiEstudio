@@ -64,7 +64,7 @@
           <ul>
             {#each rows(p) as [on, text]}<li class:no={!on}>{text}</li>{/each}
           </ul>
-          <a class={p.id === 'crecimiento' ? 'btn' : 'btn btn-linea'} href="/registro">Probar 14 días gratis</a>
+          <a class={p.id === 'crecimiento' ? 'btn' : 'btn btn-linea'} href={`/registro?plan=${p.id}`}>Probar 14 días gratis</a>
         </article>
       {/each}
     </div>

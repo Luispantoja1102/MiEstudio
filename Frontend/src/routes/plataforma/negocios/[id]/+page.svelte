@@ -160,6 +160,9 @@
         <div>
           <dt>Plan</dt>
           <dd>{PLANS[b.plan]}</dd>
+          {#if b.requested_plan}
+            <small class="req">Pidió el plan <b>{PLANS[b.requested_plan]}</b>{#if write}<br /><button type="button" class="linkbtn" onclick={() => patch({ plan: b.requested_plan }, 'Plan solicitado activado.')}>Activar plan solicitado</button>{/if}</small>
+          {/if}
           <small>
             {#if b.status === 'trial'}prueba hasta {formatDay(b.trial_ends_at)}{#if b.trial_days_left !== null} ({plural(b.trial_days_left, 'día', 'días')}){/if}
             {:else if b.current_period_end}vigente hasta {formatDay(b.current_period_end)}
@@ -309,6 +312,8 @@
 {/if}
 
 <style>
+  .req { display: block; margin: 2px 0 4px; color: var(--accent); }
+  .linkbtn { padding: 0; font: inherit; font-weight: 600; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
   .card { margin-bottom: 1rem; }
   section:not(.card):not(.kpis) { margin-top: 1.5rem; }
   section h2 { font-size: 1.3rem; }

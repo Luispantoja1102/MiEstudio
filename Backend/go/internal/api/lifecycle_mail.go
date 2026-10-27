@@ -80,9 +80,14 @@ func (a *API) signupNotice(ctx context.Context, req registerReq, bizID int64, st
 	if kind == "" {
 		kind = req.Kind
 	}
+	active, requested := a.planLabel(ctx, "basico"), a.planLabel(ctx, req.requestedPlan)
+	if req.requestedPlan == "basico" {
+		requested += " (el mismo que está probando)"
+	}
 	a.sendTeam(ctx, "Nuevo registro · "+req.BusinessName,
-		[][2]string{{"Negocio", req.BusinessName}, {"Giro", kind}, {"Nombre", req.Name}, {"Correo", req.Email}, {"Teléfono", req.Phone}, {"Usuario", req.Username}, {"Estado", state}},
-		"Nuevo registro desde el sitio.", bizID, req.Email)
+		[][2]string{{"Negocio", req.BusinessName}, {"Giro", kind}, {"Nombre", req.Name}, {"Correo", req.Email}, {"Teléfono", req.Phone}, {"Usuario", req.Username}, {"Estado", state},
+			{"Plan activo en la prueba", active}, {"Plan solicitado", requested}},
+		"Nuevo registro desde el sitio. Mientras no lo apruebes, prueba el plan Básico; para activar el solicitado, abre su ficha y pulsa «Activar plan solicitado».", bizID, req.Email)
 }
 
 // ---------- historia de pagos ----------
@@ -185,4 +190,13 @@ func (a *API) missedPaymentPass(ctx context.Context, list []bizRow, now time.Tim
 			}
 		}
 	}
+}
+
+// planLabel es el plan con su precio de lista, para los correos al equipo.
+func (a *API) planLabel(ctx context.Context, id string) string {
+	p, ok := a.planByID(ctx, id)
+	if !ok {
+		return id
+	}
+	return fmt.Sprintf("%s · $%d al mes", p.Name, p.PriceMonth)
 }

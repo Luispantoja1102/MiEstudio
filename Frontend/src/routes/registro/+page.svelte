@@ -5,11 +5,11 @@
   import PasswordInput from '$lib/PasswordInput.svelte';
   import { legalLink } from '$lib/legal/legal.svelte.js';
   import { api } from '$lib/api.js';
-  import { KINDS, cleanUsername } from '$lib/format.js';
+  import { KINDS, cleanUsername, pesos } from '$lib/format.js';
   import { homeFor } from '$lib/session.svelte.js';
 
   const MIN = 8;
-  let form = $state({ business_name: '', kind: 'barberia', name: '', phone: '', email: '', username: '', password: '', accept_terms: false });
+  let form = $state({ business_name: '', kind: 'barberia', name: '', phone: '', email: '', username: '', password: '', accept_terms: false, plan: 'basico' });
   let confirm = $state('');
   let userEdited = $state(false); // mientras no lo escriban, el usuario se sugiere desde el correo
 
@@ -27,6 +27,7 @@
   let error = $state('');
   let busy = $state(false);
   let mode = $state('open');
+  let plans = $state([]); // para elegir el plan que quieren probar
   let verify = $state(false); // el servidor pide verificar el correo con un código
   let codeSent = $state(false);
   let code = $state('');
@@ -57,6 +58,11 @@
       const info = await api('/api/auth/registration');
       mode = info.mode;
       verify = !!info.email_verification;
+    } catch {}
+    try {
+      plans = await api('/api/plans');
+      const want = new URLSearchParams(location.search).get('plan'); // los botones de la landing llegan con ?plan=
+      if (plans.some((p) => p.id === want)) form.plan = want;
     } catch {}
   });
 
@@ -134,6 +140,14 @@
           </select>
         </label>
       </div>
+      {#if plans.length}
+        <label class="field">Plan que quieres probar
+          <select bind:value={form.plan}>
+            {#each plans as p (p.id)}<option value={p.id}>{p.name} · {pesos(p.price_month)}/mes</option>{/each}
+          </select>
+          <span class="hint">{form.plan === 'basico' ? 'Pruebas 14 días gratis, sin tarjeta.' : 'Empiezas con 14 días del plan Básico. Revisamos tu solicitud y te activamos el plan elegido.'}</span>
+        </label>
+      {/if}
     </fieldset>
 
     <fieldset class="group">
