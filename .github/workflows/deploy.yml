@@ -1,9 +1,10 @@
 name: Deploy al VPS
 
-# Publica en el VPS cuando el CI de main termina en verde y manda un correo con el resultado (éxito o fallo).
-# Secretos del repositorio: VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_HOST (usuario@servidor), PROD_URL (https://tu-dominio),
-# MAIL_USERNAME y MAIL_PASSWORD (el correo que envía), MAIL_TO (a quién avisar; varios separados por coma).
-# Opcionales: VPS_PATH (carpeta en el servidor, por defecto ~/barbella), VPS_DEPLOY_CMD (por defecto: docker compose up -d --build), MAIL_SERVER.
+# Publica en el VPS cuando el CI de main termina en verde. El correo de resultado (éxito o fallo)
+# lo manda el propio VPS por SSH (scripts/notify-deploy.sh), no GitHub Actions: las credenciales de
+# correo (MAIL_USERNAME, MAIL_PASSWORD, MAIL_TO) viven solo en el .env del servidor.
+# Secretos del repositorio: VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_HOST (usuario@servidor), PROD_URL (https://tu-dominio).
+# Opcionales: VPS_PATH (carpeta en el servidor, por defecto ~/barbella), VPS_DEPLOY_CMD (por defecto: docker compose up -d --build).
 on:
   workflow_run:
     workflows: ["CI"]
@@ -54,6 +55,7 @@ jobs:
 
       # /health responde 200 solo si la API está viva y puede hablar con la base de datos.
       - name: Comprobar que responde
+        id: health
         env:
           PROD_URL: ${{ secrets.PROD_URL }}
         run: |
@@ -64,56 +66,50 @@ jobs:
           done
           echo "/health respondió $code"; exit 1
 
-  # Correo de estado. Corre después del deploy, en éxito y en fallo.
-  # continue-on-error: un fallo al armar o enviar el correo no cambia el resultado del workflow.
-  notify:
-    name: Avisar el resultado por correo
-    needs: [deploy]
-    if: always()
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          persist-credentials: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Preparar el correo
-        id: mail
+      # El VPS manda el correo de estado (scripts/notify-deploy.sh), con sus propias credenciales
+      # de .env. if: always() para que avise también cuando el paso anterior falló.
+      - name: Avisar el resultado por correo (desde el VPS)
+        if: always()
+        continue-on-error: true
         env:
-          # Si el CI falló, el deploy se omitió: se reporta como fallo.
-          DEPLOY_RESULT: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && needs.deploy.result || 'failure' }}
-          CI_FAILED: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}
+          RESULT: ${{ steps.health.outcome == 'success' && 'success' || 'failure' }}
           COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message }}
           COMMIT_AUTHOR: ${{ github.event.workflow_run.head_commit.author.name || github.actor }}
-          PUSHER: ${{ github.event.workflow_run.actor.login || github.actor }}
           BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-          REPOSITORY: ${{ github.repository }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha || github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          PROD_URL: ${{ secrets.PROD_URL }}
-          SERVICE_NAME: Barbella
-          MAIL_READY: ${{ secrets.MAIL_USERNAME != '' && secrets.MAIL_PASSWORD != '' && secrets.MAIL_TO != '' }}
-        run: node scripts/deploy-mail.mjs
+        run: |
+          ssh "$HOST" "cd $VPS_PATH && bash scripts/notify-deploy.sh '$RESULT' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"
 
-      - name: Enviar el correo
-        if: steps.mail.outputs.ready == 'true'
-        continue-on-error: true
-        uses: dawidd6/action-send-mail@67ce3558d613188179559c61d3565140cf389968 # v22
-        with:
-          server_address: ${{ secrets.MAIL_SERVER || 'smtp.gmail.com' }}
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: "Barbella <${{ secrets.MAIL_USERNAME }}>"
-          to: ${{ secrets.MAIL_TO }}
-          subject: ${{ steps.mail.outputs.subject }}
-          body: file://deploy-status.txt
-          html_body: file://deploy-status.html
-          priority: ${{ steps.mail.outputs.result == 'success' && 'normal' || 'high' }}
+  # Si el CI falló, el job deploy ni corre: avisa igual, usando el código ya publicado en el VPS
+  # (el de la última vez que sí se desplegó) solo para mandar el correo.
+  notify-ci-failed:
+    name: Avisar que el CI falló (desde el VPS)
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      HOST: ${{ secrets.VPS_HOST }}
+      VPS_PATH: ${{ secrets.VPS_PATH || '~/barbella' }}
+    steps:
+      - name: Llave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Avisar
+        env:
+          COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+          COMMIT_AUTHOR: ${{ github.event.workflow_run.head_commit.author.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ssh "$HOST" "cd $VPS_PATH && bash scripts/notify-deploy.sh 'failure' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"
