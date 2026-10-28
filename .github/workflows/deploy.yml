@@ -1,10 +1,12 @@
 name: Deploy al VPS
 
 # Publica en el VPS cuando el CI de main termina en verde. El correo de resultado (éxito o fallo)
-# lo manda el propio VPS por SSH (scripts/notify-deploy.sh), no GitHub Actions: las credenciales de
-# correo (MAIL_USERNAME, MAIL_PASSWORD, MAIL_TO) viven solo en el .env del servidor.
-# Secretos del repositorio: VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_HOST (usuario@servidor), PROD_URL (https://tu-dominio).
-# Opcionales: VPS_PATH (carpeta en el servidor, por defecto ~/barbella), VPS_DEPLOY_CMD (por defecto: docker compose up -d --build).
+# lo manda el propio VPS (scripts/notify-deploy.sh vía curl/SMTP), no la acción de GitHub: así el
+# envío sale desde la IP del servidor. Las credenciales de correo están en los secrets del
+# repositorio y Actions se las pasa al VPS por SSH en cada corrida (no se guardan en el servidor).
+# Secretos del repositorio: VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_HOST (usuario@servidor), PROD_URL (https://tu-dominio),
+# MAIL_USERNAME, MAIL_PASSWORD (contraseña de aplicación de Gmail).
+# Opcionales: VPS_PATH (carpeta en el servidor, por defecto ~/barbella), VPS_DEPLOY_CMD (por defecto: docker compose up -d --build), MAIL_TO, MAIL_SERVER.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -79,8 +81,10 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha || github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
         run: |
-          ssh "$HOST" "cd $VPS_PATH && bash scripts/notify-deploy.sh '$RESULT' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"
+          ssh "$HOST" "cd $VPS_PATH && MAIL_USERNAME='$MAIL_USERNAME' MAIL_PASSWORD='$MAIL_PASSWORD' bash scripts/notify-deploy.sh '$RESULT' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"
 
   # Si el CI falló, el job deploy ni corre: avisa igual, usando el código ya publicado en el VPS
   # (el de la última vez que sí se desplegó) solo para mandar el correo.
@@ -111,5 +115,7 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
         run: |
-          ssh "$HOST" "cd $VPS_PATH && bash scripts/notify-deploy.sh 'failure' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"
+          ssh "$HOST" "cd $VPS_PATH && MAIL_USERNAME='$MAIL_USERNAME' MAIL_PASSWORD='$MAIL_PASSWORD' bash scripts/notify-deploy.sh 'failure' '$COMMIT_MESSAGE' '$SHA' '$COMMIT_AUTHOR' '$BRANCH' '$COMMIT_URL' '$RUN_URL'"

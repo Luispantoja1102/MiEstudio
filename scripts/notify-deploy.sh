@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Manda el correo de estado del deploy. Corre EN EL VPS (lo llama deploy.yml por SSH),
 # así que el correo sale desde la IP del servidor, no desde el runner de GitHub Actions.
-# Credenciales en el .env del servidor (no se tocan desde fuera): MAIL_USERNAME, MAIL_PASSWORD
-# (contraseña de aplicación de Gmail). Opcionales: MAIL_TO (varios separados por coma; por defecto
+# MAIL_USERNAME y MAIL_PASSWORD (contraseña de aplicación de Gmail) llegan como variables de
+# entorno en el propio comando SSH (vienen de los secrets del repositorio); si no se pasan, se
+# busca un .env local como respaldo. Opcionales: MAIL_TO (varios separados por coma; por defecto
 # los mismos tres de MiTiendita), MAIL_SERVER, PROD_URL.
 #
 # Uso: notify-deploy.sh <success|failure> "<mensaje commit>" "<sha>" "<autor>" "<rama>" "<commit_url>" "<run_url>"
