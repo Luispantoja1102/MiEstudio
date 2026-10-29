@@ -107,7 +107,7 @@
     <nav aria-label="Cuenta"><h3>Cuenta</h3><a href="/registro">Crear cuenta</a><a href="/login">Iniciar sesión</a></nav>
     <nav aria-label="Legal"><h3>Legal</h3><a href="/privacidad" onclick={(e) => legalLink(e, 'privacidad')}>Aviso de privacidad</a><a href="/terminos" onclick={(e) => legalLink(e, 'terminos')}>Términos</a></nav>
   </div>
-  <p class="envoltura copy">© {new Date().getFullYear()} Barbella</p>
+  <p class="envoltura copy">© {new Date().getFullYear()} Barbella · Un producto de <a href="https://www.hyperionmkt.com/">Hyperion Software</a></p>
 </footer>
 
 <style>
@@ -170,6 +170,7 @@
   .pie a { color: inherit; text-decoration: none; }
   .pie a:hover { color: var(--ticket); }
   .copy { margin-top: 40px; font-size: 0.85rem; opacity: 0.6; }
+  .copy a { color: inherit; text-decoration: underline; }
 
   /* Tableta: dos planes por fila */
   @media (min-width: 901px) and (max-width: 1180px) {
