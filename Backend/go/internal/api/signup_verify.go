@@ -113,10 +113,9 @@ func (a *API) sendSignupCode(w http.ResponseWriter, r *http.Request) {
 	}
 	mctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	text := fmt.Sprintf("Tu código para crear tu cuenta en Barbella es %s.\n\nVale %d minutos. Si no lo pediste, ignora este correo.\n\n— Barbella\n", code, int(signupCodeTTL.Minutes()))
-	body := `<p>Tu código para crear tu cuenta en Barbella es:</p><p style="font-size:30px;letter-spacing:6px;font-weight:700;margin:12px 0">` + html.EscapeString(code) +
-		fmt.Sprintf(`</p><p>Vale %d minutos. Si no lo pediste, ignora este correo.</p>`, int(signupCodeTTL.Minutes()))
-	if err := a.Mailer.Send(mctx, mail.Message{To: email, Subject: "Tu código de Barbella: " + code, Text: text, HTML: mailLayout("Verifica tu correo", body)}); err != nil {
+	minutes := int(signupCodeTTL.Minutes())
+	text := fmt.Sprintf("Barbella\n\nVerifica tu correo\n\nUsa este código para terminar de crear tu cuenta en Barbella:\n\n%s\n\nEl código vence en %d minutos. Si no fuiste tú, ignora este correo: no se creó ninguna cuenta.\n\nRecibes este correo porque se usó tu dirección en Barbella. Si no fuiste tú, puedes ignorarlo.\n", code, minutes)
+	if err := a.Mailer.Send(mctx, mail.Message{To: email, Subject: "Tu código de Barbella: " + code, Text: text, HTML: signupCodeHTML(code, minutes)}); err != nil {
 		a.DB.Exec(ctx, `DELETE FROM signup_codes WHERE email = $1`, email)
 		writeErr(w, http.StatusBadGateway, "no pudimos enviar el correo; revisa que esté bien escrito e inténtalo de nuevo")
 		return
@@ -157,4 +156,20 @@ func (a *API) consumeSignupCode(ctx context.Context, email, code string) *httpFa
 		return &httpFail{http.StatusBadRequest, "el código venció: pide uno nuevo", "email_code_expired"}
 	}
 	return nil
+}
+
+// signupCodeHTML es el correo del código: una tarjeta con la marca, el código grande y la nota de vigencia.
+// Va con tablas y estilos en línea para que se vea igual en Gmail, Outlook y el modo oscuro.
+func signupCodeHTML(code string, minutes int) string {
+	return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f1ec;padding:24px 12px"><tr><td align="center">` +
+		`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:18px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">` +
+		`<tr><td style="padding:36px 32px 28px">` +
+		`<div style="font-size:26px;font-weight:700;color:#b8402f;letter-spacing:-.01em;margin:0 0 22px">Barbella</div>` +
+		`<h1 style="margin:0 0 14px;font-size:28px;line-height:1.15;color:#1b2233">Verifica tu correo</h1>` +
+		`<p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#566074">Usa este código para terminar de crear tu cuenta en Barbella:</p>` +
+		`<div style="margin:0 0 22px;padding:18px 8px;border-radius:14px;background:#f3f1ec;text-align:center;font-size:40px;font-weight:700;letter-spacing:12px;color:#1b2233;font-family:ui-monospace,Menlo,Consolas,monospace">` + html.EscapeString(code) + `</div>` +
+		fmt.Sprintf(`<p style="margin:0;font-size:14px;line-height:1.6;color:#566074">El código vence en %d minutos. Si no fuiste tú, ignora este correo: no se creó ninguna cuenta.</p>`, minutes) +
+		`</td></tr></table>` +
+		`<p style="max-width:480px;margin:16px 0 0;font-size:12px;line-height:1.5;color:#7a8497;font-family:system-ui,sans-serif">Recibes este correo porque se usó tu dirección en Barbella. Si no fuiste tú, puedes ignorarlo.</p>` +
+		`</td></tr></table>`
 }

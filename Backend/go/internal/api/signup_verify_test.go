@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -67,6 +68,15 @@ func TestSignupAsksForTheEmailCodeAndSpendsIt(t *testing.T) {
 	code := codeSent(t, fm)
 	if fm.last().To != "nuevo@x.com" {
 		t.Fatalf("el código va al correo escrito: %s", fm.last().To)
+	}
+	// el correo lleva la marca, el título, el código y la vigencia, en texto y en HTML
+	for _, want := range []string{"Verifica tu correo", "Barbella", code, "10 minutos", "no se creó ninguna cuenta"} {
+		if !strings.Contains(fm.last().HTML, want) {
+			t.Fatalf("el HTML del correo no trae %q", want)
+		}
+	}
+	if !strings.Contains(fm.last().Text, "Usa este código para terminar de crear tu cuenta en Barbella") || !strings.Contains(fm.last().Text, code) {
+		t.Fatalf("el texto del correo: %s", fm.last().Text)
 	}
 	wrong := "000000"
 	if code == wrong {
