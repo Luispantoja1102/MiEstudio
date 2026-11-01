@@ -1,3 +1,5 @@
+> **Reemplazada el 2026-11-01** por [[2026-11-01 Deploy por cron en el VPS]]: el flujo `deploy.yml`, los scripts de correo y estos secretos ya no existen. Lo de abajo queda solo como historia.
+
 # Deploy al VPS con correo de estado
 
 - **Contexto:** MiTiendita y MiConsultorio publican en el VPS por SSH y avisan por correo; se copia el mismo esquema.
