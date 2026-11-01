@@ -2,6 +2,12 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import { formatDate } from '$lib/format.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import FormSection from '$lib/ui/FormSection.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
 
   let s = $state(null);
   let meta = $state({ mail_enabled: true, promo_clients: 0, survey_clients: 0 });
@@ -37,27 +43,21 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Mensajes a clientes</h1>
-    <p>Correos automáticos para que tus clientes vuelvan y te recomienden.</p>
-  </div>
-</div>
+<PageHeader title="Mensajes a clientes" description="Correos automáticos para que tus clientes vuelvan y te recomienden." />
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
 {#if !s}
-  <p class="meta">Cargando…</p>
+  {#if !error}<LoadingState />{/if}
 {:else}
   {#if !meta.mail_enabled}
-    <p class="banner" role="status">El correo aún no está habilitado en este servidor, así que nada de esto se enviará todavía. Pide a quien administra la plataforma que lo active.</p>
+    <div class="gap"><InlineNotice tone="warning" message="El correo aún no está habilitado en este servidor, así que nada de esto se enviará todavía. Pide a quien administra la plataforma que lo active." /></div>
   {/if}
 
-  <form class="card" onsubmit={save}>
-    <p class="meta">Solo se escribe a clientes con correo que lo aceptaron: las promociones (cumpleaños y reactivación) necesitan que el cliente las haya aceptado; la encuesta, que haya aceptado recordatorios o promociones. Cada correo trae un enlace para darse de baja.</p>
+  <form onsubmit={save}>
+    <p class="meta lead">Solo se escribe a clientes con correo que lo aceptaron: las promociones (cumpleaños y reactivación) necesitan que el cliente las haya aceptado; la encuesta, que haya aceptado recordatorios o promociones. Cada correo trae un enlace para darse de baja.</p>
 
-    <fieldset>
-      <legend>Cumpleaños</legend>
+    <FormSection title="Cumpleaños" description="Un correo el día del cumpleaños de cada cliente.">
       <label class="check"><input type="checkbox" bind:checked={s.birthday_enabled} /> Felicitar a mis clientes el día de su cumpleaños</label>
       {#if s.birthday_enabled}
         <label class="field">Mensaje (opcional, por ejemplo una promoción)
@@ -65,10 +65,9 @@
         </label>
         <p class="meta">{meta.promo_clients} clientes con correo aceptaron promociones.</p>
       {/if}
-    </fieldset>
+    </FormSection>
 
-    <fieldset>
-      <legend>Reactivación</legend>
+    <FormSection title="Reactivación" description="Invitación a quien lleva tiempo sin venir.">
       <label class="check"><input type="checkbox" bind:checked={s.winback_enabled} /> Invitar a volver a quien lleva tiempo sin venir</label>
       {#if s.winback_enabled}
         <label class="field">Días sin venir antes de escribirles
@@ -79,10 +78,9 @@
         </label>
         <p class="meta">Se manda un solo correo por cada visita (no repite) y solo a quien no tenga una cita pendiente.</p>
       {/if}
-    </fieldset>
+    </FormSection>
 
-    <fieldset>
-      <legend>Encuesta de satisfacción</legend>
+    <FormSection title="Encuesta de satisfacción" description="Pregunta cómo les fue después de su cita.">
       <label class="check"><input type="checkbox" bind:checked={s.survey_enabled} /> Preguntar cómo les fue después de su cita</label>
       {#if s.survey_enabled}
         <label class="field">Horas después de la cita
@@ -94,40 +92,56 @@
         </label>
         <p class="meta">Máximo una encuesta por cliente por semana. {meta.survey_clients} clientes pueden recibirla.</p>
       {/if}
-    </fieldset>
+    </FormSection>
 
-    <div class="form-actions">
+    <div class="form-actions save">
       <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
-      {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}
+      {#if saved}<span class="meta" role="status">Guardado ✓</span>{/if}
     </div>
   </form>
 
-  <section style="margin-top: 1.5rem">
-    <h2 style="font-size: 1.25rem">Opiniones</h2>
+  <section class="opinions" aria-labelledby="op-h">
+    <div class="op-head">
+      <h2 id="op-h">Opiniones</h2>
+      {#if surveys.sent > 0}
+        <p class="meta">
+          {surveys.answered} de {surveys.sent} contestadas{#if surveys.average !== null} · promedio <b class="avg">{surveys.average.toFixed(1)}</b> de 5{/if}
+        </p>
+      {/if}
+    </div>
     {#if surveys.sent === 0}
-      <p class="empty">Aún no se envía ninguna encuesta.</p>
+      <EmptyState title="Aún no se envía ninguna encuesta." />
     {:else}
-      <p class="meta">
-        {surveys.answered} de {surveys.sent} contestadas{#if surveys.average !== null} · promedio <b>{surveys.average.toFixed(1)}</b> de 5{/if}
-      </p>
-      <div class="list">
+      <ul class="records">
         {#each surveys.items as it}
-          <div class="item-row">
-            <div class="grow">
-              <div class="title">{it.client} <span class="badge" class:muted={it.score < 4}>{'★'.repeat(it.score)}{'☆'.repeat(5 - it.score)}</span></div>
-              <div class="meta">{it.service} · {formatDate(it.answered_at)}</div>
-              {#if it.comment}<p style="margin: 0.35rem 0 0">{it.comment}</p>{/if}
+          <li>
+            <div class="row">
+              <strong>{it.client}</strong>
+              <StatusBadge label={`${it.score} de 5`} tone={it.score >= 4 ? 'success' : it.score === 3 ? 'warning' : 'danger'} />
             </div>
-          </div>
+            <div class="meta">{it.service} · {formatDate(it.answered_at)}</div>
+            {#if it.comment}<p class="comment">{it.comment}</p>{/if}
+          </li>
         {/each}
-      </div>
+      </ul>
     {/if}
   </section>
 {/if}
 
 <style>
-  fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem 1rem; margin: 1rem 0; display: grid; gap: 0.5rem; }
-  legend { padding: 0 6px; font-weight: 600; }
-  textarea { width: 100%; font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+  .gap { margin-bottom: 20px; }
+  .lead { margin: 0 0 24px; max-width: 70ch; }
+  textarea { width: 100%; font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
   .hint { color: var(--muted); font-size: 0.85rem; }
+  .save { align-items: center; padding-top: 24px; border-top: 1px solid var(--border); }
+  .opinions { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .op-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+  .op-head h2 { margin: 0; font-size: 1.05rem; }
+  .op-head p { margin: 0; }
+  .avg { font-variant-numeric: tabular-nums; color: var(--text); }
+  .records { list-style: none; margin: 8px 0 0; padding: 0; }
+  .records li { padding: 16px 0; border-top: 1px solid var(--border); }
+  .records li:first-child { border-top: 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .comment { margin: 6px 0 0; max-width: 70ch; overflow-wrap: anywhere; }
 </style>

@@ -2,6 +2,11 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import Icon from '$lib/Icon.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
   import { api } from '$lib/api.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
   import FinanceExpenses from '$lib/platform/FinanceExpenses.svelte';
@@ -45,37 +50,32 @@
     const t = new Date(m + '-15T12:00:00').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
     return t.charAt(0).toUpperCase() + t.slice(1);
   };
+  const TAB_OPTIONS = TABS.map(([value, label]) => ({ value, label }));
   const isCurrent = $derived(books && month === new Date().toISOString().slice(0, 7));
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Finanzas</h1>
-    <p>{books ? label(month) : 'Ingresos, pagos y gastos de la plataforma.'}</p>
-  </div>
-  {#if books && tab !== 'pagos'}
-    <div class="months" role="group" aria-label="Mes">
-      <button type="button" class="iconbtn" aria-label="Mes anterior" onclick={() => shift(-1)}><span class="flip"><Icon name="arrow" size={18} /></span></button>
-      <button type="button" class="iconbtn" aria-label="Mes siguiente" disabled={isCurrent} onclick={() => shift(1)}><Icon name="arrow" size={18} /></button>
-    </div>
-  {/if}
-</div>
+<PageHeader title="Finanzas" description={books ? label(month) : 'Ingresos, pagos y gastos de la plataforma.'}>
+  {#snippet actions()}
+    {#if books && tab !== 'pagos'}
+      <div class="months" role="group" aria-label="Mes">
+        <button type="button" class="iconbtn" aria-label="Mes anterior" onclick={() => shift(-1)}><span class="flip"><Icon name="arrow" size={18} /></span></button>
+        <button type="button" class="iconbtn" aria-label="Mes siguiente" disabled={isCurrent} onclick={() => shift(1)}><Icon name="arrow" size={18} /></button>
+      </div>
+    {/if}
+  {/snippet}
+</PageHeader>
 
 {#if !canWritePlatform()}
-  <p class="empty">Las finanzas las ve solo el administrador de la plataforma.</p>
+  <EmptyState title="Las finanzas las ve solo el administrador de la plataforma." />
 {:else}
-  <div class="chips" role="group" aria-label="Secciones de finanzas">
-    {#each TABS as [id, text]}
-      <button class="chip" aria-pressed={tab === id} onclick={() => setTab(id)}>{text}</button>
-    {/each}
-  </div>
+  <div class="tabs"><SegmentedControl label="Secciones de finanzas" value={tab} options={TAB_OPTIONS} onchange={setTab} /></div>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
 
   {#if tab === 'pagos'}
     <FinancePayments />
   {:else if loading && !books}
-    <p class="meta">Cargando números…</p>
+    <LoadingState label="Cargando números…" />
   {:else if books}
     <div class:busy={loading}>
       {#if tab === 'ingresos'}
@@ -88,9 +88,9 @@
 {/if}
 
 <style>
-  .meta { color: var(--muted); }
+  .tabs { margin-bottom: 1rem; }
   .months { display: flex; gap: 8px; }
-  .iconbtn { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; }
+  .iconbtn { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; }
   .iconbtn:disabled { opacity: 0.4; cursor: default; }
   .iconbtn:not(:disabled):hover { background: var(--surface-2); }
   .flip { display: grid; transform: rotate(180deg); }

@@ -1,6 +1,9 @@
 <script>
   import { onDestroy, onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { session } from '$lib/session.svelte.js';
@@ -65,15 +68,10 @@
   );
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Impresora y ticket</h1>
-    <p>Cómo sale el ticket en este dispositivo. Se guarda en este navegador.</p>
-  </div>
-</div>
+<PageHeader title="Impresora y ticket" description="Cómo sale el ticket en este dispositivo. Se guarda en este navegador." />
 
-<section class="card">
-  <h2>¿Dónde se imprime?</h2>
+<div class="stack">
+<Surface title="¿Dónde se imprime?">
   <div class="choices" role="radiogroup" aria-label="Dónde se imprime">
     {#each ROUTES as [id, label, desc]}
       <button class="choice" role="radio" aria-checked={printRoute.mode === id} onclick={() => chooseRoute(id)}>
@@ -87,11 +85,10 @@
     <p class="state" class:on={stationState.waiting && !stationState.error}><i></i>{stationLine}</p>
     {#if stationState.printed}<p class="meta">Tickets impresos en esta sesión: {stationState.printed}</p>{/if}
   {/if}
-</section>
+</Surface>
 
 {#if printRoute.mode !== 'remote'}
-  <section class="card">
-    <h2>Impresora de este dispositivo</h2>
+  <Surface title="Impresora de este dispositivo">
     <div class="choices modes" role="radiogroup" aria-label="Tipo de impresión">
       {#each MODES as m}
         <button class="choice" role="radio" aria-checked={printer.mode === m} disabled={m !== 'browser' && !support[m]} onclick={() => chooseMode(m)}>
@@ -130,17 +127,17 @@
         <button class="btn ghost" disabled={printer.busy} onclick={choosePrinter}><Icon name="printer" size={16} />{printer.deviceName ? 'Cambiar impresora' : 'Elegir impresora'}</button>
         <button class="btn" disabled={printer.busy} onclick={testPrint}>{printer.busy ? 'Imprimiendo…' : 'Imprimir prueba'}</button>
       </div>
-      {#if msg}<p class={failed ? 'error' : 'ok'} role="status">{msg}</p>{/if}
+      {#if msg}<InlineNotice tone={failed ? 'danger' : 'success'} message={msg} />{/if}
     {/if}
-  </section>
+  </Surface>
 {/if}
+</div>
 
 <style>
-  .card { margin-bottom: 1rem; }
-  h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+  .stack { display: grid; gap: 16px; }
   .choices { display: grid; gap: 8px; }
   .choices.modes { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .choice { display: grid; gap: 2px; padding: 0.75rem 1rem; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .choice { display: grid; min-height: 44px; gap: 2px; padding: 0.75rem 1rem; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
   .choice small { color: var(--muted); }
   .choice[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
   .choice:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -150,8 +147,7 @@
   .state.on i { background: var(--ok); }
   .row { display: flex; flex-wrap: wrap; gap: 12px; margin: 0.75rem 0; }
   .seg { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
-  .seg button { min-height: 36px; padding: 0 1rem; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; }
+  .seg button { min-height: 44px; padding: 0 1rem; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; }
   .seg button[aria-pressed='true'] { background: var(--accent); color: var(--accent-contrast); }
-  .check { display: flex; align-items: center; gap: 10px; margin: 0.75rem 0; font-size: 0.92rem; }
-  .ok { color: var(--ok); font-weight: 600; }
+  .check { min-height: 44px; display: flex; align-items: center; gap: 10px; margin: 0.75rem 0; font-size: 0.92rem; }
 </style>

@@ -1,5 +1,6 @@
 <script>
   import AuthLayout from '$lib/AuthLayout.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   let email = $state('');
   let error = $state('');
@@ -23,24 +24,28 @@
   }
 </script>
 
+<svelte:head><title>Recuperar contraseña · Barbella</title></svelte:head>
+
 <AuthLayout title="Recupera tu" accent="contraseña" subtitle="Te enviaremos un enlace para elegir una nueva.">
   {#if sent}
-    <div class="card" role="status">
-      <p><b>Revisa tu correo.</b></p>
-      <p class="meta">Si hay una cuenta con <b>{email.trim()}</b>, recibirás en su correo un enlace que vale 1 hora. Si no llega, revisa la carpeta de spam.</p>
-    </div>
+    <InlineNotice tone="success">
+      <b>Revisa tu correo.</b>
+      <span class="meta">Si hay una cuenta con <b>{email.trim()}</b>, recibirás en su correo un enlace que vale 1 hora. Si no llega, revisa la carpeta de spam.</span>
+    </InlineNotice>
+    <a class="btn ghost block lg back" href="/login">Volver a entrar</a>
   {:else}
     <form onsubmit={submit}>
-      <label class="field">Correo o usuario <input type="text" bind:value={email} autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required /></label>
+      <label class="field">Correo o usuario <input type="text" bind:value={email} placeholder="tu usuario o tu@correo.com" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required /></label>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       <button class="btn block lg" disabled={busy}>{busy ? 'Enviando…' : 'Enviar enlace'}</button>
     </form>
+    <a class="home" href="/login">← Volver a entrar</a>
   {/if}
-  <p class="alt"><a href="/login">Volver a entrar</a></p>
 </AuthLayout>
 
 <style>
-  .alt a { display: inline-block; padding: 10px 4px; }
-  .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.5rem 0 0; }
-  .meta { color: var(--muted); font-size: 0.9rem; }
+  .meta { display: block; margin-top: 4px; }
+  .back { margin-top: 1.25rem; }
+  .home { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 1rem; font-size: 0.88rem; font-weight: 500; color: var(--muted); text-decoration: none; }
+  .home:hover { color: var(--text); }
 </style>

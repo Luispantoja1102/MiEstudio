@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   // Calendario privado: tus citas aparecen en Google Calendar (u otro calendario) al suscribirte a esta dirección.
   // Es de un solo sentido: Barbella publica tus citas y nunca lee tu calendario.
@@ -43,7 +44,7 @@
   <h2>Calendario de citas {#if feed.enabled}<span class="badge">Activo</span>{:else}<span class="badge muted">Apagado</span>{/if}</h2>
   <p class="meta">Mira tus citas en Google Calendar, junto con el resto de tu día. Solo salen tus citas; Barbella nunca lee tu calendario.</p>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
 
   {#if !feed.enabled}
     <button class="btn" disabled={busy} onclick={() => send('enable', false)}>{busy ? 'Activando…' : 'Activar mi calendario'}</button>
@@ -74,9 +75,9 @@
 
 <style>
   .sec { margin-bottom: 1rem; }
-  h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 { font-size: 1.125rem; margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .row { display: flex; gap: 8px; align-items: center; }
   .row input { flex: 1; min-width: 0; margin: 0; font-size: 0.85rem; }
   .steps { margin: 0.5rem 0 1rem; padding-left: 1.2rem; display: grid; gap: 4px; font-size: 0.92rem; }
-  .check { display: flex; align-items: center; gap: 10px; margin: 0.75rem 0 0.25rem; font-size: 0.92rem; }
+  .check { min-height: 44px; display: flex; align-items: center; gap: 10px; margin: 0.75rem 0 0.25rem; font-size: 0.92rem; }
 </style>

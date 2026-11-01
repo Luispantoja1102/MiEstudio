@@ -18,8 +18,8 @@
 {/if}
 
 <style>
-  .tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 1.5rem; overflow-x: auto; background: var(--surface-2); border-radius: 999px; width: fit-content; max-width: 100%; }
-  a { display: inline-flex; align-items: center; min-height: 40px; white-space: nowrap; padding: 0 16px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
+  .tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 24px; overflow-x: auto; background: var(--surface-2); border-radius: var(--radius); width: fit-content; max-width: 100%; }
+  a { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; padding: 0 16px; border-radius: var(--radius-sm); color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: background-color var(--dur-ui) var(--ease), color var(--dur-ui) var(--ease); }
   a:hover { color: var(--text); }
-  a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+  a.on { background: var(--accent); color: var(--accent-contrast); font-weight: 600; }
 </style>

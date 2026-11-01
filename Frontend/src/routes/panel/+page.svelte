@@ -2,6 +2,14 @@
   import { onMount } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
   import Icon from '$lib/Icon.svelte';
+  import AppointmentSummary from '$lib/ui/AppointmentSummary.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import BarChart from '$lib/ui/BarChart.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { formatDay, money, plural } from '$lib/format.js';
@@ -20,6 +28,7 @@
   let staff = $state([]);
   let cash = $state(undefined); // undefined: aún no se sabe; null: caja cerrada
   let sales = $state(null); // { today, yesterday } solo administrador
+  let week = $state(null); // ventas por día, últimos 7 días (solo quien ve «Ventas de hoy»)
   let now = $state(Date.now());
 
   async function load() {
@@ -28,15 +37,17 @@
     const id = branches.id;
     if (!id) return (loading = false);
     try {
-      const [ag, c, st, sy] = await Promise.all([
+      const [ag, c, st, sy, wk] = await Promise.all([
         api('/api/agenda?' + new URLSearchParams({ branch_id: id, date: today })),
         sells ? api(`/api/cash/current?branch_id=${id}`).catch(() => null) : null,
         role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${today}&to=${today}&branch_id=${id}`).catch(() => null) : null,
-        role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${addDays(today, -1)}&to=${addDays(today, -1)}&branch_id=${id}`).catch(() => null) : null
+        role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${addDays(today, -1)}&to=${addDays(today, -1)}&branch_id=${id}`).catch(() => null) : null,
+        role === 'admin' && hasPos() ? api(`/api/reports/sales?from=${addDays(today, -6)}&to=${today}&branch_id=${id}`).catch(() => null) : null
       ]);
       staff = ag.staff;
       appts = ag.appointments.filter((a) => a.status !== 'cancelled' && (role !== 'staff' || a.staff_id === me.id));
       cash = sells ? (c?.session ?? null) : undefined;
+      week = wk?.by_day ?? null;
       sales = st && sy ? { today: st, yesterday: sy } : null;
     } catch (e) {
       error = e.message;
@@ -65,6 +76,25 @@
   const waiting = $derived(sorted.filter((a) => a.status === 'pending_payment').length);
   const toCharge = $derived(sorted.filter(late).length);
   const colorOf = (id) => `var(--p${(Math.max(0, staff.findIndex((s) => s.id === id)) % 6) + 1})`;
+  const chart = $derived.by(() => {
+    if (!week || !week.some((d) => d.total_cents > 0)) return [];
+    const byDate = Object.fromEntries(week.map((d) => [d.date, d.total_cents]));
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i - 6), v = byDate[date] ?? 0;
+      return { id: date, label: 'DLMMJVS'[new Date(date + 'T12:00:00').getDay()], value: v, formattedValue: '$' + Math.round(v / 100).toLocaleString('es-MX') };
+    });
+  });
+  const pendingAppts = $derived(sorted.filter((a) => a.status === 'pending_payment'));
+  const lateAppts = $derived(sorted.filter(late));
+  // estado de la fila: [texto, tono]; sin estado propio, la siguiente cita se rotula «Siguiente»
+  const statusOf = (a) =>
+    a.status === 'pending_payment' ? ['Espera anticipo', 'warning']
+    : a.status === 'completed' ? ['Cobrada', 'neutral']
+    : a.status === 'no_show' ? ['No asistió', 'neutral']
+    : late(a) ? ['Por cobrar', 'warning']
+    : a.deposit_status === 'paid' ? ['Anticipo pagado', 'success']
+    : next?.id === a.id ? ['Siguiente', 'accent']
+    : ['', 'neutral'];
 
   const diff = $derived.by(() => {
     if (!sales) return null;
@@ -75,146 +105,131 @@
   });
 </script>
 
-<div class="page-head hero-head">
-  <div>
-    <h1>Hola, <span class="who">{me.name}</span></h1>
-    <p>{longDate(today)}</p>
-  </div>
-  <div class="form-actions" style="margin: 0">
+<PageHeader title={`Hola, ${me.name}`} description={longDate(today)}>
+  {#snippet actions()}
     <BranchPicker onchange={load} />
     <a class="btn ghost" href="/panel/agenda"><Icon name="calendar" size={18} />Nueva cita</a>
     {#if sells}<a class="btn" href="/panel/ventas"><Icon name="receipt" size={18} />Cobrar</a>{/if}
-  </div>
-</div>
+  {/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
 
 {#if loading}
-  <p class="meta">Cargando…</p>
+  <LoadingState />
 {:else if !branches.id}
-  <div class="empty">No hay sucursales activas. Crea una en Ajustes para empezar a agendar.</div>
+  <EmptyState title="No hay sucursales activas" description="Crea una en Ajustes para empezar a agendar." />
 {:else}
-  <dl class="kpis" aria-label="Resumen del día">
-    <div class="kpi">
-      <dt>Citas por atender</dt>
-      <dd><b class="v">{upcoming.length}</b><span class="of">de {sorted.length}</span></dd>
-    </div>
+  <div class="metrics">
+    <MetricCard label="Citas por atender" value={upcoming.length} hint={`de ${plural(sorted.length, 'cita', 'citas')} hoy`} />
     {#if sales}
-      <div class="kpi">
-        <dt>Ventas de hoy</dt>
-        <dd><b class="v">{money(sales.today.collected_cents)}</b><span class="sub">{plural(sales.today.sales, 'venta', 'ventas')}{diff ? ` · ${diff}` : ''}</span></dd>
-      </div>
+      <MetricCard label="Ventas de hoy" value={money(sales.today.collected_cents)} hint={`${plural(sales.today.sales, 'venta', 'ventas')}${diff ? ` · ${diff}` : ''}`} />
     {/if}
     {#if sells}
-      <div class="kpi">
-        <dt>Caja</dt>
-        <dd>
-          {#if cash}<b class="v word">Abierta</b><span class="sub">efectivo esperado <b class="num">{money(cash.expected_cents)}</b></span>
-          {:else}<b class="v word">Cerrada</b><span class="sub"><a href="/panel/ventas">abrir caja</a></span>{/if}
-        </dd>
-      </div>
+      {#if cash}
+        <MetricCard label="Caja abierta" value={money(cash.expected_cents)} hint="Efectivo esperado" href="/panel/ventas" />
+      {:else}
+        <MetricCard label="Caja" value="Cerrada" hint="Abrir caja" href="/panel/ventas" />
+      {/if}
     {/if}
     {#if toCharge}
-      <div class="kpi alert">
-        <dt>Sin cobrar</dt>
-        <dd><b class="v">{toCharge}</b><span class="sub">{plural(toCharge, 'cita ya terminó', 'citas ya terminaron')}</span></dd>
-      </div>
+      <MetricCard label="Sin cobrar" value={toCharge} hint={plural(toCharge, 'cita ya terminó', 'citas ya terminaron')} />
     {/if}
     {#if waiting}
-      <div class="kpi alert">
-        <dt>Anticipos</dt>
-        <dd><b class="v">{waiting}</b><span class="sub">{plural(waiting, 'cita espera su anticipo', 'citas esperan su anticipo')}</span></dd>
-      </div>
+      <MetricCard label="Anticipos pendientes" value={waiting} hint={waiting === 1 ? 'cita espera su anticipo' : 'citas esperan su anticipo'} />
     {/if}
-  </dl>
+  </div>
 
   {#if me.business.status === 'trial' && me.business.trial_ends_at}
     <p class="banner">Prueba gratuita hasta el {formatDay(me.business.trial_ends_at)}.</p>
   {/if}
+  
+  <div class="today">
+    <Surface title={role === 'staff' ? 'Tu día' : 'Agenda de hoy'} padding="compact">
+      {#if sorted.length === 0}
+        <EmptyState title="Hoy no hay citas todavía">
+          {#snippet actions()}<a class="btn ghost" href="/panel/agenda">Agendar una cita</a>{/snippet}
+        </EmptyState>
+      {:else}
+        <ol class="slots">
+          {#each sorted as a (a.id)}
+            {@const st = statusOf(a)}
+            <li class:next={next?.id === a.id} class:done={a.status === 'completed' || a.status === 'no_show'}>
+              <AppointmentSummary
+                client={a.client_name}
+                service={a.service_name}
+                staff={a.staff_name}
+                color={colorOf(a.staff_id)}
+                compact
+                timeLabel={fmtTime(a.starts_at, tz)}
+                statusLabel={st[0]}
+                tone={st[1]}
+              >
+                {#snippet actions()}
+                  {#if sells && a.status === 'scheduled'}
+                    <a class="btn sm" class:ghost={next?.id !== a.id && !late(a)} href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>
+                  {/if}
+                {/snippet}
+              </AppointmentSummary>
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    </Surface>
 
-  <section class="card agenda" aria-labelledby="agenda-h">
-    <h2 id="agenda-h">{role === 'staff' ? 'Tu día' : 'Agenda de hoy'}</h2>
-    {#if sorted.length === 0}
-      <div class="empty">
-        Hoy no hay citas todavía.
-        <div style="margin-top: 0.75rem"><a class="btn ghost" href="/panel/agenda">Agendar una cita</a></div>
-      </div>
-    {:else}
-      <ol class="slots">
-        {#each sorted as a (a.id)}
-          <li class:next={next?.id === a.id} class:done={a.status === 'completed' || a.status === 'no_show'} style:--c={colorOf(a.staff_id)}>
-            <time class="when" datetime={a.starts_at}>{fmtTime(a.starts_at, tz)}</time>
-            <div class="what">
-              <b>{a.client_name}</b>
-              <span class="meta">{a.service_name} · <i class="dot" style:background={colorOf(a.staff_id)}></i>{a.staff_name}</span>
-              <span class="tags">
-                {#if next?.id === a.id}<span class="badge gold">Siguiente</span>{/if}
-                {#if a.status === 'pending_payment'}<span class="badge clay">Espera anticipo</span>
-                {:else if a.status === 'completed'}<span class="badge muted">Cobrada</span>
-                {:else if a.status === 'no_show'}<span class="badge muted">No asistió</span>
-                {:else if late(a)}<span class="badge clay">Por cobrar</span>
-                {:else if a.deposit_status === 'paid'}<span class="badge">Anticipo pagado</span>{/if}
-              </span>
-            </div>
-            {#if sells && a.status === 'scheduled'}
-              <a class="btn sm" class:ghost={next?.id !== a.id && !late(a)} href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>
-            {/if}
-          </li>
-        {/each}
-      </ol>
-    {/if}
-  </section>
+    <aside aria-label="Resumen del día">
+      <Surface title="Por resolver" padding="compact">
+        {#if lateAppts.length === 0 && pendingAppts.length === 0}
+          <p class="quiet">Nada pendiente por ahora.</p>
+        {/if}
+        {#if lateAppts.length}
+          <h3>Sin cobrar · {lateAppts.length}</h3>
+          <p class="quiet">{plural(toCharge, 'cita ya terminó', 'citas ya terminaron')}.</p>
+          <ul>
+            {#each lateAppts as a (a.id)}
+              <li><span>{fmtTime(a.starts_at, tz)} · {a.client_name}</span>{#if sells}<a href={`/panel/ventas?cita=${a.id}`}>Cobrar</a>{/if}</li>
+            {/each}
+          </ul>
+        {/if}
+        {#if pendingAppts.length}
+          <h3>Esperan anticipo · {pendingAppts.length}</h3>
+          <ul>
+            {#each pendingAppts as a (a.id)}
+              <li><span>{fmtTime(a.starts_at, tz)} · {a.client_name}</span></li>
+            {/each}
+          </ul>
+        {/if}
+      </Surface>
+      {#if chart.length}
+        <Surface title="Ventas de los últimos 7 días" padding="compact">
+          <BarChart label="Ventas de los últimos 7 días" items={chart} selectedId={today} />
+        </Surface>
+      {/if}
+    </aside>
+  </div>
 {/if}
 
 <style>
-  h2 { font-size: 1.35rem; margin-bottom: 0.9rem; }
-  .agenda { padding: 1.5rem; }
+  .metrics { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 20px; }
+  .today { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 1000px) { .today { grid-template-columns: minmax(0, 1fr) 320px; } }
 
-  .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .slots li {
-    display: grid;
-    grid-template-columns: 4.2rem 1fr auto;
-    align-items: center;
-    gap: 6px 22px;
-    padding: 1.1rem 1.4rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    animation: in 260ms var(--ease) both;
-  }
-  .slots li:nth-child(2) { animation-delay: 40ms; }
-  .slots li:nth-child(3) { animation-delay: 80ms; }
-  .slots li:nth-child(n + 4) { animation-delay: 120ms; }
-  .slots li.next { background: var(--marigold-soft); border-color: var(--marigold); }
-  .slots li.done { opacity: 0.7; }
-  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .slots { list-style: none; margin: 0; padding: 0; }
+  .slots li { padding: 0 8px; border-left: 3px solid transparent; border-bottom: 1px solid var(--border); }
+  .slots li:last-child { border-bottom: 0; }
+  .slots li :global(.appt) { border-bottom: 0; }
+  .slots li.next { border-left-color: var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding-left: 12px; }
+  .slots li.done :global(.who strong) { color: var(--muted); font-weight: 600; }
 
-  .when { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
-  .what { display: grid; min-width: 0; line-height: 1.35; }
-  .what .meta { font-size: 0.88rem; color: var(--muted); }
-  .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: baseline; }
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tags:empty { display: none; }
-  .tags:not(:empty) { margin-top: 4px; }
-  @media (max-width: 560px) {
-    .agenda { padding: 1rem; }
-    .slots li { grid-template-columns: 3.4rem 1fr auto; gap: 6px 10px; padding: 0.8rem; }
-  }
-
-  /* Día y Noche: saludo sobre la franja oscura de la barra (ver Shell), franja de color por profesional y horas grandes */
-  :global(:root[data-theme='dark']) .hero-head { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); --surface-2: rgba(236, 233, 226, 0.1); color: var(--text); }
-  :global(:root[data-theme='light']) .who { color: var(--accent); }
-  :global(:root[data-theme='dark']) .who { color: #ee8a7c; }
-  :global(:root[data-theme='light']) .slots li,
-  :global(:root[data-theme='dark']) .slots li { position: relative; overflow: hidden; grid-template-columns: 5rem 1fr auto; padding-left: 1.7rem; }
-  :global(:root[data-theme='light']) .slots li::before,
-  :global(:root[data-theme='dark']) .slots li::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--c); }
-  :global(:root[data-theme='light']) .when,
-  :global(:root[data-theme='dark']) .when { font-size: 1.7rem; line-height: 1; }
-  @media (max-width: 560px) {
-    :global(:root[data-theme='light']) .slots li,
-    :global(:root[data-theme='dark']) .slots li { grid-template-columns: 4rem 1fr auto; padding-left: 1.3rem; }
-    :global(:root[data-theme='light']) .when,
-    :global(:root[data-theme='dark']) .when { font-size: 1.45rem; }
-  }
+  aside { display: grid; gap: 20px; }
+  @media (max-width: 480px) { .metrics :global(.value) { font-size: 1.5rem; } }
+  aside :global(.chart) { gap: 4px; }
+  aside :global(.chart .val) { font-size: 0.68rem; letter-spacing: -0.02em; }
+  aside h3 { margin: 16px 0 4px; font-size: 0.95rem; }
+  aside h3:first-child { margin-top: 0; }
+  .quiet { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+  aside ul { list-style: none; margin: 0; padding: 0; }
+  aside li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-top: 1px solid var(--border); font-size: 0.92rem; }
+  aside li:first-child { border-top: 0; }
+  aside li a { font-weight: 600; }
 </style>

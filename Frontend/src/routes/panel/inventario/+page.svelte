@@ -1,14 +1,24 @@
 <script>
   import { onMount } from 'svelte';
   import Modal from '$lib/Modal.svelte';
-  import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { formatDate, money, toCents, toPesos } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import FilterBar from '$lib/ui/FilterBar.svelte';
+  import SearchField from '$lib/ui/SearchField.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
 
   const admin = session.me.role === 'admin';
   const REASON = { initial: 'Existencia inicial', purchase: 'Compra', sale: 'Venta', void: 'Venta cancelada', adjustment: 'Ajuste', loss: 'Pérdida o merma' };
-  const STATE = { out: ['Agotado', 'bad'], low: ['Poco stock', 'warn'], ok: ['', ''], off: ['Inactivo', 'muted'] };
+  const STATE = { out: ['Agotado', 'danger'], low: ['Poco stock', 'warning'], ok: ['Disponible', 'success'], off: ['Inactivo', 'neutral'] };
   const EMPTY = { name: '', price: '', cost: '', stock: 0, min: 0, barcode: '' };
 
   let products = $state([]);
@@ -148,97 +158,102 @@
       error = err.message;
     }
   }
+
+  const columns = $derived([
+    { key: 'name', label: 'Producto' },
+    { key: 'price', label: 'Precio', numeric: true },
+    { key: 'stock', label: 'Existencia' },
+    { key: 'status', label: 'Estado' },
+    ...(admin ? [{ key: 'value', label: 'Valor', numeric: true }, { key: 'actions', label: 'Acciones' }] : [])
+  ]);
+  const filters = $derived([
+    { value: 'all', label: 'Todos' },
+    { value: 'out', label: `Agotados (${counts.out})` },
+    { value: 'low', label: `Poco stock (${counts.low})` }
+  ]);
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Inventario</h1>
-    <p>{headline}</p>
-  </div>
-  {#if admin}<button class="btn" onclick={startNew}>Nuevo producto</button>{/if}
-</div>
+<PageHeader title="Inventario" description={headline}>
+  {#snippet actions()}
+    {#if admin}<button class="btn" onclick={startNew}>Nuevo producto</button>{/if}
+  {/snippet}
+</PageHeader>
 
-{#if error && !stockOpen && !formOpen}<p class="error" role="alert">{error}</p>{/if}
+{#if error && !stockOpen && !formOpen}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
+{/if}
 
 {#if loading}
-  <p class="meta">Cargando…</p>
+  <Surface padding="flush"><LoadingState /></Surface>
 {:else if products.length === 0}
-  <div class="empty">Todavía no hay productos.{#if admin} Agrega el primero con «Nuevo producto».{/if}</div>
+  <Surface padding="flush">
+    <EmptyState title="Todavía no hay productos" description={admin ? 'Agrega el primero con «Nuevo producto».' : ''}>
+      {#snippet actions()}{#if admin}<button class="btn" onclick={startNew}>Nuevo producto</button>{/if}{/snippet}
+    </EmptyState>
+  </Surface>
 {:else}
-  <div class="kpis inv" role="group" aria-label="Resumen del inventario">
-    <button class="kpi pick" class:on={filter === 'all'} aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>
-      <span class="lbl">Productos</span>
-      <span class="v">{live.length}</span>
-      <span class="sub">{counts.withStock} con existencia</span>
-    </button>
-    <button class="kpi pick bad" class:on={filter === 'out'} aria-pressed={filter === 'out'} onclick={() => (filter = filter === 'out' ? 'all' : 'out')}>
-      <span class="lbl">Agotados</span>
-      <span class="v">{counts.out}</span>
-      <span class="sub">sin existencia</span>
-    </button>
-    <button class="kpi pick warn" class:on={filter === 'low'} aria-pressed={filter === 'low'} onclick={() => (filter = filter === 'low' ? 'all' : 'low')}>
-      <span class="lbl">Poco stock</span>
-      <span class="v">{counts.low}</span>
-      <span class="sub">en o bajo su mínimo</span>
-    </button>
-    {#if admin}
-      <div class="kpi">
-        <span class="lbl">Valor en anaquel</span>
-        <span class="v">{money(stockValue.total)}</span>
-        <span class="sub">{stockValue.missing ? `${stockValue.missing} sin costo` : 'a precio de costo'}</span>
-      </div>
-    {/if}
+  <div class="kpis" role="group" aria-label="Resumen del inventario">
+    <MetricCard label="Productos" value={live.length} hint="{counts.withStock} con existencia" />
+    <MetricCard label="Agotados" value={counts.out} hint="sin existencia" />
+    <MetricCard label="Poco stock" value={counts.low} hint="en o bajo su mínimo" />
+    {#if admin}<MetricCard label="Valor en anaquel" value={money(stockValue.total)} hint={stockValue.missing ? `${stockValue.missing} sin costo` : 'a precio de costo'} />{/if}
   </div>
 
-  <div class="tools">
-    <label class="search">
-      <Icon name="search" size={17} />
-      <input type="search" placeholder="Buscar producto o código" aria-label="Buscar producto o código" bind:value={query} />
+  <FilterBar label="Filtrar inventario">
+    <SegmentedControl bind:value={filter} options={filters} label="Mostrar" />
+    <SearchField bind:value={query} label="Buscar producto o código" placeholder="Buscar producto o código" />
+    <label class="sort"><span class="sr-only">Ordenar</span>
+      <select bind:value={sort} aria-label="Ordenar">
+        <option value="urgent">Lo que falta</option>
+        <option value="name">A–Z</option>
+        {#if admin}<option value="value">Más dinero</option>{/if}
+      </select>
     </label>
-    <select bind:value={sort} aria-label="Ordenar">
-      <option value="urgent">Lo que falta</option>
-      <option value="name">A–Z</option>
-      {#if admin}<option value="value">Más dinero</option>{/if}
-    </select>
-  </div>
+  </FilterBar>
 
-  {#if shown.length}
-    <ul class="stock-list">
-      {#each shown.slice(0, limit) as p (p.id)}
-        <li class="stock-row {p.state}">
-          <div class="st-main">
-            <strong>{p.name}</strong>
-            <small>{money(p.price_cents)}{p.barcode ? ` · ${p.barcode}` : ''}</small>
-          </div>
-          <div class="st-level" title={`Existencia ${p.stock} · mínimo ${p.min_stock}`}>
-            <div class="st-num"><b>{p.stock}</b><small>{p.min_stock ? `mín. ${p.min_stock}` : 'sin mínimo'}</small></div>
-            <div class="st-meter" aria-hidden="true">
-              <i style:width="{p.fill}%"></i>
-              {#if p.min_stock}<span style:left="{p.minPos}%"></span>{/if}
-            </div>
-          </div>
-          {#if STATE[p.state][0]}<span class="badge {STATE[p.state][1]}">{STATE[p.state][0]}</span>{/if}
-          {#if admin}
-            <b class="st-value">{p.cost_cents ? money(p.value) : '—'}</b>
-            <div class="st-acts">
-              <button class="btn ghost sm" aria-label={`Ajustar existencia de ${p.name}`} onclick={() => openStock(p)}>Existencia</button>
-              <button class="btn ghost sm" aria-label={`Editar ${p.name}`} onclick={() => startEdit(p)}>Editar</button>
-              <button class="btn ghost sm" onclick={() => toggle(p)}>{p.active ? 'Desactivar' : 'Activar'}</button>
-            </div>
+  <Surface padding="flush">
+    {#if shown.length}
+      <DataTable caption="Productos y existencias" {columns} rows={shown.slice(0, limit)}>
+        {#snippet cell({ row, column })}
+          {#if column.key === 'name'}
+            <span class="name" class:off={!row.active}>{row.name}</span>
+            {#if row.barcode}<small class="code">{row.barcode}</small>{/if}
+          {:else if column.key === 'price'}
+            {money(row.price_cents)}
+            {#if row.cost_cents !== undefined}<small class="code">costo {money(row.cost_cents)}</small>{/if}
+          {:else if column.key === 'stock'}
+            <span class="lvl" title={`Existencia ${row.stock} · mínimo ${row.min_stock}`}>
+              <span class="num"><b class="qty" class:out={row.state === 'out'} class:low={row.state === 'low'}>{row.stock}</b><small>{row.min_stock ? `mín. ${row.min_stock}` : 'sin mínimo'}</small></span>
+              <span class="meter" class:out={row.state === 'out'} class:low={row.state === 'low'} aria-hidden="true">
+                <i style:width="{row.fill}%"></i>
+                {#if row.min_stock}<em style:left="{row.minPos}%"></em>{/if}
+              </span>
+            </span>
+          {:else if column.key === 'status'}
+            <StatusBadge label={STATE[row.state][0]} tone={STATE[row.state][1]} />
+          {:else if column.key === 'value'}
+            {row.cost_cents ? money(row.value) : '—'}
+          {:else}
+            <span class="acts">
+              <button class="lnk" aria-label={`Ajustar existencia de ${row.name}`} onclick={() => openStock(row)}>Existencia</button>
+              <button class="lnk" aria-label={`Editar ${row.name}`} onclick={() => startEdit(row)}>Editar</button>
+              <button class="lnk quiet" onclick={() => toggle(row)}>{row.active ? 'Desactivar' : 'Activar'}</button>
+            </span>
           {/if}
-        </li>
-      {/each}
-    </ul>
-    {#if shown.length > limit}
-      <p style="text-align: center"><button class="btn ghost sm" onclick={() => (limit += 60)}>Ver {Math.min(60, shown.length - limit)} más</button></p>
+        {/snippet}
+      </DataTable>
+      {#if shown.length > limit}
+        <p class="more"><button class="btn ghost sm" onclick={() => (limit += 60)}>Ver {Math.min(60, shown.length - limit)} más</button></p>
+      {/if}
+    {:else}
+      <EmptyState title="Nada coincide" description="Prueba con otra búsqueda o quita el filtro." />
     {/if}
-  {:else}
-    <div class="empty">Nada coincide. Prueba con otra búsqueda o quita el filtro.</div>
-  {/if}
+  </Surface>
 {/if}
 
 <Modal bind:open={formOpen} title={editing === null ? 'Nuevo producto' : 'Editar producto'}>
   <form onsubmit={save}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={form.name} required /></label>
       <label class="field">Precio de venta (MXN) <input inputmode="decimal" bind:value={form.price} placeholder="120.00" required /></label>
@@ -249,18 +264,17 @@
       <label class="field">Existencia mínima <input type="number" min="0" step="1" bind:value={form.min} /><span class="hint">Avisa «poco stock» cuando llegue a esta cantidad. 0 = sin aviso.</span></label>
       <label class="field">Código de barras <input bind:value={form.barcode} maxlength="64" autocomplete="off" placeholder="Opcional" /><span class="hint">Con un lector, escanéalo en Cobrar para agregarlo al ticket.</span></label>
     </div>
-    {#if editing !== null}<p class="meta">Para cambiar la existencia usa «Existencia» en la lista.</p>{/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+    {#if editing !== null}<p class="hint">Para cambiar la existencia usa «Existencia» en la lista.</p>{/if}
+    <div class="actions">
       <button type="button" class="btn ghost" onclick={() => (formOpen = false)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
     </div>
   </form>
 </Modal>
 
 <Modal bind:open={stockOpen} title={target ? `Existencia · ${target.name}` : 'Existencia'}>
   {#if target}
-    <p class="meta">Ahora hay <b>{target.stock}</b> piezas{#if target.min_stock} · mínimo {target.min_stock}{/if}.</p>
+    <p class="now">Ahora hay <b>{target.stock}</b> {target.stock === 1 ? 'pieza' : 'piezas'}{#if target.min_stock} · mínimo {target.min_stock}{/if}.</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <form onsubmit={adjust}>
       <div class="form-grid">
@@ -273,65 +287,65 @@
           </select>
         </label>
         <label class="field">Piezas <input type="number" min="1" step="1" bind:value={adj.qty} required /></label>
-        <label class="field">Nota <input bind:value={adj.note} maxlength="300" placeholder="Opcional" /></label>
+        <label class="field">Motivo o nota <input bind:value={adj.note} maxlength="300" placeholder="Opcional" /></label>
       </div>
-      <button class="btn">Registrar</button>
+      <div class="actions"><button class="btn">Registrar</button></div>
     </form>
-    <h3 style="font-size: 1.1rem; margin: 1.5rem 0 0.5rem">Historial</h3>
-    <div class="list" style="max-height: 260px; overflow-y: auto">
+    <h3>Historial</h3>
+    <ul class="hist">
       {#each movements as m (m.id)}
-        <div class="item-row">
-          <span class="grow">{REASON[m.reason]}<small class="meta">{' · '}{m.by || 'Sistema'}{m.note ? ' · ' + m.note : ''}</small><br /><small class="meta">{formatDate(m.created_at)}</small></span>
-          <b style="color: {m.delta > 0 ? 'var(--accent)' : 'var(--danger)'}">{m.delta > 0 ? '+' : ''}{m.delta}</b>
-          <small class="meta">saldo {m.balance}</small>
-        </div>
-      {:else}<p class="meta">Sin movimientos.</p>{/each}
-    </div>
+        <li>
+          <div class="what">
+            <span>{REASON[m.reason]}</span>
+            <small>{formatDate(m.created_at)} · {m.by || 'Sistema'}{m.note ? ' · ' + m.note : ''}</small>
+          </div>
+          <b class="delta" class:plus={m.delta > 0} class:minus={m.delta < 0}>{m.delta > 0 ? '+' : ''}{m.delta}</b>
+          <small class="bal">saldo {m.balance}</small>
+        </li>
+      {:else}<li class="none">Sin movimientos.</li>{/each}
+    </ul>
   {/if}
 </Modal>
 
 <style>
-  /* tarjetas de cifras que también filtran la lista */
-  .kpi.pick { text-align: left; font: inherit; cursor: pointer; transition: border-color var(--dur-ui) var(--ease), background-color var(--dur-ui) var(--ease); }
-  .kpi.pick:hover { border-color: var(--muted); }
-  .kpi.pick.on { border-color: var(--accent); background: var(--accent-soft); }
-  .kpis.inv { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .kpi > span { display: block; }
-  .kpi.bad .v { color: var(--danger); }
-  .kpi.warn .v { color: var(--clay); }
-
-  .tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem; }
-  .search { display: flex; flex: 1 1 240px; align-items: center; gap: 8px; padding: 0 0.75rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-  .search:focus-within { border-color: var(--accent); }
-  .search input[type='search'], .search input[type='search']:hover, .search input[type='search']:focus { flex: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; }
-  .tools select { width: auto; min-width: 150px; margin: 0; }
-
-  .stock-list { container-type: inline-size; list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .stock-row {
-    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(150px, 1fr) auto auto auto; align-items: center; gap: 8px 16px;
-    padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  }
-  .stock-row.off { opacity: 0.6; }
-  .stock-row.out { border-left: 4px solid var(--danger); }
-  .stock-row.low { border-left: 4px solid var(--clay); }
-  .st-main { display: grid; min-width: 0; }
-  .st-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .st-main small, .st-num small { color: var(--muted); }
-  .st-level { display: grid; gap: 6px; }
-  .st-num { display: flex; align-items: baseline; gap: 8px; }
-  .st-num b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
-  .st-meter { position: relative; height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
-  .st-meter i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ok); }
-  .out .st-meter i { background: var(--danger); }
-  .low .st-meter i { background: var(--clay); }
-  .st-meter span { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: 0.6; }
-  .st-value { font-variant-numeric: tabular-nums; min-width: 4.5rem; text-align: right; }
-  .st-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  /* en espacios angostos cada fila baja a dos líneas: nombre y estado arriba, nivel y botones abajo */
-  @container (max-width: 820px) {
-    .stock-row { grid-template-columns: minmax(0, 1fr) auto auto; }
-    .st-level { grid-column: 1 / -1; grid-row: 2; }
-    .st-acts { grid-column: 1 / -1; justify-content: flex-start; }
-    .st-value { min-width: 0; }
-  }
+  .notice { margin-bottom: 16px; }
+  .name { display: inline-block; min-width: 150px; font-weight: 600; }
+  :global(.search input[type='search']) { padding-left: 38px !important; }
+  .name.off { color: var(--muted); }
+  .code { display: block; color: var(--muted); font-size: 0.8rem; }
+  .sort select { width: auto; min-width: 150px; margin: 0; min-height: 44px; }
+  .more { margin: 0; padding: 12px; text-align: center; border-top: 1px solid var(--border); }
+  .lvl { display: grid; gap: 6px; min-width: 110px; }
+  .num { display: flex; align-items: baseline; justify-content: flex-start; gap: 8px; }
+  .qty { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  .qty.out { color: var(--danger); }
+  .qty.low { color: var(--clay); }
+  .num small { color: var(--muted); font-size: 0.8rem; }
+  .meter { position: relative; display: block; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .meter i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ok); }
+  .meter.out i { background: var(--danger); }
+  .meter.low i { background: var(--clay); }
+  .meter em { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: 0.6; }
+  .acts { display: inline-flex; flex-wrap: nowrap; gap: 0 4px; justify-content: flex-end; }
+  @media (max-width: 1100px) and (min-width: 641px) { .acts { flex-direction: column; align-items: flex-end; gap: 0; } }
+  @media (max-width: 640px) { .lvl { min-width: 0; width: 55%; } .name { min-width: 0; } .acts { justify-content: flex-start; flex-wrap: wrap; } }
+  .lnk { min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--accent); cursor: pointer; border-radius: var(--radius-xs); white-space: nowrap; }
+  .lnk:hover { background: var(--accent-soft); }
+  .lnk.quiet { color: var(--muted); }
+  .hint { margin: 4px 0 0; color: var(--muted); font-size: 0.88rem; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .now { margin: 0 0 12px; color: var(--muted); }
+  .now b { color: var(--text); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  h3 { margin: 24px 0 8px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 1rem; }
+  .hist { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; }
+  .hist li { display: grid; grid-template-columns: 1fr auto 4.5rem; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .hist li:last-child { border-bottom: 0; }
+  .what { display: grid; gap: 2px; min-width: 0; }
+  .what small, .bal { color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+  .bal { text-align: right; font-variant-numeric: tabular-nums; }
+  .delta { font-variant-numeric: tabular-nums; }
+  .delta.plus { color: var(--success); }
+  .delta.minus { color: var(--danger); }
+  .hist .none { display: block; color: var(--muted); }
+  @media (max-width: 640px) { .kpis :global(.value) { font-size: 1.4rem; white-space: nowrap; } }
 </style>

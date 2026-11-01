@@ -1,5 +1,9 @@
 <script>
   import { api } from '$lib/api.js';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
 
   // Ocupación: cuánto del tiempo que tu equipo tiene disponible está agendado, quién tiene más lugar y cuándo se llena.
   let { from, to, branch = 0 } = $props();
@@ -38,22 +42,21 @@
   const busiest = $derived(r?.heat.length ? r.heat.reduce((a, b) => (b.count > a.count ? b : a)) : null);
 </script>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
 
 {#if r}
-  <div class:dim={loading}>
+  <div class="wrap" class:dim={loading}>
     {#if noHours}
-      <div class="empty">Aún no hay horarios cargados. Define el horario de cada persona en <a href="/panel/equipo">Equipo</a> para calcular la ocupación.</div>
+      <InlineNotice tone="warning">Aún no hay horarios cargados. Define el horario de cada persona en <a href="/panel/equipo">Equipo</a> para calcular la ocupación.</InlineNotice>
     {:else}
       <div class="kpis">
-        <div class="card"><span class="label">Ocupación</span><span class="value">{pctText(r.occupancy_pct)}</span><small>{hours(r.booked_min)} agendadas de {hours(r.available_min)} disponibles</small></div>
-        <div class="card"><span class="label">Citas</span><span class="value">{r.appointments}</span><small>agendadas y terminadas</small></div>
-        <div class="card"><span class="label">No llegaron</span><span class="value">{r.no_shows}</span><small>{r.no_show_pct == null ? 'Sin citas' : `${pctText(r.no_show_pct)} de las citas`}</small></div>
-        <div class="card"><span class="label">Canceladas</span><span class="value">{r.cancelled}</span><small>en el periodo</small></div>
+        <MetricCard label="Ocupación" value={pctText(r.occupancy_pct)} hint={`${hours(r.booked_min)} agendadas de ${hours(r.available_min)} disponibles`} />
+        <MetricCard label="Citas" value={r.appointments} hint={`agendadas y terminadas`} />
+        <MetricCard label="No llegaron" value={r.no_shows} hint={r.no_show_pct == null ? 'Sin citas' : `${pctText(r.no_show_pct)} de las citas`} />
+        <MetricCard label="Canceladas" value={r.cancelled} hint={`en el periodo`} />
       </div>
 
-      <section>
-        <h2>Por persona</h2>
+      <Surface title="Por persona">
         <div class="bars">
           {#each r.staff as s (s.staff_id)}
             {@const v = pct(s.booked_min, s.available_min)}
@@ -65,10 +68,9 @@
             </div>
           {/each}
         </div>
-      </section>
+      </Surface>
 
-      <section>
-        <h2>Por día de la semana</h2>
+      <Surface title="Por día de la semana">
         <div class="week" role="img" aria-label="Ocupación por día de la semana">
           {#each ORDER as wd}
             {@const d = r.by_weekday[wd]}
@@ -81,10 +83,9 @@
           {/each}
         </div>
         <p class="meta">Los días con poca ocupación son buenos para promociones; los llenos, para subir precios o abrir más lugares.</p>
-      </section>
+      </Surface>
 
-      <section>
-        <h2>Horas pico</h2>
+      <Surface title="Horas pico">
         {#if hourRange.length}
           <div class="heat" style="grid-template-columns: 3.2rem repeat({hourRange.length}, minmax(0, 1fr))" role="img" aria-label="Citas por día y hora">
             <span></span>
@@ -101,20 +102,18 @@
         {:else}
           <p class="meta">Todavía no hay citas en este periodo.</p>
         {/if}
-      </section>
+      </Surface>
     {/if}
   </div>
 {/if}
 
 <style>
   .dim { opacity: 0.6; transition: opacity 0.2s; }
-  .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .kpis .card { display: grid; gap: 2px; }
-  .label { color: var(--muted); font-size: 0.9rem; }
-  .value { font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.9rem; line-height: 1.15; }
+  .kpis { margin: 0 0 1rem; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .meta { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.9rem; }
   small { color: var(--muted); }
-  section { margin-top: 2rem; }
-  section h2 { font-size: 1.35rem; }
+  .wrap { display: grid; gap: 16px; }
+  .wrap > :global(.kpis) { margin: 0; }
   .bars { display: grid; gap: 12px; }
   .bar-row { display: grid; grid-template-columns: minmax(80px, 160px) 1fr 56px; align-items: center; gap: 4px 12px; font-variant-numeric: tabular-nums; }
   .bar-row small { grid-column: 2 / -1; }

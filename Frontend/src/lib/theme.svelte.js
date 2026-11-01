@@ -19,10 +19,12 @@ function apply(name) {
 
 export const theme = $state({ name: 'light', light: 'light', forced: false });
 
+// El panel, el acceso y la plataforma son siempre claros: la elección personal de tema se retiró.
+// Solo las páginas públicas de un negocio pueden fijar otro tema (forceTheme) y lo deshacen al salir.
 export function initTheme() {
-  theme.light = LIGHT_THEMES.includes(stored(LIGHT_KEY)) ? stored(LIGHT_KEY) : 'light';
-  theme.name = stored() ?? document.documentElement.dataset.theme ?? theme.light;
-  apply(theme.name);
+  theme.light = 'light';
+  theme.name = 'light';
+  apply('light');
 }
 
 // Se recuerda la elección en este navegador.

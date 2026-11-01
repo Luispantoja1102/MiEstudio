@@ -1,6 +1,7 @@
 <script>
   import { api } from '$lib/api.js';
   import { fmtTime } from '$lib/time.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   // Muestra los horarios libres de un servicio, agrupados por profesional.
   let { branchId, serviceId, date, staffId = '', tz, selected = null, onpick } = $props();
@@ -31,7 +32,7 @@
   {#if loading}
     <p class="meta">Buscando horarios…</p>
   {:else if error}
-    <p class="error" role="alert">{error}</p>
+    <InlineNotice tone="danger" message={error} />
   {:else if staff.length === 0}
     <p class="meta">No hay horarios disponibles ese día. Prueba con otra fecha o profesional.</p>
   {:else}
@@ -54,7 +55,9 @@
 </div>
 
 <style>
-  .group { margin-bottom: 0.9rem; }
-  .group strong { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; }
-  .chips { margin-bottom: 0; max-height: 150px; overflow-y: auto; }
+  .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .group { padding: 12px 0; border-top: 1px solid var(--border); }
+  .group:first-child { border-top: 0; padding-top: 0; }
+  .group strong { display: block; margin-bottom: 8px; font-size: 0.9rem; }
+  .chips { margin-bottom: 0; max-height: 156px; overflow-y: auto; font-variant-numeric: tabular-nums lining-nums; }
 </style>

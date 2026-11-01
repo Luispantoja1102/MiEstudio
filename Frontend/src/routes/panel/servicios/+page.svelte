@@ -2,6 +2,17 @@
   import { onMount } from 'svelte';
   import Modal from '$lib/Modal.svelte';
   import Icon from '$lib/Icon.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import FilterBar from '$lib/ui/FilterBar.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import SearchField from '$lib/ui/SearchField.svelte';
   import { api } from '$lib/api.js';
   import { money, plural, toCents, toPesos } from '$lib/format.js';
   import { hasPos, session } from '$lib/session.svelte.js';
@@ -52,6 +63,7 @@
     packages = await api('/api/packages' + (admin ? '?all=1' : ''));
   }
   function startPkg(k) {
+    error = '';
     pkg = k ? { name: k.name, service_id: k.service_id, sessions: k.sessions, price: toPesos(k.price_cents), valid_days: k.valid_days ?? '' } : blankPkg();
     pkgForm = k ? k.id : 'new';
   }
@@ -113,6 +125,32 @@
   );
   const allSelected = $derived(rows.length > 0 && rows.every((s) => selected.has(s.id)));
   const duration = (s) => `${s.duration_min} min${s.buffer_min ? ` + ${s.buffer_min}` : ''}`;
+  const catOptions = $derived([
+    { value: 'all', label: `Todas · ${services.length}` },
+    ...categories.map((c) => ({ value: c.id, label: `${c.name} · ${c.count}` })),
+    ...(noCat && categories.length ? [{ value: 'none', label: `Sin categoría · ${noCat}` }] : [])
+  ]);
+  const statusOptions = $derived([
+    { value: 'all', label: `Todos · ${services.length}` },
+    { value: 'active', label: `Activos · ${active.length}` },
+    { value: 'off', label: `Inactivos · ${services.length - active.length}` }
+  ]);
+  const svcCols = $derived([
+    { key: 'name', label: 'Servicio' },
+    { key: 'cat', label: 'Categoría' },
+    { key: 'duration', label: 'Duración + preparación', numeric: true },
+    { key: 'price', label: 'Precio', numeric: true },
+    { key: 'state', label: 'Estado' },
+    ...(admin ? [{ key: 'acts', label: 'Acciones' }] : [])
+  ]);
+  const pkgCols = [
+    { key: 'name', label: 'Paquete' },
+    { key: 'sessions', label: 'Sesiones', numeric: true },
+    { key: 'valid', label: 'Vigencia' },
+    { key: 'price', label: 'Precio', numeric: true },
+    { key: 'state', label: 'Estado' },
+    ...(admin ? [{ key: 'acts', label: 'Acciones' }] : [])
+  ];
   const resetFilters = () => ((catFilter = 'all'), (status = 'all'), (query = ''));
 
   // ── alta y edición
@@ -250,131 +288,152 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Servicios</h1>
-    <p>{plural(active.length, 'servicio activo', 'servicios activos')} · {plural(categories.length, 'categoría', 'categorías')}</p>
-  </div>
-  <div class="head-acts">
+<PageHeader title="Servicios" description="{plural(active.length, 'servicio activo', 'servicios activos')} · {plural(categories.length, 'categoría', 'categorías')}">
+  {#snippet actions()}
     {#if services.length}<button class="btn ghost" onclick={exportCsv}>Exportar CSV</button>{/if}
     {#if admin && services.length}<button class="btn ghost" onclick={toggleSelecting}>{selecting ? 'Cancelar selección' : 'Seleccionar'}</button>{/if}
     {#if admin && !selecting}<button class="btn" onclick={startNew}>Nuevo servicio</button>{/if}
-  </div>
-</div>
+  {/snippet}
+</PageHeader>
 
-{#if error && !formOpen}<p class="error" role="alert">{error}</p>{/if}
+{#if error && !formOpen && pkgForm === null}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
+{/if}
 
 {#if loading}
-  <p class="meta">Cargando…</p>
+  <Surface padding="flush"><LoadingState /></Surface>
 {:else if services.length === 0}
-  <div class="empty">Todavía no hay servicios.{#if admin} Crea el primero con «Nuevo servicio».{/if}</div>
+  <Surface padding="flush">
+    <EmptyState title="Todavía no hay servicios" description={admin ? 'Crea el primero para poder agendarlo y cobrarlo.' : 'Un administrador debe crear los servicios.'}>
+      {#snippet actions()}{#if admin}<button class="btn" onclick={startNew}>Nuevo servicio</button>{/if}{/snippet}
+    </EmptyState>
+  </Surface>
 {:else}
-  <div class="kpis inv" role="group" aria-label="Resumen del catálogo">
-    <div class="kpi"><span class="lbl">Servicios activos</span><span class="v">{active.length}</span><span class="sub">{services.length - active.length} inactivos</span></div>
-    <div class="kpi"><span class="lbl">Precio promedio</span><span class="v">{money(avg(active, 'price_cents'))}</span><span class="sub">de los activos</span></div>
-    <div class="kpi"><span class="lbl">Duración promedio</span><span class="v">{avg(active, 'duration_min')} min</span><span class="sub">sin preparación</span></div>
-    <button class="kpi pick" class:on={catFilter === 'none'} aria-pressed={catFilter === 'none'} onclick={() => (catFilter = catFilter === 'none' ? 'all' : 'none')}>
-      <span class="lbl">Sin categoría</span><span class="v">{noCat}</span><span class="sub">toca para verlos</span>
+  <div class="metrics" role="group" aria-label="Resumen del catálogo">
+    <MetricCard label="Servicios activos" value={active.length} hint="{services.length - active.length} inactivos" />
+    <MetricCard label="Precio promedio" value={money(avg(active, 'price_cents'))} hint="de los activos" />
+    <MetricCard label="Duración promedio" value="{avg(active, 'duration_min')} min" hint="sin preparación" />
+    <button class="metric-btn" class:on={catFilter === 'none'} aria-pressed={catFilter === 'none'} onclick={() => (catFilter = catFilter === 'none' ? 'all' : 'none')}>
+      <MetricCard label="Sin categoría" value={noCat} hint="toca para verlos" />
     </button>
   </div>
 
-  <div class="cat-body">
-    <aside class="rail" aria-label="Categorías">
-      <button class="rail-item" class:on={catFilter === 'all'} onclick={() => (catFilter = 'all')}><span>Todas</span><em>{services.length}</em></button>
-      {#each categories as c (c.id)}
-        <button class="rail-item" class:on={catFilter === c.id} onclick={() => (catFilter = c.id)}><span>{c.name}</span><em>{c.count}</em></button>
-      {/each}
-      {#if noCat && categories.length}
-        <button class="rail-item" class:on={catFilter === 'none'} onclick={() => (catFilter = 'none')}><span>Sin categoría</span><em>{noCat}</em></button>
-      {/if}
-      {#if admin}
-        <div class="rail-acts">
-          <button class="chip" onclick={openCats}>+ Categoría</button>
-          {#if categories.length}<button class="link" onclick={openCats}>Editar</button>{/if}
-        </div>
-      {/if}
-    </aside>
-
-    <section class="main" aria-label="Catálogo de servicios">
-      <div class="tools">
-        <label class="search">
-          <Icon name="search" size={17} />
-          <input type="search" placeholder="Buscar servicio" aria-label="Buscar servicio" autocomplete="off" bind:value={query} />
-        </label>
-        <select bind:value={sort} aria-label="Ordenar">
-          <option value="name">Nombre A–Z</option>
-          <option value="price-desc">Precio mayor</option>
-          <option value="price-asc">Precio menor</option>
-          <option value="duration">Menor duración</option>
-        </select>
-        <div class="seg" role="group" aria-label="Vista">
-          <button aria-pressed={view === 'list'} title="Lista" onclick={() => (view = 'list')}>Lista</button>
-          <button aria-pressed={view === 'grid'} title="Mosaico" onclick={() => (view = 'grid')}>Mosaico</button>
-        </div>
-      </div>
-      <div class="chips" style="margin: 0 0 0.75rem">
-        {#each [['all', 'Todos', services.length], ['active', 'Activos', active.length], ['off', 'Inactivos', services.length - active.length]] as [id, label, n]}
-          <button class="chip" aria-pressed={status === id} onclick={() => (status = id)}>{label} <small>{n}</small></button>
-        {/each}
-      </div>
-
-      {#if selecting}
-        <div class="bar" role="group" aria-label="Acciones para los seleccionados">
-          <label class="check"><input type="checkbox" checked={allSelected} onchange={pickAll} /> {selected.size ? plural(selected.size, 'seleccionado', 'seleccionados') : 'Seleccionar todos'}</label>
-          <button class="btn sm" disabled={!selected.size || busy} onclick={() => bulk({ active: true })}>Activar</button>
-          <button class="btn ghost sm" disabled={!selected.size || busy} onclick={() => bulk({ active: false })}>Desactivar</button>
-          <select aria-label="Mover a una categoría" disabled={!selected.size || busy} value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v !== '') bulk({ category_id: Number(v) }); }}>
-            <option value="" disabled>Mover a…</option>
-            <option value="0">Sin categoría</option>
-            {#each categories as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-          </select>
-        </div>
-      {/if}
-
-      {#if !rows.length}
-        <div class="empty">Nada coincide con los filtros. <button class="link" onclick={resetFilters}>Quitar filtros</button></div>
-      {:else if view === 'list'}
-        <div class="tbl-wrap">
-          <table class="tbl stack">
-            <thead>
-              <tr>
-                {#if selecting}<th></th>{/if}
-                <th>Servicio</th><th>Categoría</th><th class="num">Duración</th><th class="num">Precio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each rows as s (s.id)}
-                <tr class:off={!s.active} class:click={admin} onclick={() => (selecting ? pick(s.id) : startEdit(s))}>
-                  {#if selecting}<td class="c-chk" onclick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(s.id)} onchange={() => pick(s.id)} aria-label={`Seleccionar ${s.name}`} /></td>{/if}
-                  <td class="c-name" data-label="Servicio">
-                    <strong>{s.name}</strong>{#if !s.active} <span class="badge muted">Inactivo</span>{/if}
-                    {#if admin && staffNames(s)}<small class="meta">{staffNames(s)}</small>{/if}
-                  </td>
-                  <td class="c-cat" data-label="Categoría">{catName(s.category_id)}</td>
-                  <td class="num c-dur" data-label="Duración">{duration(s)}</td>
-                  <td class="num c-price" data-label="Precio"><strong>{money(s.price_cents)}</strong></td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else}
-        <div class="tiles">
-          {#each rows as s (s.id)}
-            <button class="tile" class:off={!s.active} class:in={selected.has(s.id)} onclick={() => (selecting ? pick(s.id) : startEdit(s))}>
-              <span class="avatar" aria-hidden="true">{s.name.trim().charAt(0).toUpperCase()}</span>
-              <b>{s.name}</b>
-              <span class="foot"><strong>{money(s.price_cents)}</strong><small>{duration(s)} · {catName(s.category_id)}</small></span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </section>
+  <div class="cats">
+    <SegmentedControl bind:value={catFilter} options={catOptions} label="Categorías" />
+    {#if admin}
+      <span class="cat-acts">
+        <button class="btn ghost sm" onclick={openCats}>{categories.length ? 'Editar categorías' : '+ Categoría'}</button>
+        {#if categories.length}<button class="btn ghost sm" onclick={openCats}>+ Categoría</button>{/if}
+      </span>
+    {/if}
   </div>
+
+  <FilterBar label="Filtros del catálogo">
+    <div class="srch"><SearchField bind:value={query} label="Buscar servicio" placeholder="Buscar servicio" /></div>
+    <SegmentedControl bind:value={status} options={statusOptions} label="Estado" />
+    <label class="sel">
+      <span class="sr-only">Ordenar</span>
+      <select bind:value={sort}>
+        <option value="name">Nombre A–Z</option>
+        <option value="price-desc">Precio mayor</option>
+        <option value="price-asc">Precio menor</option>
+        <option value="duration">Menor duración</option>
+      </select>
+    </label>
+    <SegmentedControl bind:value={view} options={[{ value: 'list', label: 'Lista' }, { value: 'grid', label: 'Mosaico' }]} label="Vista" />
+  </FilterBar>
+
+  {#if selecting}
+    <div class="bulk" role="group" aria-label="Acciones para los seleccionados">
+      <label class="check"><input type="checkbox" checked={allSelected} onchange={pickAll} /> {selected.size ? plural(selected.size, 'seleccionado', 'seleccionados') : 'Seleccionar todos'}</label>
+      <button class="btn sm" disabled={!selected.size || busy} onclick={() => bulk({ active: true })}>Activar</button>
+      <button class="btn ghost sm" disabled={!selected.size || busy} onclick={() => bulk({ active: false })}>Desactivar</button>
+      <select aria-label="Mover a una categoría" disabled={!selected.size || busy} value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v !== '') bulk({ category_id: Number(v) }); }}>
+        <option value="" disabled>Mover a…</option>
+        <option value="0">Sin categoría</option>
+        {#each categories as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      </select>
+    </div>
+  {/if}
+
+  {#if !rows.length}
+    <Surface padding="flush">
+      <EmptyState title="Nada coincide con los filtros" description="Prueba con otra categoría, estado o búsqueda.">
+        {#snippet actions()}<button class="btn ghost" onclick={resetFilters}>Quitar filtros</button>{/snippet}
+      </EmptyState>
+    </Surface>
+  {:else if view === 'list'}
+    <div class="tight"><Surface padding="flush">
+      <DataTable caption="Servicios" columns={svcCols} {rows}>
+        {#snippet cell({ row: s, column })}
+          {#if column.key === 'name'}
+            {#if selecting}
+              <label class="check pickrow"><input type="checkbox" checked={selected.has(s.id)} onchange={() => pick(s.id)} aria-label={`Seleccionar ${s.name}`} /><span class="name" class:off={!s.active}>{s.name}</span></label>
+            {:else}
+              <span class="name" class:off={!s.active}>{s.name}</span>
+            {/if}
+            {#if admin && staffNames(s)}<span class="sub">{staffNames(s)}</span>{/if}
+          {:else if column.key === 'cat'}<span class="nc" class:muted={s.category_id == null}>{catName(s.category_id)}</span>
+          {:else if column.key === 'duration'}{duration(s)}
+          {:else if column.key === 'price'}<strong>{money(s.price_cents)}</strong>
+          {:else if column.key === 'state'}<StatusBadge label={s.active ? 'Activo' : 'Inactivo'} tone={s.active ? 'success' : 'neutral'} />
+          {:else}
+            <span class="acts">
+              <button class="btn ghost sm" disabled={selecting} onclick={() => startEdit(s)}>Editar</button>
+              <button class="btn ghost sm" disabled={selecting} onclick={() => toggle(s)}>{s.active ? 'Desactivar' : 'Activar'}</button>
+            </span>
+          {/if}
+        {/snippet}
+      </DataTable>
+    </Surface></div>
+  {:else}
+    <div class="tiles">
+      {#each rows as s (s.id)}
+        <button class="tile" class:off={!s.active} class:in={selected.has(s.id)} disabled={!admin && !selecting} onclick={() => (selecting ? pick(s.id) : startEdit(s))}>
+          <b>{s.name}</b>
+          <span class="foot"><strong>{money(s.price_cents)}</strong><small>{duration(s)} · {catName(s.category_id)}</small></span>
+          {#if !s.active}<StatusBadge label="Inactivo" tone="neutral" />{/if}
+        </button>
+      {/each}
+    </div>
+  {/if}
+{/if}
+
+{#if sells}
+  <div class="gap"></div>
+  <div class="tight"><Surface padding="flush" title="Paquetes" description="Vende varias sesiones de un servicio por adelantado; se canjean una a una al cobrar.">
+    {#snippet actions()}
+      {#if admin && services.some((s) => s.active)}<button class="btn" onclick={() => startPkg(null)}>Nuevo paquete</button>{/if}
+    {/snippet}
+    {#if loading}
+      <LoadingState />
+    {:else if packages.length === 0}
+      <EmptyState title="Todavía no hay paquetes" description={admin ? 'Crea uno con «Nuevo paquete».' : ''} />
+    {:else}
+      <DataTable caption="Paquetes" columns={pkgCols} rows={packages}>
+        {#snippet cell({ row: k, column })}
+          {#if column.key === 'name'}
+            <span class="name" class:off={!k.active}>{k.name}</span>
+            <span class="sub">{k.sessions} sesiones de {k.service_name}</span>
+          {:else if column.key === 'sessions'}{k.sessions}
+          {:else if column.key === 'valid'}{k.valid_days ? `${k.valid_days} días` : 'Sin vencimiento'}
+          {:else if column.key === 'price'}<strong>{money(k.price_cents)}</strong>
+          {:else if column.key === 'state'}<StatusBadge label={k.active ? 'Activo' : 'Inactivo'} tone={k.active ? 'success' : 'neutral'} />
+          {:else}
+            <span class="acts">
+              <button class="btn ghost sm" onclick={() => startPkg(k)}>Editar</button>
+              <button class="btn ghost sm" onclick={() => togglePkg(k)}>{k.active ? 'Desactivar' : 'Activar'}</button>
+            </span>
+          {/if}
+        {/snippet}
+      </DataTable>
+    {/if}
+  </Surface></div>
 {/if}
 
 <Modal bind:open={formOpen} title={editing === null ? 'Nuevo servicio' : 'Editar servicio'}>
   <form onsubmit={save}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={form.name} required /></label>
       <label class="field">Categoría
@@ -402,14 +461,13 @@
         <span class="meta">Aún no hay personas marcadas «En agenda» en Equipo.</span>
       {/each}
     </fieldset>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
-      <button type="button" class="btn ghost" onclick={() => (formOpen = false)}>Cancelar</button>
       {#if editing !== null}
         {@const cur = services.find((x) => x.id === editing)}
-        {#if cur}<button type="button" class="btn ghost" onclick={() => { toggle(cur); formOpen = false; }}>{cur.active ? 'Desactivar' : 'Activar'}</button>{/if}
+        {#if cur}<button type="button" class="btn ghost left" onclick={() => { toggle(cur); formOpen = false; }}>{cur.active ? 'Desactivar' : 'Activar'}</button>{/if}
       {/if}
+      <button type="button" class="btn ghost" onclick={() => (formOpen = false)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
     </div>
   </form>
 </Modal>
@@ -418,7 +476,7 @@
   <p class="meta">Cambia el nombre o elimina. Al eliminar, sus servicios pasan a otra categoría o quedan sin categoría.</p>
   <form class="add-cat" onsubmit={addCat}>
     <input bind:value={newCat} maxlength="40" placeholder="Nueva categoría (Cabello, Barba, Uñas…)" aria-label="Nueva categoría" required />
-    <button class="btn sm">Agregar</button>
+    <button class="btn">Agregar</button>
   </form>
   <ul class="cat-list">
     {#each categories as c (c.id)}
@@ -440,27 +498,18 @@
           {#each categories.filter((c) => c.id !== delCat.id) as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
         </select>
       {/if}
-      <div class="form-actions" style="margin-top: 0.5rem">
-        <button class="btn sm" onclick={confirmDelete}>Eliminar categoría</button>
-        <button class="btn ghost sm" onclick={() => (delCat = null)}>Cancelar</button>
+      <div class="form-actions">
+        <button class="btn ghost" onclick={() => (delCat = null)}>Cancelar</button>
+        <button class="btn" onclick={confirmDelete}>Eliminar categoría</button>
       </div>
     </div>
   {/if}
   {#if catError}<p class="error" role="alert">{catError}</p>{/if}
 </Modal>
 
-{#if sells}
-<div class="page-head" style="margin-top: 2.5rem">
-  <div>
-    <h2 style="font-size: 1.6rem">Paquetes</h2>
-    <p>Vende varias sesiones de un servicio por adelantado; se canjean una a una al cobrar.</p>
-  </div>
-  {#if admin && services.some((s) => s.active)}<button class="btn" onclick={() => startPkg(null)}>Nuevo paquete</button>{/if}
-</div>
-
-{#if pkgForm !== null}
-  <form class="card" onsubmit={savePkg} style="margin-bottom: 1.5rem">
-    <h3>{pkgForm === 'new' ? 'Nuevo paquete' : 'Editar paquete'}</h3>
+<Modal bind:open={() => pkgForm !== null, (v) => { if (!v) pkgForm = null; }} title={pkgForm === 'new' ? 'Nuevo paquete' : 'Editar paquete'}>
+  <form onsubmit={savePkg}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={pkg.name} required placeholder="5 cortes" /></label>
       <label class="field">
@@ -476,111 +525,60 @@
     </div>
     {#if pkgForm !== 'new'}<p class="meta">El servicio y las sesiones no se editan; crea otro paquete para otra oferta. Los paquetes ya vendidos no cambian.</p>{/if}
     <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       <button type="button" class="btn ghost" onclick={() => (pkgForm = null)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
     </div>
   </form>
-{/if}
-
-{#if !loading}
-  {#if packages.length === 0}
-    <div class="empty">Todavía no hay paquetes.{#if admin} Crea uno con «Nuevo paquete».{/if}</div>
-  {:else}
-    <div class="list">
-      {#each packages as k (k.id)}
-        <div class="item-row" class:off={!k.active}>
-          <div class="grow">
-            <div class="title">{k.name} {#if !k.active}<span class="badge muted">Inactivo</span>{/if}</div>
-            <div class="meta">{k.sessions} sesiones de {k.service_name}{k.valid_days ? ` · vigencia de ${k.valid_days} días` : ''}</div>
-          </div>
-          <strong>{money(k.price_cents)}</strong>
-          {#if admin}
-            <button class="btn ghost sm" onclick={() => startPkg(k)}>Editar</button>
-            <button class="btn ghost sm" onclick={() => togglePkg(k)}>{k.active ? 'Desactivar' : 'Activar'}</button>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-{/if}
-{/if}
+</Modal>
 
 <style>
-  .head-acts { display: flex; flex-wrap: wrap; gap: 8px; }
-  h3 { font-size: 1.25rem; }
+  .notice { margin-bottom: 16px; }
+  .gap { height: 32px; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .metric-btn { display: block; padding: 0; font: inherit; text-align: left; background: none; border: 0; border-radius: var(--radius); cursor: pointer; }
+  .metric-btn :global(.metric) { height: 100%; border: 1px solid var(--border); transition: border-color var(--dur-ui) var(--ease); }
+  .metric-btn:hover :global(.metric) { border-color: var(--control-border); }
+  .metric-btn.on :global(.metric) { border-color: var(--accent); background: var(--accent-soft); }
+  .cats { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .cats :global(.seg) { flex: 0 1 auto; }
+  .cat-acts { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+  .cat-acts .btn { min-height: 44px; }
+  .srch :global(.search input[type='search']) { padding-left: 40px; min-height: 44px; }
+  .sel select { width: auto; min-width: 160px; min-height: 44px; margin: 0; }
+  @media (min-width: 641px) { .name, .sub { min-width: 140px; } .pickrow .name { min-width: 0; } }
+  .name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .name.off { color: var(--muted); }
+  .muted { color: var(--muted); }
+  @media (max-width: 1100px) { .tight :global(th), .tight :global(td) { padding-inline: 10px; } }
+  .nc { white-space: nowrap; }
+  .sub { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 56ch; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .acts { display: inline-flex; gap: 8px; justify-content: flex-end; white-space: nowrap; }
+  @media (max-width: 1100px) and (min-width: 641px) { .acts { flex-direction: column; align-items: stretch; } }
+  .acts .btn { min-height: 44px; padding-inline: 12px; }
+  .pickrow { display: flex; align-items: center; gap: 10px; }
+  .pickrow .name { flex: 1; min-width: 0; }
+  .bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; padding: 8px 16px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); }
+  .bulk .check { flex: 1 1 180px; margin: 0; font-weight: 600; }
+  .bulk .btn { min-height: 44px; }
+  .bulk select { width: auto; min-height: 44px; margin: 0; }
+  .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .tile { display: grid; align-content: space-between; justify-items: start; gap: 12px; min-height: 110px; padding: 16px; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+  .tile:hover:not(:disabled) { border-color: var(--control-border); }
+  .tile:disabled { cursor: default; }
+  .tile.in { border-color: var(--accent); background: var(--accent-soft); }
+  .tile.off b { color: var(--muted); }
+  .tile .foot { display: grid; gap: 2px; }
+  .tile small { color: var(--muted); }
   .staff { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 4px 20px; }
   .staff legend { padding: 0 6px; font-size: 0.9rem; font-weight: 500; }
-
-  /* tarjetas de cifras (la última filtra) */
-  .kpis.inv { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .kpi > span { display: block; }
-  .kpi.pick { text-align: left; font: inherit; cursor: pointer; transition: border-color var(--dur-ui) var(--ease), background-color var(--dur-ui) var(--ease); }
-  .kpi.pick:hover { border-color: var(--muted); }
-  .kpi.pick.on { border-color: var(--accent); background: var(--accent-soft); }
-
-  /* categorías a la izquierda, catálogo a la derecha */
-  .cat-body { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; align-items: start; }
-  .rail { position: sticky; top: 16px; display: grid; gap: 4px; }
-  .rail-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; padding: 0 0.75rem; text-align: left; font: inherit; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
-  .rail-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rail-item em { font-style: normal; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .rail-item:hover { background: var(--surface-2); }
-  .rail-item.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .rail-acts { display: flex; align-items: center; gap: 12px; padding: 0.5rem 0.25rem; }
-  .link { padding: 0; font: inherit; font-size: 0.85rem; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
-
-  .tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 0.75rem; }
-  .search { display: flex; flex: 1 1 200px; align-items: center; gap: 8px; padding: 0 0.75rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-  .search:focus-within { border-color: var(--accent); }
-  .search input[type='search'], .search input[type='search']:hover, .search input[type='search']:focus { flex: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; }
-  .tools select { width: auto; min-width: 150px; margin: 0; }
-  .seg { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
-  .seg button { min-height: 36px; padding: 0 0.9rem; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; }
-  .seg button[aria-pressed='true'] { background: var(--accent); color: var(--accent-contrast); }
-  .chip small { margin-left: 4px; opacity: 0.7; }
-
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 0.75rem; padding: 0.6rem 0.9rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-sm); }
-  .bar .check { flex: 1 1 160px; margin: 0; }
-  .bar select { width: auto; margin: 0; min-height: 36px; }
-
-  .tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-  .tbl tr.click { cursor: pointer; }
-  .tbl tr.click:hover td { background: var(--surface-2); }
-  .tbl tr.off { opacity: 0.6; }
-  .tbl td small { display: block; }
-  /* en celular cada servicio ocupa dos líneas: nombre y precio; categoría y duración */
-  @media (max-width: 640px) {
-    .tbl.stack tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; padding: 0.7rem 0.9rem; }
-    .tbl.stack td[data-label]::before { display: none; }
-    .c-name { grid-column: 1; grid-row: 1; }
-    .c-price { grid-column: 2; grid-row: 1; }
-    .c-cat { grid-column: 1; grid-row: 2; color: var(--muted); font-size: 0.85rem; }
-    .c-dur { grid-column: 2; grid-row: 2; color: var(--muted); font-size: 0.85rem; }
-    .c-chk { grid-column: 1 / -1; grid-row: 3; }
-  }
-  .tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-  .tile { display: grid; grid-template-rows: auto 1fr auto; justify-items: start; gap: 6px; min-height: 120px; padding: 0.75rem; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
-  .tile:hover { border-color: var(--accent); }
-  .tile.in { border-color: var(--accent); background: var(--accent-soft); }
-  .tile.off { opacity: 0.6; }
-  .tile .foot { display: grid; gap: 1px; }
-  .tile strong { color: var(--accent); font-variant-numeric: tabular-nums; }
-  .tile small { color: var(--muted); }
-  .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-
-  .add-cat { display: flex; gap: 8px; margin: 0.75rem 0; }
+  .form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .form-actions .left { margin-right: auto; }
+  .add-cat { display: flex; gap: 8px; margin: 12px 0; }
   .add-cat input { flex: 1; margin: 0; }
-  .cat-list { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 8px; }
+  .cat-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
   .cat-list li { display: flex; align-items: center; gap: 10px; }
-  .cat-list input { flex: 1; margin: 0; }
-  .del { margin: 0.75rem 0; padding: 0.75rem 1rem; background: var(--danger-soft); border-radius: var(--radius-sm); }
-  .del p { margin: 0 0 0.5rem; }
+  .cat-list input { flex: 1; min-width: 0; margin: 0; }
+  .del { margin: 12px 0; padding: 12px 16px; background: var(--danger-soft); border-radius: var(--radius-sm); }
+  .del p { margin: 0 0 8px; }
   .del select { margin: 0; }
-
-  @media (max-width: 760px) {
-    .cat-body { grid-template-columns: 1fr; }
-    .rail { position: static; display: flex; flex-wrap: wrap; gap: 6px; }
-    .rail-item { min-height: 36px; border: 1px solid var(--border); border-radius: 999px; }
-    .rail-acts { padding: 0; }
-  }
 </style>

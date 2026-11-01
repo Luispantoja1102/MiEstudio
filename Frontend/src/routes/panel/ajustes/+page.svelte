@@ -1,7 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
   import AccountSettings from '$lib/AccountSettings.svelte';
-  import Appearance from '$lib/Appearance.svelte';
   import BusinessProfile from '$lib/BusinessProfile.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
@@ -25,7 +24,7 @@
       items: [
         { id: 'negocio', label: 'Datos del negocio', desc: 'Nombre, contacto y zona horaria', icon: 'home', component: BusinessProfile, roles: A },
         { id: 'equipo', label: 'Equipo', desc: 'Personal, roles y horarios', icon: 'users', component: Equipo, roles: A },
-        { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales y su dirección', icon: 'home', component: Sucursales, roles: A }
+        { id: 'sucursales', label: 'Sucursales', desc: 'Tus locales y su dirección', icon: 'package', component: Sucursales, roles: A }
       ]
     },
     {
@@ -33,7 +32,7 @@
       items: [
         { id: 'fidelidad', label: 'Tarjeta de lealtad', desc: 'Sellos y premio para tus clientes frecuentes', icon: 'user-plus', component: Fidelidad, roles: A },
         { id: 'reserva', label: 'Reservas en línea', desc: 'Tu página, anticipos y recordatorios', icon: 'globe', component: Reserva, roles: A },
-        { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta', icon: 'globe', component: Mensajes, roles: A },
+        { id: 'mensajes', label: 'Mensajes a clientes', desc: 'Cumpleaños, reactivación y encuesta', icon: 'bell', component: Mensajes, roles: A },
         { id: 'privacidad', label: 'Privacidad y ARCO', desc: 'Aviso y solicitudes de tus clientes', icon: 'shield', component: Privacidad, roles: A }
       ]
     },
@@ -48,8 +47,7 @@
     {
       title: 'Mi cuenta',
       items: [
-        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings },
-        { id: 'apariencia', label: 'Apariencia', desc: 'Elige tu tema claro', icon: 'sun', component: Appearance }
+        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, dos pasos y sesiones', icon: 'user', component: AccountSettings }
       ]
     }
   ];

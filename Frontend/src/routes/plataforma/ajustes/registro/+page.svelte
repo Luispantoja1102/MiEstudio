@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import FormSection from '$lib/ui/FormSection.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   const write = canWritePlatform();
   const modes = [
@@ -37,33 +40,35 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Ajustes</h1>
-    <p>Controla cómo se registran los negocios.</p>
-  </div>
-</div>
+<PageHeader title="Ajustes" description="Controla cómo se registran los negocios." />
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<div class="gap"><InlineNotice tone="danger" message={error} /></div>{/if}
 
-<fieldset class="card">
-  <legend>Registro de negocios</legend>
-  {#each modes as [value, label, text]}
-    <label class="opt" class:sel={mode === value}>
-      <input type="radio" name="mode" {value} checked={mode === value} disabled={!write} onchange={() => pick(value)} />
-      <span><strong>{label}</strong><small>{text}</small></span>
-    </label>
-  {/each}
-  {#if saved}<p class="meta" role="status" style="margin: 0.75rem 0 0">{saved}</p>{/if}
-  {#if !write}<p class="meta" style="margin: 0.75rem 0 0">Tu rol es de solo lectura.</p>{/if}
-</fieldset>
+<FormSection title="Quién puede registrarse" description="Elige cómo entran los negocios nuevos. El cambio se guarda al elegir.">
+  <fieldset>
+    <legend class="sr">Modo de registro de negocios</legend>
+    {#each modes as [value, label, text]}
+      <label class="opt" class:sel={mode === value} class:off={!write}>
+        <input type="radio" name="mode" {value} checked={mode === value} disabled={!write} onchange={() => pick(value)} />
+        <span><strong>{label}</strong><small>{text}</small></span>
+      </label>
+    {/each}
+  </fieldset>
+  {#if saved}<p class="note" role="status">{saved}</p>{/if}
+  {#if !write}<p class="note">Tu rol es de solo lectura.</p>{/if}
+</FormSection>
 
 <style>
-  fieldset { margin: 0; border: 1px solid var(--border); }
-  legend { padding: 0 8px; font-family: var(--font-heading); font-size: 1.2rem; }
-  .opt { display: flex; gap: 12px; align-items: flex-start; padding: 0.9rem 1rem; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text); font-size: 1rem; }
+  .gap { margin-bottom: 16px; }
+  fieldset { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 8px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .opt { display: flex; gap: 12px; align-items: flex-start; min-height: 44px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; color: var(--text); }
+  .opt:hover:not(.off) { border-color: var(--control-border); }
   .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
-  .opt input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); }
-  .opt span { display: grid; gap: 2px; }
+  .opt.off { cursor: default; }
+  .opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .opt input { width: 18px; height: 18px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+  .opt span { display: grid; gap: 2px; min-width: 0; }
   .opt small { color: var(--muted); font-size: 0.88rem; }
+  .note { margin: 12px 0 0; color: var(--muted); font-size: 0.9rem; }
 </style>

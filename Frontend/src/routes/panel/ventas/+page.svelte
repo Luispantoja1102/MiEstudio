@@ -5,6 +5,12 @@
   import PayDialog from '$lib/pos/PayDialog.svelte';
   import Modal from '$lib/Modal.svelte';
   import Icon from '$lib/Icon.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { money, newToken, toCents, toPesos, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
@@ -458,171 +464,179 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Cobrar</h1>
-    <p>{#if cash}Caja abierta · efectivo esperado {money(cash.expected_cents)} · {plural(cash.sales, 'venta', 'ventas')}{:else}Abre la caja para empezar a cobrar.{/if}</p>
-  </div>
-  <div class="form-actions" style="margin: 0">
-    <BranchPicker onchange={load} />
-  </div>
-</div>
+<PageHeader title="Cobrar" description={cash ? `Caja abierta · efectivo esperado ${money(cash.expected_cents)} · ${plural(cash.sales, 'venta', 'ventas')}` : 'Abre la caja para empezar a cobrar.'}>
+  {#snippet actions()}<BranchPicker onchange={load} />{/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
 
 {#if !ready}
-  <p class="meta">Cargando…</p>
+  <LoadingState />
 {:else if !branches.id}
-  <div class="empty">No hay sucursales activas.</div>
+  <EmptyState title="No hay sucursales activas" description="Activa o crea una sucursal en Ajustes para poder cobrar." />
 {:else if !cash}
-  <form class="card open" onsubmit={openCash}>
-    <h2>Caja cerrada</h2>
-    <p class="meta">Cuenta el efectivo con el que empiezas y ábrela para cobrar.</p>
-    <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
-    <button class="btn">Abrir caja</button>
-  </form>
+  <div class="open">
+    <Surface title="Caja cerrada" description="Cuenta el efectivo con el que empiezas y ábrela para cobrar.">
+      <form onsubmit={openCash}>
+        <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
+        <button type="submit" class="btn">Abrir caja</button>
+      </form>
+    </Surface>
+  </div>
 {:else}
   <div class="pos">
     <!-- catálogo -->
-    <section class="catalog" aria-label="Buscar en el catálogo">
-      <div class="finder">
-        <Icon name="search" size={18} />
-        <input
-          bind:this={searchEl}
-          type="search"
-          class="scan"
-          placeholder="Buscar un servicio o producto…"
-          aria-label="Buscar un servicio o producto"
-          autocomplete="off"
-          bind:value={q}
-          onkeydown={onSearchKey}
-        />
-        {#if q}<button class="clear" aria-label="Limpiar búsqueda" onclick={() => (q = '')}><Icon name="x" size={16} /></button>{/if}
-      </div>
+    <section class="catalog" aria-label="Catálogo">
+      <Surface padding="compact">
+        <div class="finder">
+          <Icon name="search" size={18} />
+          <input
+            bind:this={searchEl}
+            type="search"
+            class="scan"
+            placeholder="Buscar un servicio o producto…"
+            aria-label="Buscar un servicio o producto"
+            autocomplete="off"
+            bind:value={q}
+            onkeydown={onSearchKey}
+          />
+          {#if q}<button type="button" class="clear" aria-label="Limpiar búsqueda" onclick={() => (q = '')}><Icon name="x" size={16} /></button>{/if}
+        </div>
 
-      {#if term}
-        <div class="results" role="listbox" aria-label="Resultados">
-          <p class="meta head">
-            <b>{results.length}</b> {results.length === 1 ? 'resultado' : 'resultados'} para “{q.trim()}”{#if results.length}<span class="only-pc"> · ↑ ↓ para elegir, Enter agrega</span>{/if}
-          </p>
-          {#each results as x, i (x.kind + x.id)}
-            <button class="result" class:active={i === hit} class:out={isOut(x)} role="option" aria-selected={i === hit} disabled={isOut(x)} onclick={() => pick(x)}>
-              <span class="avatar" aria-hidden="true">{initial(x.name)}</span>
-              <span class="r-main">
-                <b>{x.name}</b>
-                <small>{x.kind === 'service' ? `Servicio · ${x.duration_min} min` : x.kind === 'product' ? (x.stock < 1 ? 'Producto · agotado' : `Producto · ${x.stock} en existencia`) + (x.barcode ? ` · ${x.barcode}` : '') : `Paquete · ${x.sessions} sesiones`}</small>
-              </span>
-              <span class="r-side">
-                <strong>{money(x.price_cents)}</strong>
-                {#if qtyIn(x.kind, x.id)}<em>{qtyIn(x.kind, x.id)} en ticket</em>{/if}
-              </span>
-            </button>
-          {:else}
-            <p class="empty" style="padding: 1.5rem 1rem">No encontramos “{q.trim()}”. Revisa cómo está escrito.</p>
-          {/each}
-        </div>
-      {:else}
-        <div class="tabs" role="tablist">
-          {#each [['services', 'Servicios'], ['products', 'Productos'], ['packages', 'Paquetes'], ['appts', `Citas de hoy (${appts.length})`]] as [value, label]}
-            <button class="chip" role="tab" aria-selected={tab === value} onclick={() => (tab = value)}>{label}</button>
-          {/each}
-        </div>
-        {#if tab === 'services' && cats.length}
-          <div class="chips cats" role="group" aria-label="Categorías">
-            <button class="chip" aria-pressed={catPick === 'all'} onclick={() => (catPick = 'all')}>Todas</button>
-            {#each cats as c (c.id)}<button class="chip" aria-pressed={catPick === c.id} onclick={() => (catPick = c.id)}>{c.name}</button>{/each}
-            {#if services.some((x) => x.category_id == null)}<button class="chip" aria-pressed={catPick === 'none'} onclick={() => (catPick = 'none')}>Sin categoría</button>{/if}
-          </div>
-        {/if}
-        {#if tab === 'packages'}
-          {#if !client}<p class="meta">Elige primero al cliente en el ticket para venderle un paquete.</p>{/if}
-          <div class="tiles">
-            {#each packages as k (k.id)}
-              <button class="tile" class:in={qtyIn('package', k.id) > 0} disabled={!client} onclick={() => addPackage(k)}>
-                <span class="avatar" aria-hidden="true">{initial(k.name)}{#if qtyIn('package', k.id)}<em class="badge-n">1</em>{/if}</span>
-                <b>{k.name}</b>
-                <span class="foot"><strong>{money(k.price_cents)}</strong><small>{k.sessions} sesiones{k.valid_days ? ` · ${k.valid_days} días` : ''}</small></span>
+        {#if term}
+          <div class="items" role="listbox" aria-label="Resultados">
+            <p class="meta head">
+              <b>{results.length}</b> {results.length === 1 ? 'resultado' : 'resultados'} para “{q.trim()}”{#if results.length}<span class="only-pc"> · ↑ ↓ para elegir, Enter agrega</span>{/if}
+            </p>
+            {#each results as x, i (x.kind + x.id)}
+              <button type="button" class="item" class:active={i === hit} role="option" aria-selected={i === hit} disabled={isOut(x)} onclick={() => pick(x)}>
+                <span class="grow">
+                  <b>{x.name}</b>
+                  <small>{x.kind === 'service' ? `Servicio · ${x.duration_min} min` : x.kind === 'product' ? (x.stock < 1 ? 'Producto · agotado' : `Producto · ${x.stock} en existencia`) + (x.barcode ? ` · ${x.barcode}` : '') : `Paquete · ${x.sessions} sesiones`}</small>
+                </span>
+                {#if qtyIn(x.kind, x.id)}<em class="in-ticket">{qtyIn(x.kind, x.id)} en ticket</em>{/if}
+                <span class="price">{money(x.price_cents)}</span>
               </button>
             {:else}
-              <p class="meta">No hay paquetes. El administrador los crea en Servicios.</p>
-            {/each}
-          </div>
-        {:else if tab === 'appts'}
-          <div class="list">
-            {#each appts as a (a.id)}
-              <button class="item-row appt" onclick={() => addAppointment(a)}>
-                <span class="grow"><b>{fmtTime(a.starts_at, tz)} · {a.client_name}</b><small class="meta">{a.service_name} · con {a.staff_name}</small></span>
-                <span>{money(a.price_cents)}</span>
-                {#if a.deposit_status === 'paid'}<span class="badge">Anticipo {money(a.deposit_cents)} ✓</span>{/if}
-                {#if a.status === 'completed'}<span class="badge muted">Completada</span>{/if}
-              </button>
-            {:else}
-              <p class="meta">No hay citas para hoy en esta sucursal.</p>
+              <p class="meta none">No encontramos “{q.trim()}”. Revisa cómo está escrito.</p>
             {/each}
           </div>
         {:else}
-          <div class="tiles">
-            {#each shown as it (it.id)}
-              {@const kind = tab === 'services' ? 'service' : 'product'}
-              <button class="tile" class:in={qtyIn(kind, it.id) > 0} class:out={tab === 'products' && it.stock < 1} disabled={tab === 'products' && it.stock < 1} onclick={() => (tab === 'services' ? addService(it) : addProduct(it))}>
-                <span class="avatar" aria-hidden="true">{initial(it.name)}{#if qtyIn(kind, it.id)}<em class="badge-n">{qtyIn(kind, it.id)}</em>{/if}</span>
-                <b>{it.name}</b>
-                <span class="foot">
-                  <strong>{money(it.price_cents)}</strong>
-                  <small class:low={tab === 'products' && it.stock < 1}>{tab === 'products' ? (it.stock < 1 ? 'Agotado' : `${it.stock} en existencia`) : `${it.duration_min} min`}</small>
-                </span>
-              </button>
-            {:else}
-              <div class="empty" style="grid-column: 1 / -1">
-                <p><strong>Aún no hay {tab === 'services' ? 'servicios' : 'productos'}.</strong></p>
-                <p>Da de alta tu catálogo para empezar a cobrar.</p>
-                <a class="btn ghost sm" href={tab === 'services' ? '/panel/servicios' : '/panel/inventario'}>Ir a {tab === 'services' ? 'Servicios' : 'Inventario'}</a>
-              </div>
-            {/each}
+          <div class="cat-bar">
+            <SegmentedControl
+              label="Qué cobrar"
+              bind:value={tab}
+              options={[
+                { value: 'services', label: 'Servicios' },
+                { value: 'products', label: 'Productos' },
+                { value: 'packages', label: 'Paquetes' },
+                { value: 'appts', label: `Citas de hoy (${appts.length})` }
+              ]}
+            />
+            {#if tab === 'services' && cats.length}
+              <SegmentedControl
+                label="Categorías"
+                bind:value={catPick}
+                options={[
+                  { value: 'all', label: 'Todas' },
+                  ...cats.map((c) => ({ value: c.id, label: c.name })),
+                  ...(services.some((x) => x.category_id == null) ? [{ value: 'none', label: 'Sin categoría' }] : [])
+                ]}
+              />
+            {/if}
           </div>
+          {#if tab === 'packages'}
+            {#if !client}<p class="meta hint">Elige primero al cliente en el ticket para venderle un paquete.</p>{/if}
+            <div class="items">
+              {#each packages as k (k.id)}
+                <button type="button" class="item" disabled={!client} onclick={() => addPackage(k)}>
+                  <span class="grow"><b>{k.name}</b><small>{k.sessions} sesiones{k.valid_days ? ` · ${k.valid_days} días` : ''}</small></span>
+                  {#if qtyIn('package', k.id)}<em class="in-ticket">En ticket</em>{/if}
+                  <span class="price">{money(k.price_cents)}</span>
+                </button>
+              {:else}
+                <p class="meta none">No hay paquetes. El administrador los crea en Servicios.</p>
+              {/each}
+            </div>
+          {:else if tab === 'appts'}
+            <div class="items">
+              {#each appts as a (a.id)}
+                <button type="button" class="item" onclick={() => addAppointment(a)}>
+                  <span class="grow"><b>{fmtTime(a.starts_at, tz)} · {a.client_name}</b><small>{a.service_name} · con {a.staff_name}</small></span>
+                  {#if a.deposit_status === 'paid'}<span class="badge">Anticipo {money(a.deposit_cents)} ✓</span>{/if}
+                  {#if a.status === 'completed'}<span class="badge muted">Completada</span>{/if}
+                  <span class="price">{money(a.price_cents)}</span>
+                </button>
+              {:else}
+                <p class="meta none">No hay citas para hoy en esta sucursal.</p>
+              {/each}
+            </div>
+          {:else}
+            <div class="items">
+              {#each shown as it (it.id)}
+                {@const kind = tab === 'services' ? 'service' : 'product'}
+                <button type="button" class="item" disabled={tab === 'products' && it.stock < 1} onclick={() => (tab === 'services' ? addService(it) : addProduct(it))}>
+                  <span class="grow">
+                    <b>{it.name}</b>
+                    <small class:low={tab === 'products' && it.stock < 1}>{tab === 'products' ? (it.stock < 1 ? 'Agotado' : `${it.stock} en existencia`) : `${it.duration_min} min`}</small>
+                  </span>
+                  {#if qtyIn(kind, it.id)}<em class="in-ticket">{qtyIn(kind, it.id)} en ticket</em>{/if}
+                  <span class="price">{money(it.price_cents)}</span>
+                </button>
+              {:else}
+                <div class="none-box">
+                  <p><strong>Aún no hay {tab === 'services' ? 'servicios' : 'productos'}.</strong></p>
+                  <p class="meta">Da de alta tu catálogo para empezar a cobrar.</p>
+                  <a class="btn ghost sm" href={tab === 'services' ? '/panel/servicios' : '/panel/inventario'}>Ir a {tab === 'services' ? 'Servicios' : 'Inventario'}</a>
+                </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
-      {/if}
 
-      <p class="keys only-pc">
-        <span><kbd>Enter</kbd>agrega</span><span><kbd>F2</kbd>quitar</span><span><kbd>F3</kbd>cantidad</span><span><kbd>F6</kbd>espera</span><span><kbd>F9</kbd>descuento</span><span><kbd>F12</kbd>cobrar</span>
-      </p>
+        <p class="keys only-pc">
+          <span><kbd>Enter</kbd>agrega</span><span><kbd>F2</kbd>quitar</span><span><kbd>F3</kbd>cantidad</span><span><kbd>F6</kbd>espera</span><span><kbd>F9</kbd>descuento</span><span><kbd>F12</kbd>cobrar</span>
+        </p>
+      </Surface>
     </section>
 
     <!-- ticket -->
-    <button class="scrim" class:open={ticketOpen} aria-label="Cerrar el ticket" tabindex="-1" onclick={() => (ticketOpen = false)}></button>
-    <aside class="ticket card" class:open={ticketOpen} aria-label="Ticket de venta">
-      <header class="t-head">
-        <div>
-          <h2>Venta actual</h2>
-          <p class="meta">{lines.length ? plural(items, 'artículo', 'artículos') : 'Ticket vacío'}</p>
-        </div>
-        <button class="head-btn" class:has={held.length} title="Tickets en espera (F6)" onclick={openHeld}>
-          <Icon name="clock" size={18} /><span>En espera</span>{#if held.length}<b>{held.length}</b>{/if}
-        </button>
-        <button class="head-btn icon" title="Vaciar ticket" aria-label="Vaciar ticket" disabled={!lines.length} onclick={clearTicket}><Icon name="trash" size={18} /></button>
-        <button class="head-btn close" onclick={() => (ticketOpen = false)}>Seguir</button>
-      </header>
+    <button type="button" class="scrim" class:open={ticketOpen} aria-label="Cerrar el ticket" tabindex="-1" onclick={() => (ticketOpen = false)}></button>
+    <aside class="ticket" class:open={ticketOpen} aria-label="Ticket de venta">
+      <div class="t-top">
+        <header class="t-head">
+          <div class="t-title">
+            <h2>Venta actual</h2>
+            <p class="meta">{lines.length ? plural(items, 'artículo', 'artículos') : 'Ticket vacío'}</p>
+          </div>
+          <button type="button" class="head-btn" class:has={held.length} title="Tickets en espera (F6)" onclick={openHeld}>
+            <Icon name="clock" size={18} /><span>En espera</span>{#if held.length}<b>{held.length}</b>{/if}
+          </button>
+          <button type="button" class="head-btn icon" title="Vaciar ticket" aria-label="Vaciar ticket" disabled={!lines.length} onclick={clearTicket}><Icon name="trash" size={18} /></button>
+          <button type="button" class="head-btn icon close" title="Seguir agregando" aria-label="Seguir agregando" onclick={() => (ticketOpen = false)}><Icon name="x" size={18} /></button>
+        </header>
 
-      <div class="client">
-        {#if client}
-          <div class="item-row"><span class="grow title">{client.name}</span>{#if !appointmentId}<button class="btn ghost sm" onclick={() => (client = null)}>Quitar</button>{/if}</div>
-        {:else}
-          <input type="search" placeholder="Cliente (opcional)" aria-label="Buscar cliente" bind:value={clientQuery} oninput={searchClient} style="margin: 0" />
-          {#each clientResults as c (c.id)}<button class="pick" onclick={() => ((client = c), (clientResults = []), (clientQuery = ''))}>{c.name}<small>{c.phone}</small></button>{/each}
-        {/if}
-      </div>
-
-      {#if loyalty}
-        <div class="loyal" class:ready={loyalty.ready}>
-          {#if loyalty.ready}
-            <span>🎁 Premio listo: <b>{loyalty.reward}</b></span>
-            <button class="btn sm" onclick={redeemReward}>Canjear</button>
+        <div class="client">
+          {#if client}
+            <div class="client-on"><span class="grow title">{client.name}</span>{#if !appointmentId}<button type="button" class="btn ghost sm" onclick={() => (client = null)}>Quitar</button>{/if}</div>
           {:else}
-            <span>⭐ {loyalty.stamps} de {loyalty.visits_required} sellos</span>
+            <input type="search" placeholder="Cliente (opcional)" aria-label="Buscar cliente" bind:value={clientQuery} oninput={searchClient} style="margin: 0" />
+            {#each clientResults as c (c.id)}<button type="button" class="pick" onclick={() => ((client = c), (clientResults = []), (clientQuery = ''))}>{c.name}<small>{c.phone}</small></button>{/each}
           {/if}
         </div>
-      {/if}
-      {#if loyaltyMsg}<p class="ok-msg" role="status">{loyaltyMsg}</p>{/if}
+
+        {#if loyalty}
+          <div class="loyal" class:ready={loyalty.ready}>
+            {#if loyalty.ready}
+              <span>Premio listo: <b>{loyalty.reward}</b></span>
+              <button type="button" class="btn sm" onclick={redeemReward}>Canjear</button>
+            {:else}
+              <span>Tarjeta de lealtad: <b>{loyalty.stamps} de {loyalty.visits_required}</b> sellos</span>
+            {/if}
+          </div>
+        {/if}
+        {#if loyaltyMsg}<p class="ok-msg" role="status">{loyaltyMsg}</p>{/if}
+      </div>
 
       {#if lines.length === 0}
         <div class="t-empty">
@@ -634,14 +648,14 @@
               <div class="print-issue" role="alert">
                 <p><strong>No se imprimió el ticket.</strong> {printing.issue} La venta sí quedó registrada.</p>
                 <div>
-                  <button class="btn ghost sm" disabled={printing.busy} onclick={retryPrint}>{printing.busy ? 'Imprimiendo…' : 'Reintentar'}</button>
-                  <button class="btn ghost sm" onclick={() => printInBrowser(receipt)}>Imprimir con el navegador</button>
+                  <button type="button" class="btn ghost sm" disabled={printing.busy} onclick={retryPrint}>{printing.busy ? 'Imprimiendo…' : 'Reintentar'}</button>
+                  <button type="button" class="btn ghost sm" onclick={() => printInBrowser(receipt)}>Imprimir con el navegador</button>
                 </div>
               </div>
             {:else if autoPrints()}
-              <button class="btn ghost sm" disabled={printing.busy} onclick={() => printSale(receipt)}><Icon name="printer" size={16} />{printing.busy ? 'Imprimiendo…' : 'Reimprimir ticket'}</button>
+              <button type="button" class="btn ghost sm" disabled={printing.busy} onclick={() => printSale(receipt)}><Icon name="printer" size={16} />{printing.busy ? 'Imprimiendo…' : 'Reimprimir ticket'}</button>
             {:else}
-              <button class="btn ghost sm" onclick={() => printInBrowser(receipt)}><Icon name="printer" size={16} />Imprimir ticket</button>
+              <button type="button" class="btn ghost sm" onclick={() => printInBrowser(receipt)}><Icon name="printer" size={16} />Imprimir ticket</button>
             {/if}
           {:else}
             <p><strong>Listo para vender</strong></p>
@@ -649,62 +663,61 @@
           {/if}
         </div>
       {:else}
-        <ul class="lines">
-          {#each lines as l (l.key)}
-            <li class:on={selected?.key === l.key}>
-              <button class="l-top" onclick={() => (selKey = l.key)}>
-                <b>{l.name}</b>
-                <span class="amt">{money(l.qty * l.unit)}</span>
-              </button>
-              <p class="meta l-sub">{l.qty} × {money(l.unit)}{l.kind === 'package' ? ' · se le abona al cliente al cobrar' : ''}</p>
-              <div class="l-bot">
-                {#if l.kind !== 'package'}
-                  <div class="qty" aria-label="Cantidad">
-                    <button aria-label="Una menos" onclick={() => bump(l, -1)}>−</button>
-                    <button class="val" title="Escribir cantidad (F3)" onclick={() => ((selKey = l.key), openQty())}>{l.qty}</button>
-                    <button aria-label="Una más" disabled={l.qty >= maxQty(l)} onclick={() => bump(l, 1)}>+</button>
-                  </div>
-                {/if}
-                {#if l.kind === 'service'}
-                  <select bind:value={l.staffId} aria-label="Quién lo realizó" style="width: auto; margin: 0; min-height: 36px">
-                    <option value="">Sin asignar</option>
-                    {#each staff as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-                  </select>
-                {/if}
-                <button class="btn ghost sm" title="Quitar (F2)" onclick={() => removeLine(l)}><Icon name="trash" size={16} />Quitar</button>
-              </div>
-            </li>
-          {/each}
-        </ul>
-
-        {#if clientPkgs.length}
-          <div class="chips pk">
-            {#each clientPkgs as k (k.id)}
-              <button class="chip" disabled={!pkgUsable(k)} title={`Quedan ${k.remaining} sesiones`} onclick={() => addPackagePayment(k)}>Usar paquete: {k.name} ({k.remaining})</button>
+        <div class="t-body">
+          <ul class="lines">
+            {#each lines as l (l.key)}
+              <li class:on={selected?.key === l.key}>
+                <button type="button" class="l-top" onclick={() => (selKey = l.key)}>
+                  <b>{l.name}</b>
+                  <span class="amt">{money(l.qty * l.unit)}</span>
+                </button>
+                <p class="meta l-sub">{l.qty} × {money(l.unit)}{l.kind === 'package' ? ' · se le abona al cliente al cobrar' : ''}</p>
+                <div class="l-bot">
+                  {#if l.kind !== 'package'}
+                    <div class="qty" role="group" aria-label="Cantidad">
+                      <button type="button" aria-label="Una menos" onclick={() => bump(l, -1)}>−</button>
+                      <button type="button" class="val" title="Escribir cantidad (F3)" onclick={() => ((selKey = l.key), openQty())}>{l.qty}</button>
+                      <button type="button" aria-label="Una más" disabled={l.qty >= maxQty(l)} onclick={() => bump(l, 1)}>+</button>
+                    </div>
+                  {/if}
+                  {#if l.kind === 'service'}
+                    <select bind:value={l.staffId} aria-label="Quién lo realizó" class="who">
+                      <option value="">Sin asignar</option>
+                      {#each staff as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+                    </select>
+                  {/if}
+                  <button type="button" class="btn ghost sm" title="Quitar (F2)" onclick={() => removeLine(l)}><Icon name="trash" size={16} />Quitar</button>
+                </div>
+              </li>
             {/each}
-          </div>
-        {/if}
+          </ul>
 
-        <footer class="t-foot">
+          {#if clientPkgs.length}
+            <div class="chips pk">
+              {#each clientPkgs as k (k.id)}
+                <button type="button" class="chip" disabled={!pkgUsable(k)} title={`Quedan ${k.remaining} sesiones`} onclick={() => addPackagePayment(k)}>Usar paquete: {k.name} ({k.remaining})</button>
+              {/each}
+            </div>
+          {/if}
+
           <dl class="sums">
             <div><dt>Subtotal</dt><dd>{money(subtotal)}</dd></div>
             {#if discountCents}<div class="disc"><dt>Descuento</dt><dd>−{money(discountCents)}</dd></div>{/if}
             {#if tipCents}<div><dt>Propina</dt><dd>{money(tipCents)}</dd></div>{/if}
             {#each prepaid as p (p.key)}
               <div class="disc">
-                <dt>{p.method === 'deposit' ? 'Anticipo pagado en línea' : `Paquete: ${p.name}`}{#if p.method === 'package'} <button class="link" onclick={() => (prepaid = prepaid.filter((x) => x !== p))}>Quitar</button>{/if}</dt>
+                <dt>{p.method === 'deposit' ? 'Anticipo pagado en línea' : `Paquete: ${p.name}`}{#if p.method === 'package'} <button type="button" class="link" onclick={() => (prepaid = prepaid.filter((x) => x !== p))}>Quitar</button>{/if}</dt>
                 <dd>−{money(toCents(p.amount))}</dd>
               </div>
             {/each}
           </dl>
-          <div class="grand"><span>{prepaid.length ? 'Por cobrar' : 'Total'}</span><strong>{money(Math.max(toPay, 0))}</strong></div>
           {#if toPay < 0}<p class="error" role="alert" style="margin: 0">Lo ya pagado supera el total. Quita un paquete o revisa el descuento.</p>{/if}
 
           <details class="more" open={tipMode !== 'none' || !!note}>
             <summary>Propina y nota</summary>
             <div class="chips" style="margin: 0.5rem 0 0">
               {#each [['none', 'Sin propina'], ['10', '10 %'], ['15', '15 %'], ['20', '20 %'], ['custom', 'Otra']] as [v, label]}
-                <button class="chip" aria-pressed={tipMode === v} onclick={() => (tipMode = v)}>{label}</button>
+                <button type="button" class="chip" aria-pressed={tipMode === v} onclick={() => (tipMode = v)}>{label}</button>
               {/each}
             </div>
             {#if tipMode === 'custom'}<input inputmode="decimal" placeholder="Monto de la propina" aria-label="Propina" bind:value={tipCustom} style="margin-top: 8px" />{/if}
@@ -718,26 +731,29 @@
             {/if}
             <label class="field" style="margin: 8px 0 0">Nota (opcional) <input bind:value={note} maxlength="500" /></label>
           </details>
+        </div>
 
+        <div class="t-foot">
           <div class="quick">
-            <button disabled={!selected || selected.kind === 'package'} title="Cantidad del renglón (F3)" onclick={openQty}><Icon name="hash" size={18} />Cantidad</button>
-            <button class:on={discountCents > 0} title="Descuento al ticket (F9)" onclick={openDiscount}><Icon name="percent" size={18} />{discountCents ? `Dcto ${money(discountCents)}` : 'Descuento'}</button>
-            <button title="Poner en espera (F6)" onclick={holdTicket}><Icon name="pause" size={18} />En espera</button>
+            <button type="button" disabled={!selected || selected.kind === 'package'} title="Cantidad del renglón (F3)" onclick={openQty}><Icon name="hash" size={18} />Cantidad</button>
+            <button type="button" class:on={discountCents > 0} title="Descuento al ticket (F9)" onclick={openDiscount}><Icon name="percent" size={18} />{discountCents ? `Dcto ${money(discountCents)}` : 'Descuento'}</button>
+            <button type="button" title="Poner en espera (F6)" onclick={holdTicket}><Icon name="pause" size={18} />En espera</button>
           </div>
-          <button class="pay-btn" disabled={!canPay} onclick={startPay}>
-            <span>Cobrar</span><strong>{money(Math.max(toPay, 0))}</strong><kbd class="only-pc">F12</kbd>
+          <div class="grand"><span>{prepaid.length ? 'Por cobrar' : 'Total'}</span><strong>{money(Math.max(toPay, 0))}</strong></div>
+          <button type="button" class="pay-btn" disabled={!canPay} onclick={startPay}>
+            <span>Cobrar</span><kbd class="only-pc">F12</kbd>
           </button>
-        </footer>
+        </div>
       {/if}
     </aside>
 
     <!-- celular: barra con el total siempre a la vista -->
     <div class="m-pay">
-      <button class="m-ticket" onclick={() => (ticketOpen = true)}>
+      <button type="button" class="m-ticket" onclick={() => (ticketOpen = true)}>
         <span class="m-count">{items}</span>
         <span class="m-copy"><strong>{money(Math.max(toPay, 0))}</strong><small>{lines.length ? 'Ver ticket' : held.length ? `${held.length} en espera` : 'Ticket vacío'}</small></span>
       </button>
-      <button class="m-go" disabled={!lines.length || !canPay} onclick={startPay}>Cobrar</button>
+      <button type="button" class="m-go" disabled={!lines.length || !canPay} onclick={startPay}>Cobrar</button>
     </div>
   </div>
 
@@ -751,7 +767,7 @@
       <label class="field">Monto (MXN)<input inputmode="decimal" bind:value={discDraft} placeholder="0.00" /></label>
       <div class="form-actions">
         <button type="button" class="btn ghost" onclick={() => ((discDraft = ''), (discount = ''), (discOpen = false))}>Quitar</button>
-        <button class="btn">Aplicar</button>
+        <button type="submit" class="btn">Aplicar</button>
       </div>
     </form>
   </Modal>
@@ -760,7 +776,7 @@
     <form onsubmit={applyQty} class="mini-form">
       <p class="meta" style="margin: 0">{selected?.name}</p>
       <label class="field">Cantidad<input inputmode="numeric" bind:value={qtyDraft} onfocus={(e) => e.currentTarget.select()} /></label>
-      <div class="form-actions"><button class="btn">Aceptar</button></div>
+      <div class="form-actions"><button type="submit" class="btn">Aceptar</button></div>
     </form>
   </Modal>
 
@@ -770,8 +786,8 @@
         {#each held as t (t.id)}
           <li>
             <div class="grow"><b>{plural(t.lines.reduce((n, l) => n + l.qty, 0), 'artículo', 'artículos')} · {money(heldTotal(t))}</b><small class="meta">{t.client?.name ? t.client.name + ' · ' : ''}{fmtTime(new Date(t.at).toISOString(), tz)}</small></div>
-            <button class="btn sm" onclick={() => resumeHeld(t.id)}>Retomar</button>
-            <button class="btn ghost sm" aria-label="Descartar" onclick={() => dropHeld(t.id)}><Icon name="trash" size={16} /></button>
+            <button type="button" class="btn sm" onclick={() => resumeHeld(t.id)}>Retomar</button>
+            <button type="button" class="btn ghost sm" aria-label="Descartar" onclick={() => dropHeld(t.id)}><Icon name="trash" size={16} /></button>
           </li>
         {/each}
       </ul>
@@ -783,121 +799,117 @@
 {/if}
 
 <style>
-  .item-row.appt small { display: block; }
-  .open { max-width: 420px; }
+  .open { max-width: 460px; }
   .pos { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
-  @media (min-width: 760px) { .pos { grid-template-columns: 1.15fr 0.85fr; } .ticket { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; } }
+  @media (min-width: 760px) {
+    .pos { grid-template-columns: minmax(0, 1fr) minmax(340px, 400px); }
+    .ticket { position: sticky; top: 16px; max-height: calc(100vh - 112px); }
+  }
   .only-pc { display: none; }
   @media (hover: hover) and (pointer: fine) { .only-pc { display: inline; } }
 
-  /* buscador */
-  .finder { position: relative; display: flex; align-items: center; gap: 8px; margin-bottom: 0.75rem; padding: 0 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); }
+  /* catálogo: lista limpia, precio a la derecha en cifras tabulares */
+  .catalog { min-width: 0; }
+  .finder { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 0 12px; background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm); color: var(--muted); }
   .finder:focus-within { border-color: var(--accent); }
   .finder input.scan, .finder input.scan:hover, .finder input.scan:focus { flex: 1; min-width: 0; min-height: 48px; margin: 0; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; font-size: 1rem; }
-  .clear { display: grid; place-items: center; width: 32px; height: 32px; color: var(--muted); background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
+  .clear { display: grid; place-items: center; width: 44px; height: 44px; margin-right: -8px; color: var(--muted); background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
   .clear:hover { background: var(--surface-2); }
-
-  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.75rem; }
-  .tabs .chip { margin: 0; }
-  .cats { margin: -0.25rem 0 0.75rem; }
-  .tabs .chip[aria-selected='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
-
-  /* mosaico y resultados */
-  .tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-  .tile {
-    display: grid; grid-template-rows: auto 1fr auto; justify-items: start; gap: 6px; min-height: 120px; padding: 0.75rem; text-align: left; font: inherit; color: var(--text);
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
-    transition: border-color 0.2s var(--ease), transform 0.15s var(--ease);
+  .cat-bar { display: grid; gap: 8px; justify-items: start; margin-bottom: 8px; max-width: 100%; }
+  .cat-bar :global(.seg) { max-width: 100%; }
+  .hint { margin: 0 0 8px; }
+  .none { margin: 12px 4px; }
+  .none-box { display: grid; justify-items: start; gap: 4px; padding: 12px 4px; }
+  .none-box p { margin: 0; }
+  .items { display: grid; }
+  .items .head { margin: 0 0 4px; }
+  .item {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 12px; text-align: left; font: inherit; color: var(--text);
+    background: none; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; cursor: pointer;
+    transition: background-color var(--dur-ui) var(--ease);
   }
-  .tile:hover:not(:disabled) { border-color: var(--accent); }
-  .tile:active:not(:disabled) { transform: scale(0.98); }
-  .tile.in { border-color: var(--accent); background: var(--accent-soft); }
-  .tile:disabled { opacity: 0.5; cursor: not-allowed; }
-  .tile .foot { display: grid; gap: 1px; }
-  .tile strong { color: var(--accent); font-variant-numeric: tabular-nums; }
-  .tile small, .r-main small { color: var(--muted); }
-  .tile small.low { color: var(--danger); }
-  .avatar { position: relative; display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-  .tile.in .avatar { background: var(--accent); color: var(--accent-contrast); }
-  .badge-n { position: absolute; top: -6px; right: -8px; min-width: 20px; padding: 0 5px; border-radius: 999px; background: var(--text); color: var(--surface); font: 600 0.72rem/20px var(--font-num, inherit); font-style: normal; text-align: center; }
-
-  .results { display: grid; gap: 6px; }
-  .results .head { margin: 0 0 4px; }
-  .result { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 0.5rem 0.75rem; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-  .result:hover:not(:disabled), .result.active { border-color: var(--accent); background: var(--accent-soft); }
-  .result:disabled { opacity: 0.5; cursor: not-allowed; }
-  .r-main { display: grid; flex: 1; min-width: 0; }
-  .r-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .r-side { display: grid; justify-items: end; }
-  .r-side strong { font-variant-numeric: tabular-nums; }
-  .r-side em { font-size: 0.78rem; font-style: normal; color: var(--accent); }
-  .appt { width: 100%; text-align: left; font: inherit; color: var(--text); cursor: pointer; }
-  .appt:hover { border-color: var(--accent); }
-
-  .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 1rem 0 0; color: var(--muted); font-size: 0.8rem; }
+  .item:last-child { border-bottom: 0; }
+  .item:hover:not(:disabled), .item.active { background: var(--surface-2); }
+  .item:active:not(:disabled) { background: var(--accent-soft); }
+  .item.active { box-shadow: inset 3px 0 0 var(--accent); }
+  .item:disabled { opacity: 0.5; cursor: not-allowed; }
+  .item .grow { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+  .item small { color: var(--muted); font-size: 0.85rem; }
+  .item small.low { color: var(--danger); }
+  .in-ticket { font-size: 0.8rem; font-style: normal; font-weight: 600; color: var(--accent-text, var(--accent)); white-space: nowrap; }
+  .price { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+  .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
   kbd { margin-right: 4px; padding: 1px 6px; font: inherit; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); }
 
-  /* ticket */
-  .t-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.75rem; }
-  .t-head > div { flex: 1; min-width: max-content; }
-  .t-head h2 { margin: 0; font-size: 1.4rem; white-space: nowrap; }
+  /* ticket: encabezado y cliente arriba, renglones con scroll, total y cobrar siempre a la vista */
+  .ticket { display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .t-top { padding: 20px 20px 12px; }
+  .t-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 20px 16px; }
+  .t-foot { display: grid; gap: 10px; padding: 14px 20px calc(16px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
+  .t-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .t-title { flex: 1; min-width: max-content; }
+  .t-head h2 { margin: 0; font-size: 1.25rem; white-space: nowrap; }
   .t-head p { margin: 0; }
-  .head-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 0.8rem; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
-  .head-btn.icon { padding: 0; width: 40px; justify-content: center; }
-  .head-btn.has { border-color: var(--accent); color: var(--accent); }
+  .head-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+  .head-btn.icon { padding: 0; width: 44px; justify-content: center; }
+  .head-btn.has { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
   .head-btn b { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-contrast); font-size: 0.72rem; text-align: center; }
   .head-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .head-btn.close { display: none; }
-  .client { margin-bottom: 0.75rem; }
-  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 40px; align-items: center; padding: 0 0.8rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .client { display: grid; gap: 4px; }
+  .client-on { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+  .client-on .grow { flex: 1 1 auto; min-width: 0; }
+  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 44px; align-items: center; padding: 0 0.8rem; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
   .pick small { color: var(--muted); }
 
-  .loyal { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.88rem; background: var(--surface-2); border-radius: var(--radius-sm); }
-  .loyal.ready { background: var(--accent-soft); color: var(--accent); }
-  .ok-msg { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: var(--ok); background: var(--ok-soft); border-radius: var(--radius-sm); }
-  .t-empty { display: grid; justify-items: center; gap: 4px; padding: 1.5rem 1rem; text-align: center; }
+  .loyal { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 8px 12px; font-size: 0.88rem; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .loyal.ready { background: var(--accent-soft); color: var(--accent-text, var(--accent)); }
+  .ok-msg { margin: 12px 0 0; padding: 8px 12px; font-size: 0.85rem; color: var(--ok); background: var(--ok-soft); border-radius: var(--radius-sm); }
+  .t-empty { display: grid; justify-items: center; gap: 4px; margin: 0 20px 20px; padding: 28px 16px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
   .t-empty p { margin: 0; }
   .done-ico { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 6px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }
-  .print-issue { display: grid; gap: 8px; margin-top: 0.5rem; padding: 0.75rem 1rem; text-align: left; background: var(--danger-soft); color: var(--danger); border-radius: var(--radius-sm); font-size: 0.9rem; }
+  .print-issue { display: grid; gap: 8px; margin-top: 8px; padding: 12px 16px; text-align: left; background: var(--danger-soft); color: var(--danger); border-radius: var(--radius-sm); font-size: 0.9rem; }
   .print-issue div { display: flex; flex-wrap: wrap; gap: 8px; }
 
-  .lines { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 8px; }
-  .lines li { padding: 0.6rem 0.75rem; background: var(--surface-2); border: 1px solid transparent; border-radius: var(--radius-sm); }
-  .lines li.on { border-color: var(--accent); }
-  .l-top { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 0; font: inherit; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; }
-  .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .l-sub { margin: 0; font-size: 0.82rem; }
-  .l-bot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .qty { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
-  .qty button { width: 40px; height: 40px; font-size: 1.2rem; color: var(--text); background: none; border: 0; cursor: pointer; }
-  .qty .val { width: auto; min-width: 36px; padding: 0 4px; font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .lines { list-style: none; margin: 0 0 8px; padding: 0; }
+  .lines li { padding: 12px 0 12px 10px; border-bottom: 1px solid var(--border); box-shadow: inset 3px 0 0 transparent; }
+  .lines li.on { box-shadow: inset 3px 0 0 var(--accent); }
+  .l-top { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-height: 28px; padding: 0; font: inherit; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; }
+  .amt { font-variant-numeric: tabular-nums lining-nums; font-weight: 600; white-space: nowrap; }
+  .l-sub { margin: 0; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .l-bot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .qty { display: inline-flex; align-items: center; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); }
+  .qty button { width: 44px; height: 44px; font-size: 1.2rem; color: var(--text); background: none; border: 0; cursor: pointer; }
+  .qty .val { width: auto; min-width: 44px; padding: 0 4px; font-size: 1rem; font-variant-numeric: tabular-nums; }
   .qty button:disabled { opacity: 0.4; cursor: not-allowed; }
-  .pk { margin: 0 0 0.75rem; }
+  .who { width: auto; flex: 1 1 110px; min-width: 0; margin: 0; }
+  .pk { margin: 0 0 8px; }
 
-  .t-foot { display: grid; gap: 0.7rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
-  .sums { display: grid; gap: 4px; margin: 0; font-variant-numeric: tabular-nums; }
+  .sums { display: grid; gap: 8px; margin: 0; padding: 12px 0; font-variant-numeric: tabular-nums lining-nums; }
   .sums > div { display: flex; justify-content: space-between; gap: 12px; }
   .sums dt, .sums dd { margin: 0; }
   .sums .disc { color: var(--ok); }
-  .link { padding: 0; font: inherit; font-size: 0.82rem; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
-  .grand { display: flex; justify-content: space-between; align-items: baseline; padding: 0.7rem 1rem; background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-sm); font-weight: 600; }
-  .grand strong { font-family: var(--font-num, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.8rem; }
-  .more { font-size: 0.9rem; }
-  .more summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+  .link { min-height: 44px; padding: 0 4px; font: inherit; font-size: 0.82rem; color: var(--accent-text, var(--accent)); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+  .more { margin-top: 4px; font-size: 0.9rem; }
+  .more summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 500; color: var(--muted); }
+
   .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .quick button { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; padding: 0.4rem; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-  .quick button.on { border-color: var(--accent); color: var(--accent); }
+  .quick button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 6px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm); cursor: pointer; }
+  .quick button.on { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
   .quick button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .pay-btn { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 0 1.25rem; font: inherit; font-size: 1.05rem; font-weight: 700; color: var(--accent-contrast); background: var(--accent); border: 0; border-radius: var(--radius-sm); cursor: pointer; }
-  .pay-btn strong { font-family: var(--font-num, inherit); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .grand { display: flex; justify-content: space-between; align-items: baseline; color: var(--text); }
+  .grand span { font-weight: 600; }
+  .grand strong { font-family: var(--font-num, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.9rem; letter-spacing: -0.01em; }
+  .pay-btn { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 0 20px; font: inherit; font-size: 1.1rem; font-weight: 700; color: var(--accent-contrast); background: var(--accent); border: 0; border-radius: var(--radius-sm); cursor: pointer; transition: background-color var(--dur-ui) var(--ease); }
   .pay-btn:hover:not(:disabled) { background: var(--accent-hover); }
   .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .pay-btn kbd { margin: 0; background: transparent; color: inherit; border-color: currentColor; opacity: 0.7; }
 
-  .mini-form { display: grid; gap: 0.9rem; }
+  .mini-form { display: grid; gap: 16px; }
   .mini-form .field { margin: 0; }
-  .held { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 8px; }
-  .held li { display: flex; align-items: center; gap: 8px; padding: 0.6rem 0.75rem; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .held { list-style: none; margin: 0 0 12px; padding: 0; display: grid; }
+  .held li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .held li:last-child { border-bottom: 0; }
   .held small { display: block; }
 
   /* celular: barra de cobro y el ticket como hoja */
@@ -909,21 +921,21 @@
       display: grid; grid-template-columns: 1fr auto; gap: 8px;
     }
     .m-ticket, .m-go { min-height: 56px; font: inherit; border: 0; border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer; }
-    .m-ticket { display: flex; align-items: center; gap: 12px; padding: 0 1rem; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); }
-    .m-count { display: grid; place-items: center; min-width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+    .m-ticket { display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); }
+    .m-count { display: grid; place-items: center; min-width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text, var(--accent)); font-weight: 700; font-variant-numeric: tabular-nums; }
     .m-copy { display: grid; }
-    .m-copy strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+    .m-copy strong { font-size: 1.25rem; font-variant-numeric: tabular-nums lining-nums; }
     .m-copy small { color: var(--muted); }
-    .m-go { padding: 0 1.5rem; font-weight: 700; font-size: 1.05rem; color: var(--accent-contrast); background: var(--accent); }
+    .m-go { padding: 0 24px; font-weight: 700; font-size: 1.05rem; color: var(--accent-contrast); background: var(--accent); }
     .m-go:disabled { opacity: 0.5; cursor: not-allowed; }
     .scrim { display: block; position: fixed; inset: 0; z-index: 55; border: 0; padding: 0; background: rgba(20, 18, 14, 0.45); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease); }
     .scrim.open { opacity: 1; pointer-events: auto; }
     .ticket {
-      position: fixed; inset: auto 0 0 0; z-index: 60; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      position: fixed; inset: auto 0 0 0; z-index: 60; max-height: 90vh; max-height: 90dvh; border-radius: 16px 16px 0 0; border-bottom: 0;
       transform: translateY(105%); visibility: hidden; transition: transform 260ms var(--ease), visibility 0s linear 260ms; box-shadow: var(--shadow);
     }
     .ticket.open { transform: none; visibility: visible; transition: transform 260ms var(--ease); }
     .pos { padding-bottom: 88px; }
   }
-  @media (prefers-reduced-motion: reduce) { .ticket, .ticket.open { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .ticket, .ticket.open, .scrim { transition: none; } }
 </style>

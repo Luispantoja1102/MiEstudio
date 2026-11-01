@@ -1,162 +1,114 @@
 <script>
-  // Apertura: la semana del local a pantalla completa. Con el scroll entran las citas, oficio por oficio
-  // (barbería, uñas, pestañas, spa), hasta llenar la pantalla. El titular es una cita más de esa agenda,
-  // y su palabra cambia con el oficio que está entrando.
-  import { scene } from './scroll.js';
+  // Apertura: el día de un local con cuatro oficios en una sola agenda, vista por profesional.
+  // Titular a la izquierda; a la derecha, la agenda de ejemplo, legible completa. Los oficios del titular son la leyenda de sus colores.
+  const INICIO = 9 * 60;   // la agenda arranca a las 9:00
+  const PX_HORA = 64;      // alto de una hora
+  const HORAS = 7;         // 9:00 a 16:00
+  const AHORA = 11 * 60 + 20;
 
-  const oficios = [
-    { nombre: 'barbería', tono: 'var(--cuero)', suave: 'var(--s-barberia)', servicios: [['Corte', 2], ['Fade', 2], ['Barba', 1], ['Corte y barba', 3]] },
-    { nombre: 'uñas', tono: 'var(--esmalte)', suave: 'var(--s-unas)', servicios: [['Gelish', 2], ['Acrílico', 5], ['Pedicure', 2], ['Retoque', 2]] },
-    { nombre: 'pestañas', tono: 'var(--tinta)', suave: 'var(--s-pestanas)', servicios: [['Extensiones', 4], ['Relleno', 2], ['Lifting', 2]] },
-    { nombre: 'spa', tono: 'var(--eucalipto)', suave: 'var(--s-spa)', servicios: [['Masaje', 2], ['Facial', 3], ['Piedras calientes', 3]] }
+  const oficios = {
+    barberia: { nombre: 'barbería', tono: 'var(--cuero)', suave: 'var(--s-barberia)' },
+    unas: { nombre: 'uñas', tono: 'var(--esmalte)', suave: 'var(--s-unas)' },
+    pestanas: { nombre: 'pestañas', tono: 'var(--tinta)', suave: 'var(--s-pestanas)' },
+    spa: { nombre: 'spa', tono: 'var(--eucalipto)', suave: 'var(--s-spa)' }
+  };
+
+  // Ejemplo ilustrativo: [hora, minutos, servicio, cliente]; servicio vacío = bloqueo
+  const equipo = [
+    { quien: 'Marco', oficio: 'barberia', citas: [['9:00', 40, 'Corte', 'Toño'], ['9:40', 40, 'Fade', 'Iker'], ['10:20', 60, 'Corte y barba', 'Beto'], ['11:20', 40, 'Corte', 'Memo'], ['12:00', 60, '', 'Comida'], ['13:00', 40, 'Fade', 'Óscar'], ['13:40', 40, 'Barba', 'Rubén'], ['14:20', 40, 'Corte', 'Chuy']] },
+    { quien: 'Dani', oficio: 'unas', citas: [['9:30', 150, 'Acrílico', 'Andrea'], ['12:00', 60, 'Gelish', 'Paola'], ['13:00', 60, 'Retoque', 'Karla'], ['14:00', 120, 'Pedicure', 'Dulce']] },
+    { quien: 'Sofi', oficio: 'pestanas', citas: [['10:00', 150, 'Extensiones', 'Mariela'], ['12:30', 90, 'Relleno', 'Ivonne'], ['14:00', 90, 'Lifting', 'Sara']] },
+    { quien: 'Lu', oficio: 'spa', citas: [['9:00', 60, 'Masaje', 'Fer'], ['10:30', 90, 'Facial', 'Nayeli'], ['12:00', 60, 'Masaje', 'Lupita'], ['13:30', 90, 'Piedras calientes', 'Luis']] }
   ];
-  const clientes = ['Andrea', 'Luis', 'Mariela', 'Toño', 'Paola', 'Karla', 'Iker', 'Fer', 'Ivonne', 'Rubén', 'Dulce', 'Beto', 'Sara', 'Memo', 'Lupita', 'Óscar', 'Nayeli', 'Chuy'];
-  const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const FILAS = 22; // de 9:00 a 20:00 en medias horas
-  // El titular ocupa martes a viernes, de 11:30 a 16:30
-  const titular = { d0: 1, d1: 4, r0: 5, r1: 15 };
-
-  // Agenda de ejemplo, siempre la misma (generador con semilla)
-  let semilla = 7;
-  const azar = () => ((semilla = (semilla * 16807) % 2147483647) - 1) / 2147483646;
-  const citas = [];
-  for (let d = 0; d < dias.length; d++) {
-    let r = Math.floor(azar() * 2);
-    while (r < FILAS) {
-      const tapa = d >= titular.d0 && d <= titular.d1;
-      if (tapa && r >= titular.r0 && r < titular.r1) {
-        r = titular.r1;
-        continue;
-      }
-      const o = Math.floor(azar() * 4);
-      const [servicio, largo] = oficios[o].servicios[Math.floor(azar() * oficios[o].servicios.length)];
-      let fin = Math.min(FILAS, r + largo);
-      if (tapa && r < titular.r0 && fin > titular.r0) fin = titular.r0;
-      if (fin - r >= 1) {
-        const h = 9 + r / 2;
-        citas.push({
-          d, r, fin, o, servicio,
-          cliente: clientes[Math.floor(azar() * clientes.length)],
-          hora: `${Math.floor(h)}:${h % 1 ? '30' : '00'}`,
-          t: o * 0.21 + azar() * 0.17, // entra en el tramo de su oficio
-          choque: d === 0 && r < titular.r1 && fin > titular.r0
-        });
-      }
-      r = fin + (azar() < 0.35 ? 1 : 0);
-    }
-  }
-  const horas = Array.from({ length: 12 }, (_, i) => `${9 + i}:00`);
+  const min = (h) => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
+  const horas = Array.from({ length: HORAS }, (_, i) => `${9 + i}:00`);
 </script>
 
-<section class="apertura" use:scene style="--p: 1" data-hora="09:00" data-momento="Se abre la semana" aria-labelledby="titulo">
-  <div class="cuadro">
-    <div class="semana" style="--filas: {FILAS}">
-      <div class="dias" aria-hidden="true">{#each dias as d, i}<span class:fin={i >= 3}>{d}</span>{/each}</div>
-      <ol class="horas" aria-hidden="true">{#each horas as h, i}<li style="--i: {i}">{h}</li>{/each}</ol>
-
-      {#each citas as c}
-        <span
-          class="cita"
-          class:mini={c.fin - c.r < 2}
-          class:fin={c.d >= 3}
-          class:choque={c.choque}
-          aria-hidden="true"
-          style="grid-column: {c.d + 2}; grid-row: {c.r + 2} / {c.fin + 2}; --t: {c.t.toFixed(3)}; --tono: {oficios[c.o].tono}; --suave: {oficios[c.o].suave}"
-        ><b>{c.servicio}</b><small>{c.hora} · {c.cliente}</small></span>
-      {/each}
-
-      <!-- El titular: la cita más grande de la semana -->
-      <div class="titular" style="grid-column: {titular.d0 + 2} / {titular.d1 + 3}; grid-row: {titular.r0 + 2} / {titular.r1 + 2}">
-        <h2 id="titulo" class="h1">
-          Tu agenda de
-          <span class="rueda">
-            {#each oficios as o, i}<span class="palabra" class:ultima={i === 3} aria-hidden="true" style="--i: {i}; color: {o.tono}">{o.nombre}</span>{/each}
-            <span class="sr">barbería, uñas, pestañas o spa</span>
-          </span>
-          se llena sola.
-        </h2>
-        <div class="lado">
-          <p>Tus clientes reservan a cualquier hora, dejan su anticipo y tú cobras en pesos. Citas, caja y recordatorios en un solo lugar.</p>
-          <div class="acciones">
-            <a class="btn" href="/registro">Probar 14 días gratis</a>
-            <a class="link" href="#madrugada">Así es un día</a>
-          </div>
-        </div>
+<section class="apertura" aria-labelledby="titulo">
+  <div class="envoltura rejilla">
+    <div class="texto">
+      <p class="kicker"><time>09:00</time>Se abre el día</p>
+      <h2 id="titulo" class="titulo">
+        Tu agenda de <span class="of" style="--tono: {oficios.barberia.tono}">barbería</span>, <span class="of" style="--tono: {oficios.unas.tono}">uñas</span>, <span class="of" style="--tono: {oficios.pestanas.tono}">pestañas</span> o <span class="of" style="--tono: {oficios.spa.tono}">spa</span> se llena sola.
+      </h2>
+      <p class="lead">Tus clientes reservan a cualquier hora, dejan su anticipo y tú cobras en pesos. Citas, caja y recordatorios en un solo lugar.</p>
+      <div class="acciones">
+        <a class="btn" href="/registro">Probar 14 días gratis</a>
+        <a class="link" href="#madrugada">Así es un día</a>
       </div>
     </div>
-    <p class="leyenda">Semana de ejemplo · desliza para llenarla</p>
+
+    <figure class="agenda" aria-label="Agenda de un día con cuatro profesionales (ejemplo ilustrativo)">
+      <div class="cabeza">
+        <span></span>
+        {#each equipo as e, i}
+          <p class="persona" class:extra={i === 3}><b>{e.quien}</b><small style="--tono: {oficios[e.oficio].tono}">{oficios[e.oficio].nombre}</small></p>
+        {/each}
+      </div>
+      <div class="cuerpo" style="--alto: {HORAS * PX_HORA}px">
+        <ol class="horas" aria-hidden="true">{#each horas as h, i}<li style="top: {i * PX_HORA}px">{h}</li>{/each}</ol>
+        {#each equipo as e, i}
+          <div class="col" class:extra={i === 3}>
+            {#each e.citas as [h, dur, servicio, cliente]}
+              <div class="cita" class:bloqueo={!servicio} class:corta={dur < 40} style="top: {((min(h) - INICIO) / 60) * PX_HORA}px; height: {(dur / 60) * PX_HORA - 2}px; --tono: {oficios[e.oficio].tono}; --suave: {oficios[e.oficio].suave}">
+                <b>{servicio || 'Bloqueado'}</b>
+                <small>{h} · {cliente}</small>
+              </div>
+            {/each}
+          </div>
+        {/each}
+        <p class="ahora" style="top: {((AHORA - INICIO) / 60) * PX_HORA}px" aria-hidden="true"><span>11:20</span></p>
+      </div>
+      <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+    </figure>
   </div>
 </section>
 
 <style>
-  .apertura { height: 300vh; background: var(--ticket); color: var(--tinta); }
-  .cuadro { position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden; padding: 76px clamp(10px, 2vw, 28px) 34px; }
+  .apertura { padding: clamp(72px, 9vw, 120px) 0 clamp(72px, 9vw, 112px); background: var(--ticket); color: var(--tinta); }
+  .rejilla { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; gap: clamp(32px, 5vw, 80px); }
+  .texto { padding-top: clamp(0px, 3vw, 40px); }
+  .titulo { font-size: clamp(2.2rem, 4vw, 3.8rem); line-height: 1; }
+  /* cada oficio del titular lleva el color con que se ve en la agenda */
+  .of { text-decoration: underline; text-decoration-color: var(--tono); text-decoration-thickness: 0.09em; text-underline-offset: 0.12em; }
+  .lead { margin: 22px 0 0; max-width: 44ch; font-size: clamp(1rem, 1.25vw, 1.15rem); line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
+  .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 28px; }
 
-  .semana {
-    position: relative; height: 100%; display: grid; gap: 3px 6px;
-    grid-template-columns: 44px repeat(6, minmax(0, 1fr));
-    grid-template-rows: 26px repeat(var(--filas), minmax(0, 1fr));
-  }
-  .dias { display: contents; }
-  .dias span { grid-row: 1; font-weight: 700; font-size: 0.85rem; padding-left: 2px; }
-  .dias span:nth-child(1) { grid-column: 2; }
-  .dias span:nth-child(2) { grid-column: 3; }
-  .dias span:nth-child(3) { grid-column: 4; }
-  .dias span:nth-child(4) { grid-column: 5; }
-  .dias span:nth-child(5) { grid-column: 6; }
-  .dias span:nth-child(6) { grid-column: 7; }
-  /* líneas de cada hora: la retícula es la agenda misma */
-  .horas { position: absolute; left: 0; right: 0; top: 29px; bottom: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
-  .horas li { position: absolute; left: 0; right: 0; top: calc(var(--i) * 2 / var(--filas) * 100%); padding-top: 2px; border-top: 1px solid rgb(var(--ink-rgb) / 0.07); font-size: 0.72rem; color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
-
-  .cita {
-    --on: clamp(0, calc((var(--p) * 1.06 - var(--t)) * 14), 1);
-    position: relative; z-index: 1; min-width: 0; overflow: hidden;
-    display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; padding: 5px 8px;
-    border-radius: 6px; background: var(--suave); box-shadow: inset 3px 0 0 var(--tono);
-    opacity: var(--on); transform: translate3d(0, calc((1 - var(--on)) * 10px), 0) scale(calc(0.96 + var(--on) * 0.04));
-  }
-  .cita b { font-size: 0.82rem; font-weight: 650; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* La agenda: horas a la izquierda, una columna por persona */
+  .agenda { margin: 0; min-width: 0; }
+  .cabeza, .cuerpo { display: grid; grid-template-columns: 44px repeat(4, minmax(0, 1fr)); gap: 0 8px; }
+  .cabeza { padding-bottom: 10px; border-bottom: 2px solid var(--tinta); }
+  .persona { margin: 0; display: grid; }
+  .persona b { font-size: 0.95rem; }
+  .persona small { font-size: 0.78rem; font-weight: 600; color: var(--tono); }
+  .persona small { color: var(--tinta-suave); }
+  .persona small::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--tono); }
+  .cuerpo { position: relative; height: var(--alto); }
+  .horas { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+  .horas li { position: absolute; left: 0; right: 0; padding-top: 3px; border-top: 1px solid rgb(var(--ink-rgb) / 0.12); font-size: 0.72rem; color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
+  .col { position: relative; grid-row: 1; }
+  .col:nth-of-type(1) { grid-column: 2; }
+  .col:nth-of-type(2) { grid-column: 3; }
+  .col:nth-of-type(3) { grid-column: 4; }
+  .col:nth-of-type(4) { grid-column: 5; }
+  .cita { position: absolute; left: 0; right: 0; z-index: 1; overflow: hidden; display: flex; flex-direction: column; padding: 4px 7px; border-radius: 4px; background: var(--suave); box-shadow: inset 3px 0 0 var(--tono); }
+  .cita b { font-size: 0.8rem; font-weight: 650; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cita small { font-size: 0.7rem; color: var(--tinta-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-  .cita.mini { justify-content: center; padding-block: 0; }
-  .cita.mini small { display: none; }
-
-  .titular {
-    position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: end; gap: 18px clamp(20px, 3vw, 40px);
-    padding: clamp(20px, 3vw, 44px); border-radius: 10px; background: var(--ticket);
-    box-shadow: inset 0 0 0 1.5px var(--tinta);
-  }
-  .h1 { margin: 0; align-self: center; font-family: var(--display); font-stretch: var(--ancho); font-weight: 700; font-size: clamp(2.2rem, 3.9vw, 4.2rem); line-height: 0.98; letter-spacing: -0.025em; }
-  .lado { display: grid; gap: 18px; }
-  .rueda { display: grid; }
-  .palabra {
-    grid-area: 1 / 1;
-    /* cada palabra se ve mientras entran las citas de su oficio */
-    --a: clamp(0, calc((var(--p) - var(--i) * 0.21) * 70), 1);
-    --b: clamp(0, calc(((var(--i) + 1) * 0.21 - var(--p)) * 70), 1);
-    opacity: calc(var(--a) * var(--b));
-    transform: translate3d(0, calc((1 - var(--a)) * 0.25em - (1 - var(--b)) * 0.25em), 0);
-  }
-  .palabra:first-child { --a: 1; }
-  .palabra.ultima { --b: 1; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .titular p { margin: 0; max-width: 46ch; font-size: clamp(1rem, 1.25vw, 1.15rem); line-height: 1.5; color: var(--tinta-suave); text-wrap: pretty; }
-  .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
-  .leyenda { position: absolute; left: 0; right: 0; bottom: 8px; margin: 0; text-align: center; font-size: 0.75rem; color: var(--tinta-suave); }
-
-  :global(.apertura.still) { height: auto; }
-  :global(.apertura.still) .cuadro { position: relative; height: 100svh; }
+  .cita.bloqueo { background: transparent; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.22); color: var(--tinta-suave); }
+  .ahora { position: absolute; z-index: 2; left: 44px; right: 0; margin: 0; height: 0; border-top: 2px solid var(--bermellon); pointer-events: none; }
+  .ahora span { position: absolute; right: 0; top: -1px; padding: 1px 6px; border-radius: 0 0 4px 4px; background: var(--bermellon); color: #fff; font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  figcaption { margin-top: 14px; }
 
   @media (max-width: 900px) {
-    .apertura { height: 240vh; }
-    .semana { grid-template-columns: 0 repeat(3, minmax(0, 1fr)); gap: 3px 4px; }
-    .dias span.fin, .cita.fin, .cita.choque { display: none; }
-    .horas { display: none; }
-    .titular { grid-column: 2 / 5 !important; grid-template-columns: 1fr; align-content: center; align-self: center; padding: 20px; gap: 14px; }
-    .h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
-    .titular p { font-size: 0.95rem; }
-    .cita { padding: 3px 6px; }
-    .cita b { font-size: 0.72rem; }
-    .cita small { display: none; }
+    .rejilla { grid-template-columns: 1fr; }
+    .texto { padding-top: 0; }
+  }
+  /* Celular: tres columnas para que cada cita se lea */
+  @media (max-width: 560px) {
+    .cabeza, .cuerpo { grid-template-columns: 34px repeat(3, minmax(0, 1fr)); gap: 0 5px; }
+    .extra { display: none; }
+    .ahora { left: 34px; }
+    .cita { padding: 3px 5px; }
+    .cita.corta small { display: none; }
   }
 </style>

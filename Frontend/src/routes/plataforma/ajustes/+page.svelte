@@ -1,7 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
   import AccountSettings from '$lib/AccountSettings.svelte';
-  import Appearance from '$lib/Appearance.svelte';
   import SettingsHub from '$lib/SettingsHub.svelte';
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
@@ -28,8 +27,7 @@
     {
       title: 'Mi cuenta y esta app',
       items: [
-        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, verificación en dos pasos y sesiones', icon: 'user', component: AccountSettings },
-        { id: 'apariencia', label: 'Apariencia', desc: 'Tema claro u oscuro', icon: 'sun', component: Appearance }
+        { id: 'cuenta', label: 'Mi cuenta', desc: 'Contraseña, verificación en dos pasos y sesiones', icon: 'user', component: AccountSettings }
       ]
     }
   ];

@@ -2,7 +2,6 @@
   import { page } from '$app/state';
   import Icon from '$lib/Icon.svelte';
   import Logo from '$lib/Logo.svelte';
-  import ThemeToggle from '$lib/ThemeToggle.svelte';
 
   // items: [icono, etiqueta, ruta (null = próximamente), rutas extra que también la marcan activa]
   // groups (opcional): [{ title, items }] con títulos de sección; footer: elementos fijos al pie de la barra lateral (Ajustes)
@@ -16,9 +15,6 @@
     href.split('/').length <= 2
       ? page.url.pathname === href
       : [href, ...extra].some((h) => page.url.pathname === h || page.url.pathname.startsWith(h + '/'));
-
-  // el Inicio lleva una franja oscura detrás de la barra superior y el saludo (solo en los temas Día y Noche)
-  const hero = $derived(page.url.pathname === '/panel');
 
   // celular: cuatro destinos a un toque del pulgar y «Más» con el resto
   const all = $derived(blocks.flatMap((g) => g.items).concat(footer).filter(([, , href]) => href));
@@ -38,11 +34,11 @@
 {#snippet links(list)}
   {#each list as [icon, label, href, extra]}
     {#if href}
-      <a class="item" class:active={isActive(href, extra)} {href} data-label={label} aria-current={isActive(href, extra) ? 'page' : undefined}>
-        <Icon name={icon} size={18} /><span class="lbl">{label}</span>
+      <a class="item" class:active={isActive(href, extra)} {href} aria-current={isActive(href, extra) ? 'page' : undefined}>
+        <Icon name={icon} size={20} /><span class="lbl">{label}</span>
       </a>
     {:else}
-      <span class="item off" aria-disabled="true"><Icon name={icon} size={18} /><span class="lbl">{label}</span><em>Pronto</em></span>
+      <span class="item off" aria-disabled="true"><Icon name={icon} size={20} /><span class="lbl">{label}</span><em>Pronto</em></span>
     {/if}
   {/each}
 {/snippet}
@@ -59,12 +55,11 @@
     {#if footer.length}<nav class="foot" aria-label="Ajustes">{@render links(footer)}</nav>{/if}
   </aside>
 
-  <div class="main" class:hero>
+  <div class="main">
     <header class="top">
       <span class="biz">{title}</span>
       <div class="tools">
         {@render tools?.()}
-        <ThemeToggle />
         <button class="btn ghost exit" onclick={onlogout}><Icon name="logout" size={18} />Salir</button>
       </div>
     </header>
@@ -99,68 +94,34 @@
   .shell { display: grid; min-height: 100vh; }
   .main { min-width: 0; } /* evita que el contenido ancho ensanche la página */
 
-  /* franja del Inicio: carbón con los brillos bermellón y azul del héroe de la landing; las tarjetas de cifras la montan */
-  :global(:root[data-theme='light']) .main.hero,
-  :global(:root[data-theme='dark']) .main.hero { position: relative; --band-h: 256px; }
-  @media (max-width: 560px) {
-    :global(:root[data-theme='light']) .main.hero,
-    :global(:root[data-theme='dark']) .main.hero { --band-h: 286px; }
-  }
-  :global(:root[data-theme='light']) .main.hero::before,
-  :global(:root[data-theme='dark']) .main.hero::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: var(--band-h);
-  }
-  :global(:root[data-theme='light']) .main.hero::before {
-    background: radial-gradient(ellipse 55% 130% at 0% 0%, rgba(207, 84, 68, 0.2), transparent 62%), radial-gradient(ellipse 50% 110% at 100% 100%, rgba(95, 130, 220, 0.14), transparent 60%), #f8f1e8;
-    border-bottom: 1px solid var(--border);
-  }
-  :global(:root[data-theme='dark']) .main.hero::before {
-    background: radial-gradient(ellipse 55% 130% at 0% 0%, rgba(207, 84, 68, 0.3), transparent 62%), radial-gradient(ellipse 50% 110% at 100% 100%, rgba(95, 130, 220, 0.2), transparent 60%), var(--side);
-    border-bottom: 1px solid var(--side-line);
-  }
-  :global(:root[data-theme='light']) .main.hero > .top,
-  :global(:root[data-theme='dark']) .main.hero > .top,
-  :global(:root[data-theme='light']) .main.hero > .content,
-  :global(:root[data-theme='dark']) .main.hero > .content { position: relative; z-index: 1; }
-  :global(:root[data-theme='light']) .main.hero > .top,
-  :global(:root[data-theme='dark']) .main.hero > .top { z-index: 2; } /* el menú de avisos cuelga de la barra y debe quedar sobre el contenido */
-  :global(:root[data-theme='dark']) .main.hero > .top { --text: #ece9e2; --muted: #b3b0a8; --border: rgba(236, 233, 226, 0.22); color: var(--text); }
-
-  /* Riel de íconos: la estructura es la misma en todos los temas; el tema solo pone los colores (--side-*) */
+  /* Barra lateral blanca con etiquetas: la estructura es la misma en panel y plataforma; el color sale de los tokens --side-* */
   .side {
-    --text: var(--side-text);
-    --accent: var(--side-mark);
-    --accent-contrast: var(--side-mark-ink);
     display: none;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 32px 0 28px;
+    gap: 4px;
+    padding: 20px 12px 16px;
     background: var(--side);
     color: var(--side-text);
     border-right: 1px solid var(--side-line);
     position: sticky;
     top: 0;
-    z-index: 5;
     height: 100vh;
+    overflow-y: auto;
   }
-  .brand { display: grid; gap: 8px; justify-items: center; padding: 0 0 20px; }
-  .brand :global(.word), .tag { display: none; }
-  .side nav { display: grid; justify-items: center; gap: 8px; }
+  .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 12px 20px; }
+  .tag { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--side-muted); }
+  .side nav { display: grid; gap: 2px; }
   .side nav:not(.foot) { flex: 1; align-content: start; }
-  .group { display: none; }
+  .foot { padding-top: 12px; border-top: 1px solid var(--side-line); }
+  .group { margin: 16px 12px 4px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--side-muted); }
   .item {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 12px;
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
     color: var(--side-muted);
     text-decoration: none;
     font-size: 0.95rem;
@@ -168,54 +129,29 @@
     white-space: nowrap;
     transition: background-color var(--dur-ui) var(--ease), color var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease);
   }
-  .item:active { transform: scale(0.95); }
+  .item:active { transform: scale(0.98); }
   .item:hover { color: var(--side-text); background: var(--side-hover); }
-  .item.active { color: var(--side-active-ink); background: var(--side-active); }
-  :global(:root[data-theme='light']) .side .item.active::before,
-  :global(:root[data-theme='dark']) .side .item.active::before { content: ''; position: absolute; left: -24px; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--side-mark); }
+  .item.active { color: var(--side-active-ink); background: var(--side-active); font-weight: 600; }
   .item.off { cursor: default; opacity: 0.6; }
   .item.off:hover { background: transparent; color: var(--side-muted); }
-  .item :global(svg) { width: 22px; height: 22px; stroke-width: 1.4; }
-  .item em { display: none; }
-  .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .side :global(:focus-visible) { outline-color: var(--side-text); }
-  /* el nombre aparece al pasar el cursor o enfocar con el teclado */
-  .side .item::after {
-    content: attr(data-label);
-    position: absolute;
-    left: calc(100% + 12px);
-    top: 50%;
-    padding: 6px 12px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    white-space: nowrap;
-    color: var(--side);
-    background: var(--side-text);
-    border-radius: 8px;
-    opacity: 0;
-    transform: translate(-4px, -50%);
-    pointer-events: none;
-    transition: opacity 120ms var(--ease), transform 120ms var(--ease);
-    z-index: 30;
-  }
-  .side .item:hover::after, .side .item:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+  .item :global(svg) { flex: none; stroke-width: 1.6; }
+  .item em { margin-left: auto; font-size: 0.7rem; font-style: normal; font-weight: 600; color: var(--side-muted); }
 
   .top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    width: 100%;
-    max-width: 1200px;
-    margin-inline: auto;
-    padding: 20px 20px 0;
-    background: transparent;
+    min-height: 64px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
   }
-  .biz { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tools { display: flex; gap: 8px; flex: none; }
+  .biz { font-size: 1.05rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tools { display: flex; align-items: center; gap: 8px; flex: none; }
   .exit { display: none; }
 
-  .content { width: 100%; max-width: 1200px; margin-inline: auto; padding: 24px 20px calc(96px + env(safe-area-inset-bottom)); }
+  .content { width: 100%; max-width: 1280px; margin-inline: auto; padding: 24px 16px calc(96px + env(safe-area-inset-bottom)); }
 
   /* celular: barra inferior */
   .bottom {
@@ -250,7 +186,7 @@
   .bottom a:active, .bottom button:active { transform: scale(0.95); }
   .bottom .active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 
-  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(20, 18, 14, 0.45); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease); }
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(27, 34, 51, 0.4); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease); }
   .scrim.open { opacity: 1; pointer-events: auto; }
   .sheet {
     position: fixed;
@@ -260,7 +196,7 @@
     gap: 2px;
     padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
     background: var(--surface);
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: var(--shadow);
     transform: translateY(100%);
     visibility: hidden;
@@ -268,22 +204,18 @@
   }
   .sheet.open { transform: translateY(0); visibility: visible; transition: transform 240ms var(--ease); }
   .sheet .grab { width: 36px; height: 4px; margin: 0 auto 8px; border-radius: 2px; background: var(--border); }
-  .sheet .item { width: auto; height: 52px; justify-content: flex-start; padding: 0 12px; color: var(--text); font-size: 0.95rem; }
-  .sheet .item .lbl { position: static; width: auto; height: auto; clip: auto; overflow: visible; }
-  .sheet .item::after { display: none; }
+  .sheet .item { height: 52px; color: var(--text); font-size: 0.95rem; }
   .sheet .item:hover { background: var(--surface-2); color: var(--text); }
   .sheet .item.active { background: var(--accent-soft); color: var(--accent); }
-  .sheet .out { font: inherit; font-weight: 500; background: transparent; border: 0; cursor: pointer; text-align: left; width: 100%; border-top: 1px solid var(--border); border-radius: 0; margin-top: 6px; }
+  .sheet .out { font: inherit; font-weight: 500; background: transparent; border: 0; cursor: pointer; text-align: left; width: 100%; border-top: 1px solid var(--border); border-radius: 0; margin-top: 4px; }
 
   @media (min-width: 900px) {
-    .shell { grid-template-columns: 96px 1fr; }
-    /* el riel ocupa 96 px a la izquierda; se reserva lo mismo a la derecha para que el contenido quede centrado en la ventana */
-    .main { padding-right: 96px; }
+    .shell { grid-template-columns: 224px 1fr; }
     .side { display: flex; }
     .bottom, .scrim, .sheet { display: none; }
     .exit { display: inline-flex; }
-    .top { padding: 28px 48px 0; }
-    .content { padding: 24px 48px 72px; }
+    .top { min-height: 72px; padding: 12px 32px; }
+    .content { padding: 32px 32px 72px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .sheet, .sheet.open { transition: none; }

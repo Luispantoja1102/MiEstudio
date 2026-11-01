@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import PublicLayout from '$lib/PublicLayout.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
 
   const token = page.params.token;
   let info = $state(null);
@@ -38,17 +40,29 @@
 
 <PublicLayout title={info?.business ?? 'Darme de baja'} subtitle="">
   {#if missing}
-    <div class="card"><p>Este enlace no es válido. Si sigues recibiendo mensajes que no quieres, escríbele al negocio.</p></div>
+    <section class="panel"><p class="lead">Este enlace no es válido. Si sigues recibiendo mensajes que no quieres, escríbele al negocio.</p></section>
   {:else if !info}
-    {#if error}<p class="error" role="alert">{error}</p>{:else}<p class="meta">Cargando…</p>{/if}
+    {#if error}<InlineNotice tone="danger" message={error} />{:else}<LoadingState />{/if}
   {:else if done || !info.subscribed}
-    <div class="card" role="status"><h2>Listo</h2><p>No recibirás más recordatorios, promociones ni encuestas de {info.business}. Los correos de tus citas (confirmaciones y cambios) seguirán llegando.</p></div>
+    <section class="panel ok" role="status">
+      <h2>Listo</h2>
+      <p class="note">No recibirás más recordatorios, promociones ni encuestas de {info.business}. Los correos de tus citas (confirmaciones y cambios) seguirán llegando.</p>
+    </section>
   {:else}
-    <div class="card" style="display: grid; gap: 0.75rem">
+    <section class="panel">
       <h2>Dejar de recibir mensajes</h2>
-      <p class="meta">Ya no recibirás recordatorios, promociones ni encuestas de {info.business}. Los correos de tus citas seguirán llegando.</p>
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
-      <div><button class="btn" disabled={busy} onclick={leave}>{busy ? 'Un momento…' : 'Darme de baja'}</button></div>
-    </div>
+      <p class="note">Ya no recibirás recordatorios, promociones ni encuestas de {info.business}. Los correos de tus citas seguirán llegando.</p>
+      {#if error}<InlineNotice tone="danger" message={error} />{/if}
+      <button class="btn block" disabled={busy} onclick={leave}>{busy ? 'Un momento…' : 'Darme de baja'}</button>
+    </section>
   {/if}
 </PublicLayout>
+
+<style>
+  .panel { display: grid; gap: 16px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .ok { border-left: 3px solid var(--success); }
+  h2 { margin: 0; font-size: 1.125rem; }
+  .note, .lead { margin: 0; color: var(--muted); line-height: 1.5; }
+  .lead { color: var(--text); }
+  @media (max-width: 480px) { .panel { padding: 18px; } }
+</style>

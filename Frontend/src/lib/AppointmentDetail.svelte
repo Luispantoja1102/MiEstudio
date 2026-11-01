@@ -4,13 +4,15 @@
   import { money } from '$lib/format.js';
   import { fmtTime, longDate } from '$lib/time.js';
   import SlotPicker from '$lib/SlotPicker.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
   import TransferPanel from '$lib/TransferPanel.svelte';
   import { hasPos, session } from '$lib/session.svelte.js';
 
   let { appt, tz, date, canBook, ondone } = $props();
 
   const LABEL = { scheduled: 'Agendada', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada', pending_payment: 'Esperando anticipo' };
-  const TONE = { scheduled: '', completed: '', no_show: 'warn', cancelled: 'muted', pending_payment: 'warn' };
+  const TONE = { scheduled: 'info', completed: 'success', no_show: 'warning', cancelled: 'neutral', pending_payment: 'warning' };
   const DEPOSIT = { pending: 'sin pagar', paid: 'pagado', applied: 'aplicado en la venta', refunded: 'devuelto', kept: 'conservado por inasistencia', expired: 'vencido' };
   const isAdmin = session.me?.role === 'admin';
   // quien cobra (administración, caja, recepción) completa la cita cobrándola; el personal solo la marca atendida
@@ -66,25 +68,29 @@
 <div class="stack">
   <div>
     <h3>{appt.client_name}</h3>
-    <p class="meta">
-      {appt.service_name} · {money(appt.price_cents)}<br />
-      {longDate(date)} · {fmtTime(appt.starts_at, tz)}–{fmtTime(appt.ends_at, tz)} · con {appt.staff_name}
-    </p>
-    <span class="badge {TONE[appt.status]}">{LABEL[appt.status]}</span>
-    {#if appt.status === 'scheduled' && appt.confirmed_at}<span class="badge">Confirmada</span>{/if}
-    {#if appt.status === 'scheduled' && appt.arrived_at}<span class="badge">Ya llegó</span>{/if}
-    {#if appt.source === 'online'}<span class="badge muted">Reserva en línea</span>{/if}
-    {#if appt.deposit_cents}
-      <p class="meta" style="margin: 0.6rem 0 0">Anticipo de {money(appt.deposit_cents)}: {DEPOSIT[appt.deposit_status] ?? appt.deposit_status}</p>
-    {/if}
+    <div class="tags">
+      <StatusBadge label={LABEL[appt.status]} tone={TONE[appt.status]} />
+      {#if appt.status === 'scheduled' && appt.confirmed_at}<StatusBadge label="Confirmada" tone="success" />{/if}
+      {#if appt.status === 'scheduled' && appt.arrived_at}<StatusBadge label="Ya llegó" tone="success" />{/if}
+      {#if appt.source === 'online'}<StatusBadge label="Reserva en línea" />{/if}
+    </div>
+    <dl>
+      <div><dt>Servicio</dt><dd>{appt.service_name} · {money(appt.price_cents)}</dd></div>
+      <div><dt>Profesional</dt><dd>{appt.staff_name}</dd></div>
+      <div><dt>Día</dt><dd>{longDate(date)}</dd></div>
+      <div><dt>Horario</dt><dd>{fmtTime(appt.starts_at, tz)}–{fmtTime(appt.ends_at, tz)}</dd></div>
+      {#if appt.deposit_cents}<div><dt>Anticipo</dt><dd>{money(appt.deposit_cents)} · {DEPOSIT[appt.deposit_status] ?? appt.deposit_status}</dd></div>{/if}
+    </dl>
     {#if appt.status === 'pending_payment' && appt.deposit_method !== 'transfer'}
-      <p class="meta" style="margin: 0.4rem 0 0">El horario está apartado unos minutos mientras el cliente paga. Si no paga, se libera solo.</p>
+      <p class="meta">El horario está apartado unos minutos mientras el cliente paga. Si no paga, se libera solo.</p>
     {/if}
     {#if appt.refund_due}
-      <div class="due">
-        <p>El cliente canceló y hay que devolverle {money(appt.deposit_cents)} por transferencia.</p>
-        {#if isAdmin}<button class="btn sm" disabled={busy} onclick={() => run(() => api(`/api/appointments/${appt.id}/transfer/refunded`, { method: 'POST' }))}>Ya lo devolví</button>{/if}
-      </div>
+      <InlineNotice tone="warning">
+        El cliente canceló y hay que devolverle {money(appt.deposit_cents)} por transferencia.
+        {#snippet actions()}
+          {#if isAdmin}<button class="btn sm" disabled={busy} onclick={() => run(() => api(`/api/appointments/${appt.id}/transfer/refunded`, { method: 'POST' }))}>Ya lo devolví</button>{/if}
+        {/snippet}
+      </InlineNotice>
     {/if}
   </div>
 
@@ -133,13 +139,17 @@
       </div>
     {/if}
   {/if}
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
 </div>
 
 <style>
-  .stack { display: grid; gap: 1rem; }
-  h3 { font-size: 1.3rem; margin-bottom: 0.2rem; }
-  .meta { margin-bottom: 0.6rem; }
-  .due { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 0.7rem; padding: 0.7rem 0.9rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
-  .due p { margin: 0; font-size: 0.9rem; font-weight: 500; }
+  .stack { display: grid; gap: 1.1rem; }
+  h3 { font-size: 1.35rem; margin-bottom: 0.5rem; overflow-wrap: anywhere; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+  dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 20px; margin: 0; padding: 14px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums lining-nums; }
+  dt { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+  .meta { margin: 0.7rem 0 0; color: var(--muted); font-size: 0.9rem; }
+  /* la acción principal va primero; cancelar la cita queda al final, sin color de alarma pero separada */
+  .stack :global(.form-actions) { margin-top: 0; }
 </style>

@@ -1,41 +1,42 @@
 /* ───────── Tokens ───────── */
-/* Tema claro «Día»: marfil y carbón con el bermellón de la landing — predeterminado */
+/* Tema claro de Barbella: lienzo cálido, superficies blancas, azul tinta para texto y estructura y UN solo acento (bermellón de la marca).
+   Los temas «marfil», «lino» y «oscuro» de abajo solo existen para las páginas públicas de negocios que ya los eligieron. */
 :root,
 :root[data-theme='light'] {
-  --bg: #f1eee7;
-  --surface: #fffdf9;
-  --surface-2: #ebe7de;
-  --text: #141416;
-  --muted: #5f5d58;
-  --border: #ddd8cc;
-  --accent: #b8402f;
-  --accent-hover: #9f3626;
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efeee9;
+  --text: #1b2233;
+  --muted: #596274;
+  --border: #dedfdc;
+  --accent: #b74435;            /* bermellón oscuro: 5.4:1 sobre blanco, apto para texto pequeño y controles */
+  --accent-hover: #9e392c;
   --accent-contrast: #ffffff;
-  --accent-soft: #f6e0da;
-  --marigold: #cf5444;
-  --marigold-soft: #f6e0da;
+  --accent-soft: #fbece8;
+  --ink: #1c2f5c;               /* azul tinta: estructura y énfasis, nunca como segundo acento */
+  --ink-soft: #e6eaf3;
+  --marigold: #c8643c;
+  --marigold-soft: #f8e2d6;
   --clay: #a8472d;
   --clay-soft: #f5e1d8;
-  --danger: #b0302a;
-  --danger-soft: #f9e4e0;
-  --warn: #7a4f00;
-  --warn-soft: #f8ebcf;
-  --ok: #3f7a5d;
-  --ok-soft: #e1efe7;
-  /* un color por profesional (agenda, Inicio): desaturados, distinguibles entre sí y de los estados */
-  --p1: #a8694a; --p2: #4f8a6c; --p3: #4a64a8; --p4: #b0524b; --p5: #a87a1e; --p6: #6b7280;
-  /* riel claro (porcelana): la barra oscura es del tema Noche; el bermellón sigue como marca */
-  --side: #fffdf9;
-  --side-text: #141416;
-  --side-muted: #6b6862;
-  --side-hover: rgba(20, 20, 22, 0.05);
-  --side-active: rgba(184, 64, 47, 0.12);
-  --side-line: #ddd8cc;
-  --side-mark: #b8402f;
+  --danger: #a52f2a;
+  --danger-soft: #fbe9e7;
+  --warn: #785400;
+  --warn-soft: #fbf2da;
+  /* un color por profesional (agenda, Inicio): sobrios y distinguibles; siempre van acompañados del nombre */
+  --p1: #4f7a93; --p2: #a9683f; --p3: #5d7a5a; --p4: #8a5a6e; --p5: #8a7a2e; --p6: #3f8a78;
+  /* barra lateral clara */
+  --side: #ffffff;
+  --side-text: #1b2233;
+  --side-muted: #596274;
+  --side-hover: #f3f2ee;
+  --side-active: #fbece8;
+  --side-line: #dedfdc;
+  --side-mark: #b74435;
   --side-mark-ink: #ffffff;
-  --side-active-ink: #b8402f;
+  --side-active-ink: #9e392c;
   --shadow-sm: none;
-  --shadow: 0 1px 2px rgba(20, 20, 22, 0.05), 0 12px 28px -16px rgba(20, 20, 22, 0.18);
+  --shadow: 0 4px 16px rgba(27, 34, 51, 0.08);
   color-scheme: light;
 }
 
@@ -112,75 +113,60 @@
   color-scheme: light;
 }
 
-/* Tema oscuro «Noche»: carbón y marfil con el bermellón de la landing */
+/* Tema oscuro: carbón con dorado champán (barbería de noche) */
 :root[data-theme='dark'] {
-  --bg: #0f1012;
-  --surface: #1a1b1e;
-  --surface-2: #232428;
-  --text: #ece9e2;
-  --muted: #a5a39b;
-  --border: rgba(236, 233, 226, 0.1);
-  --accent: #cf5444;
-  --accent-hover: #b3412f;
-  --accent-contrast: #ffffff;
-  --accent-soft: rgba(207, 84, 68, 0.14);
-  --accent-text: #ee8a7c;
-  --marigold: #cf5444;
-  --marigold-soft: rgba(207, 84, 68, 0.14);
+  --bg: #0d0d0f;
+  --surface: #151517;
+  --surface-2: #1d1d20;
+  --text: #f3efe6;
+  --muted: #a8a397;
+  --border: #2b2b30;
+  --accent: #c9a45c;
+  --accent-hover: #d6b370;
+  --accent-contrast: #15110a;
+  --accent-soft: #231e12;
+  --marigold: #c9a45c;
+  --marigold-soft: #261f10;
   --clay: #e08a6c;
   --clay-soft: #2e1b14;
   --danger: #f08a80;
   --danger-soft: #2d1613;
   --warn: #e0b34f;
   --warn-soft: #2a2110;
-  --ok: #8fb29f;
-  --ok-soft: rgba(143, 178, 159, 0.14);
-  --side: #08080a;
-  --side-text: #ece9e2;
-  --side-muted: #8d8b84;
-  --side-hover: rgba(236, 233, 226, 0.06);
-  --side-active: rgba(207, 84, 68, 0.18);
-  --side-line: rgba(236, 233, 226, 0.08);
-  --side-mark: #cf5444;
-  --side-mark-ink: #ffffff;
+  --side: #101012;
+  --side-text: #f3efe6;
+  --side-muted: #9a9588;
+  --side-hover: rgba(243, 239, 230, 0.06);
+  --side-active: rgba(201, 164, 92, 0.16);
+  --side-line: #26262b;
+  --side-mark: #c9a45c;
+  --side-mark-ink: #15110a;
   --side-active-ink: var(--side-text);
-  --p1: #d49a7e; --p2: #8fb29f; --p3: #8ea2d6; --p4: #d98e88; --p5: #d2a24c; --p6: #c9d0dc;
+  --p1: #6fb59f; --p2: #e0956a; --p3: #8ea2d6; --p4: #d77fa5; --p5: #c9b95a; --p6: #7fb3c4;
   --shadow-sm: none;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
 :root {
-  /* forma común a todos los temas: tarjetas amplias, controles redondeados, botones en píldora */
-  --radius: 18px;
-  --radius-sm: 12px;
-  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 28px -14px rgba(0, 0, 0, 0.08);
-  --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --heading-weight: 500;
-  --heading-stretch: 100%;
-  --font-num: var(--font-body);
-  --num-stretch: 100%;
-  --accent-text: var(--accent);
+  /* forma común: una sola familia de radios, una sola sombra suave, tarjetas separadas por el lienzo y un borde fino */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --card-shadow: none;
+  --font-body: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* estados y bordes de control, válidos en todos los temas */
+  --success: #276047;
+  --success-soft: #eaf3ed;
+  --info: #365d78;
+  --info-soft: #eaf1f5;
+  --control-border: color-mix(in srgb, var(--text) 52%, var(--surface));
   /* movimiento: salida rápida y firme; lo que el usuario toca responde en menos de 200 ms */
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --dur-press: 140ms;
-  --dur-ui: 180ms;
-}
-
-/* Día y Noche: forma y letra de la landing (Archivo ancho en titulares, condensado en horas y montos) */
-:root[data-theme='light'],
-:root[data-theme='dark'] {
-  --radius: 14px;
-  --font-heading: 'Archivo Variable', system-ui, sans-serif;
-  --heading-stretch: 112%;
-  --heading-weight: 650;
-  --font-num: 'Archivo Variable', system-ui, sans-serif;
-  --num-stretch: 80%;
-  --badge-bg: var(--ok-soft);
-  --badge-fg: var(--ok);
-  --gold-text: var(--accent-text);
+  --dur-ui: 160ms;
 }
 
 /* Marfil: un filete de oro champán firma la cabecera y los botones principales brillan al pasar el cursor */
@@ -200,19 +186,17 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.25s var(--ease), color 0.25s var(--ease);
+  font-variant-numeric: lining-nums;
 }
 
 h1, h2, h3 {
   font-family: var(--font-heading);
-  font-weight: var(--heading-weight);
-  font-stretch: var(--heading-stretch);
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   margin: 0 0 0.5em;
   text-wrap: balance;
 }
-p, dd { overflow-wrap: anywhere; }
 p { margin: 0 0 1em; text-wrap: pretty; }
 
 a { color: var(--accent); text-underline-offset: 3px; }
@@ -220,7 +204,7 @@ a { color: var(--accent); text-underline-offset: 3px; }
 /* lo que el navegador dibuja por su cuenta también lleva la paleta */
 ::selection { background: var(--accent-soft); color: var(--text); }
 :root { scrollbar-color: var(--border) transparent; accent-color: var(--accent); caret-color: var(--accent); }
-.num, td.num, .tabular { font-variant-numeric: tabular-nums; }
+.num, td.num, .tabular { font-variant-numeric: tabular-nums lining-nums; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 
@@ -244,7 +228,7 @@ a { color: var(--accent); text-underline-offset: 3px; }
   gap: 0.5rem;
   min-height: 44px;
   padding: 0 1.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-contrast);
@@ -258,9 +242,9 @@ a { color: var(--accent); text-underline-offset: 3px; }
 .btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.6; cursor: wait; }
-.btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
-.btn.ghost:hover { background: var(--surface-2); border-color: var(--muted); }
-@media (hover: none) { .btn:hover { background: var(--accent); border-color: var(--accent); } .btn.ghost:hover { background: transparent; border-color: var(--border); } }
+.btn.ghost { background: var(--surface); color: var(--text); border-color: var(--control-border); }
+.btn.ghost:hover { background: var(--surface-2); border-color: var(--text); }
+@media (hover: none) { .btn:hover { background: var(--accent); border-color: var(--accent); } .btn.ghost:hover { background: var(--surface); border-color: var(--control-border); } }
 .btn.lg { min-height: 52px; padding: 0 1.75rem; font-size: 1rem; }
 .btn.block { width: 100%; }
 
@@ -269,7 +253,6 @@ a { color: var(--accent); text-underline-offset: 3px; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.5rem;
-  box-shadow: var(--card-shadow);
 }
 
 .field { display: block; margin-bottom: 1.1rem; font-size: 0.9rem; font-weight: 500; }
@@ -283,12 +266,12 @@ select {
   font-weight: 400;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .field input, .field select { margin-top: 0.4rem; }
-input:not([type='checkbox']):not([type='radio']):hover, select:hover { border-color: var(--muted); }
+input:not([type='checkbox']):not([type='radio']):hover, select:hover { border-color: var(--text); }
 input:not([type='checkbox']):not([type='radio']):focus, select:focus {
   outline: none;
   border-color: var(--accent);
@@ -316,10 +299,8 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ───────── Páginas de trabajo ───────── */
 .page-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 1.5rem; }
-.page-head h1 { font-size: 2.4rem; margin: 0; }
+.page-head h1 { font-size: 1.75rem; font-weight: 700; margin: 0; }
 .page-head p { margin: 0.25rem 0 0; color: var(--muted); }
-:root[data-theme='light'] .page-head p,
-:root[data-theme='dark'] .page-head p { font-family: var(--font-num); font-stretch: 85%; font-weight: 600; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; }
 
 .list { display: grid; gap: 10px; }
 .item-row {
@@ -331,7 +312,6 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--card-shadow);
 }
 .item-row .grow { flex: 1 1 200px; min-width: 0; }
 .item-row .title { font-weight: 600; }
@@ -342,49 +322,59 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 .badge {
   display: inline-block;
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   font-size: 0.75rem;
   font-weight: 600;
-  background: var(--badge-bg, var(--accent-soft));
-  color: var(--badge-fg, var(--accent-text));
+  background: var(--accent-soft);
+  color: var(--accent);
 }
-:root[data-theme='light'] .badge,
-:root[data-theme='dark'] .badge { font-family: var(--font-num); font-stretch: 85%; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .badge.muted { background: var(--surface-2); color: var(--muted); }
 
-.btn.sm { min-height: 36px; padding: 0 0.9rem; font-size: 0.85rem; }
+.btn.sm { min-height: 44px; padding: 0 1rem; font-size: 0.9rem; }
 
 .form-grid { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.5rem; }
 
 .empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); }
 
-.check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; min-height: 32px; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; min-height: 44px; }
 .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 
 textarea {
   display: block; width: 100%; min-height: 90px; margin-top: 0.4rem; padding: 0.7rem 0.9rem; font: inherit;
-  color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical;
+  color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm); resize: vertical;
 }
 textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .badge.warn { background: var(--warn-soft); color: var(--warn); }
 .badge.clay { background: var(--clay-soft); color: var(--clay); }
-.badge.gold { background: var(--marigold-soft); color: var(--gold-text, var(--warn)); }
+.badge.gold { background: var(--marigold-soft); color: var(--warn); }
 .badge.bad { background: var(--danger-soft); color: var(--danger); }
 .banner { padding: 0.8rem 1rem; margin-bottom: 1.25rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 0.9rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
 .chip {
-  min-height: 36px; padding: 0 0.95rem; font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--text);
-  background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+  min-height: 44px; padding: 0 1rem; font: inherit; font-size: 0.9rem; font-weight: 500; color: var(--text);
+  background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm); cursor: pointer;
 }
 .chip { transition: background-color var(--dur-ui) var(--ease), border-color var(--dur-ui) var(--ease), transform var(--dur-press) var(--ease); }
-.chip:hover { border-color: var(--muted); }
+.chip:hover { border-color: var(--text); }
 .chip:active { transform: scale(0.96); }
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 
-/* ───────── Cifras (Inicio del panel y resumen de la plataforma) ───────── */
+/* ───────── Compatibilidad con lo que se agregó en main mientras se rediseñaba ─────────
+   Las pantallas nuevas de main (impresora, fidelidad, finanzas, reportes de ocupación, etc.) usan estas clases y variables. */
+:root {
+  --ok: var(--success);
+  --ok-soft: var(--success-soft);
+  --accent-text: var(--accent);
+  --gold-text: var(--warn);
+  --heading-weight: 700;
+  --heading-stretch: 100%;
+  --font-num: var(--font-body);
+  --num-stretch: 100%;
+}
+
 .kpis { margin: 0 0 1.25rem; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .kpi { display: block; padding: 1.1rem 1.3rem; color: var(--text); text-decoration: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); }
 a.kpi { transition: border-color var(--dur-ui) var(--ease); }

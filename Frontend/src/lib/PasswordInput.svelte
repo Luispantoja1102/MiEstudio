@@ -15,6 +15,6 @@
 <style>
   .pass { position: relative; margin-top: 0.4rem; }
   .pass input { padding-right: 3rem; }
-  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
   .eye:hover { color: var(--text); background: var(--surface-2); }
 </style>

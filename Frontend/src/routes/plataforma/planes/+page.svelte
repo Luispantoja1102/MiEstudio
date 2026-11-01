@@ -1,8 +1,15 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { api } from '$lib/api.js';
   import { pesos } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import FormSection from '$lib/ui/FormSection.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
 
   const write = canWritePlatform();
   let plans = $state([]);
@@ -11,12 +18,16 @@
   let editing = $state(null); // id del plan que se edita
   let form = $state(null);
   let busy = $state(false);
+  let loaded = $state(false);
+  let editBox = $state(null);
 
   async function load() {
     try {
       plans = await api('/api/platform/plans');
     } catch (e) {
       error = e.message;
+    } finally {
+      loaded = true;
     }
   }
   onMount(load);
@@ -27,6 +38,10 @@
     editing = p.id;
     form = { description: p.description, price_month: p.price_month, price_year: p.price_year, unlimited: p.max_staff === null, max_staff: p.max_staff ?? 6,
       max_branches: p.max_branches, pos: p.pos, deposits: p.deposits, deposits_mp: p.deposits_mp, terminal: p.terminal, support: p.support };
+    tick().then(() => {
+      editBox?.scrollIntoView({ block: 'start' });
+      editBox?.querySelector('input')?.focus();
+    });
   }
 
   async function save(e) {
@@ -61,80 +76,107 @@
       error = err.message;
     }
   }
+
+  const edited = $derived(plans.find((p) => p.id === editing));
+  const si = (b) => (b ? 'Sí' : 'No');
+  const supportLabel = { correo: 'Por correo', prioritario: 'Prioritario', dedicado: 'Dedicado' };
+  const cols = $derived([{ key: 'concept', label: 'Concepto' }, ...plans.map((p) => ({ key: String(p.id), label: p.name }))]);
+  const rows = $derived([
+    { id: 'desc', label: 'Descripción', get: (p) => p.description },
+    { id: 'pm', label: 'Precio al mes', get: (p) => pesos(p.price_month) },
+    { id: 'py', label: 'Precio al año', get: (p) => pesos(p.price_year) },
+    { id: 'staff', label: 'Personas en agenda', get: (p) => lim(p.max_staff) },
+    { id: 'br', label: 'Sucursales', get: (p) => p.max_branches },
+    { id: 'pos', label: 'Caja, ventas e inventario', get: (p) => si(p.pos) },
+    { id: 'dep', label: 'Anticipo por transferencia', get: (p) => si(p.deposits) },
+    { id: 'mp', label: 'Anticipo con Mercado Pago', get: (p) => si(p.deposits_mp) },
+    { id: 'term', label: 'Cobro con terminal', get: (p) => si(p.terminal) },
+    { id: 'sup', label: 'Soporte', get: (p) => supportLabel[p.support] ?? p.support },
+    { id: 'use', label: 'Negocios en uso', get: (p) => p.businesses },
+    { id: 'pay', label: 'Negocios pagando', get: (p) => p.paying },
+    ...(write ? [{ id: 'act', label: 'Edición', action: true }] : [])
+  ]);
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Planes</h1>
-    <p>Lo que incluye cada suscripción y cuántos negocios la usan.{#if write}{' '}Edita precios y límites aquí: se aplican de inmediato.{/if}</p>
-  </div>
-</div>
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="banner" role="status">{notice}</p>{/if}
+<PageHeader title="Planes" description={'Lo que incluye cada suscripción y cuántos negocios la usan.' + (write ? ' Edita precios y límites aquí: se aplican de inmediato.' : '')} />
 
-<div class="plans">
-  {#each plans as p (p.id)}
-    <div class="card plan">
-      {#if editing === p.id}
-        <form onsubmit={save}>
-          <h2>{p.name}</h2>
-          <label class="field">Descripción <input bind:value={form.description} maxlength="120" /></label>
-          <div class="two">
-            <label class="field">Precio al mes (MXN) <input type="number" min="0" bind:value={form.price_month} required /></label>
-            <label class="field">Precio al año (MXN) <input type="number" min="0" bind:value={form.price_year} required /></label>
-          </div>
-          <div class="two">
-            <label class="field">Personas en agenda
-              <input type="number" min="1" bind:value={form.max_staff} disabled={form.unlimited} />
-            </label>
-            <label class="field">Sucursales <input type="number" min="1" bind:value={form.max_branches} required /></label>
-          </div>
-          <label class="check"><input type="checkbox" bind:checked={form.unlimited} /> Sin límite de personas</label>
-          <label class="check"><input type="checkbox" bind:checked={form.pos} /> Caja, ventas, inventario, comisiones y reportes</label>
-          <label class="check"><input type="checkbox" bind:checked={form.deposits} /> Anticipos por transferencia (con comprobante)</label>
-          <label class="check"><input type="checkbox" bind:checked={form.deposits_mp} /> Anticipos con Mercado Pago</label>
-          <label class="check"><input type="checkbox" bind:checked={form.terminal} /> Cobro con terminal de Mercado Pago</label>
-          <label class="field" style="margin-top: 0.9rem">Soporte
-            <select bind:value={form.support}><option value="correo">Por correo</option><option value="prioritario">Prioritario</option><option value="dedicado">Dedicado</option></select>
-          </label>
-          <div class="form-actions">
-            <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar plan'}</button>
-            <button type="button" class="btn ghost" onclick={() => (editing = null)}>Cancelar</button>
-          </div>
-          <button type="button" class="link" onclick={() => reset(p)}>Volver a la configuración original</button>
-        </form>
-      {:else}
-        <h2>{p.name}</h2>
-        <p class="meta">{p.description}</p>
-        <p class="price">{pesos(p.price_month)}<small>/mes</small></p>
-        <p class="meta">o {pesos(p.price_year)} al año</p>
-        <ul>
-          <li>Personas en agenda: <b>{lim(p.max_staff)}</b></li>
-          <li>Sucursales: <b>{p.max_branches}</b></li>
-          <li>Caja, ventas e inventario: <b>{p.pos ? 'Sí' : 'No'}</b></li>
-          <li>Anticipo por transferencia: <b>{p.deposits ? 'Sí' : 'No'}</b></li>
-          <li>Anticipo con Mercado Pago: <b>{p.deposits_mp ? 'Sí' : 'No'}</b></li>
-          <li>Cobro con terminal: <b>{p.terminal ? 'Sí' : 'No'}</b></li>
-          <li>Soporte: <b>{p.support}</b></li>
-        </ul>
-        <div class="use"><b>{p.businesses}</b> en uso · <b>{p.paying}</b> pagando</div>
-        {#if write}<button class="btn ghost sm edit" onclick={() => edit(p)}>Editar plan</button>{/if}
-      {/if}
-    </div>
-  {/each}
+<div class="stack">
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
+  {#if notice}<InlineNotice tone="success" message={notice} />{/if}
+
+  {#if !loaded}
+    <LoadingState label="Cargando planes…" />
+  {:else if plans.length === 0}
+    {#if !error}<EmptyState title="No hay planes configurados" />{/if}
+  {:else}
+    <Surface padding="flush">
+      <DataTable caption="Comparación de planes: precios, límites y funciones" columns={cols} rows={rows} cell={planCell} />
+    </Surface>
+
+    {#if editing !== null && edited}
+      <div bind:this={editBox}>
+        <Surface title={`Editar plan ${edited.name}`} description="Los cambios se aplican a la página de inicio, a la suscripción de los negocios y a los cobros nuevos.">
+          <form onsubmit={save}>
+            <FormSection title="Precios" description="En pesos mexicanos, por periodo.">
+              <label class="field">Descripción <input bind:value={form.description} maxlength="120" /></label>
+              <div class="two">
+                <label class="field">Precio al mes (MXN) <input type="number" min="0" bind:value={form.price_month} required /></label>
+                <label class="field">Precio al año (MXN) <input type="number" min="0" bind:value={form.price_year} required /></label>
+              </div>
+            </FormSection>
+            <FormSection title="Límites" description="Cuánta gente y cuántos locales cubre el plan.">
+              <div class="two">
+                <label class="field">Personas en agenda
+                  <input type="number" min="1" bind:value={form.max_staff} disabled={form.unlimited} />
+                </label>
+                <label class="field">Sucursales <input type="number" min="1" bind:value={form.max_branches} required /></label>
+              </div>
+              <label class="check"><input type="checkbox" bind:checked={form.unlimited} /> Sin límite de personas</label>
+            </FormSection>
+            <FormSection title="Funciones incluidas">
+              <label class="check"><input type="checkbox" bind:checked={form.pos} /> Caja, ventas, inventario, comisiones y reportes</label>
+              <label class="check"><input type="checkbox" bind:checked={form.deposits} /> Anticipos por transferencia (con comprobante)</label>
+              <label class="check"><input type="checkbox" bind:checked={form.deposits_mp} /> Anticipos con Mercado Pago</label>
+              <label class="check"><input type="checkbox" bind:checked={form.terminal} /> Cobro con terminal de Mercado Pago</label>
+            </FormSection>
+            <FormSection title="Soporte">
+              <label class="field">Nivel de soporte
+                <select bind:value={form.support}><option value="correo">Por correo</option><option value="prioritario">Prioritario</option><option value="dedicado">Dedicado</option></select>
+              </label>
+            </FormSection>
+            <div class="form-actions bar">
+              <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar plan'}</button>
+              <button type="button" class="btn ghost" onclick={() => (editing = null)}>Cancelar</button>
+              <button type="button" class="btn ghost restore" onclick={() => reset(edited)}>Volver a la configuración original</button>
+            </div>
+          </form>
+        </Surface>
+      </div>
+    {/if}
+  {/if}
 </div>
+
+{#snippet planCell({ row, column })}
+  {#if column.key === 'concept'}
+    {row.label}
+  {:else}
+    {@const p = plans.find((x) => String(x.id) === column.key)}
+    {#if row.action}
+      <button class="btn ghost sm" onclick={() => edit(p)} aria-label={`Editar plan ${p.name}`} aria-pressed={editing === p.id}>Editar</button>
+    {:else if row.id === 'pm' || row.id === 'py'}
+      <strong>{row.get(p)}</strong>
+    {:else}
+      {row.get(p)}
+    {/if}
+  {/if}
+{/snippet}
 
 <style>
-  .plans { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
-  .plan h2 { margin-bottom: 0.2rem; }
-  .price { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 2.2rem; margin: 0.5rem 0 0; }
-  .price small { font-size: 1rem; color: var(--muted); font-family: var(--font-body); }
-  ul { padding-left: 1.1rem; margin: 1rem 0; }
-  li { margin-bottom: 0.3rem; }
-  .use { padding-top: 0.75rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
-  .meta { color: var(--muted); font-size: 0.9rem; }
-  .edit { margin-top: 1rem; }
+  .stack { display: grid; gap: 16px; }
   .two { display: grid; gap: 0 12px; grid-template-columns: 1fr 1fr; }
-  .link { margin-top: 0.9rem; padding: 0; font: inherit; font-size: 0.85rem; color: var(--muted); background: none; border: 0; text-decoration: underline; cursor: pointer; }
-  .link:hover { color: var(--danger); }
+  form :global(.check) { display: flex; }
+  .bar { padding-top: 16px; border-top: 1px solid var(--border); }
+  .restore { margin-left: auto; }
+  .restore:hover { color: var(--danger); }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; } .restore { margin-left: 0; } }
 </style>

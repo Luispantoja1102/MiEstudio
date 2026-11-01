@@ -3,6 +3,17 @@
   import BranchPicker from '$lib/BranchPicker.svelte';
   import Occupancy from '$lib/reports/Occupancy.svelte';
   import Retention from '$lib/reports/Retention.svelte';
+  import BarChart from '$lib/ui/BarChart.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import DateRangeFields from '$lib/ui/DateRangeFields.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import FilterBar from '$lib/ui/FilterBar.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { METHODS, money, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
@@ -14,9 +25,11 @@
 
   let from = $state(addDays(today, -6));
   let to = $state(today);
+  let period = $state('6'); // periodo rápido activo; '' cuando las fechas se editan a mano
   let r = $state(null);
   let view = $state('ventas'); // ventas | ocupacion | retencion
   let error = $state('');
+  let loading = $state(true);
 
   async function load() {
     try {
@@ -26,6 +39,8 @@
       error = '';
     } catch (e) {
       error = e.message;
+    } finally {
+      loading = false;
     }
   }
   onMount(async () => {
@@ -35,110 +50,129 @@
 
   function preset(days) {
     to = today;
-    from = addDays(today, -days);
+    from = addDays(today, -Number(days));
     load();
   }
+  const PERIODS = [
+    { value: '0', label: 'Hoy' },
+    { value: '6', label: '7 días' },
+    { value: '29', label: '30 días' },
+    { value: '89', label: '90 días' }
+  ];
+  const VIEWS = [
+    { value: 'ventas', label: 'Ingresos' },
+    { value: 'ocupacion', label: 'Ocupación' },
+    { value: 'retencion', label: 'Retención' }
+  ];
+  const DESCRIPTIONS = {
+    ventas: 'Ventas del periodo. Las ventas canceladas no cuentan.',
+    ocupacion: 'Qué tanto se llena tu agenda y cuándo.',
+    retencion: 'Qué clientes regresan y a quiénes estás perdiendo.'
+  };
   // los reportes de ocupación y retención usan el mismo periodo y la misma sucursal
   const branch = $derived(branches.id && branches.list.length > 1 ? branches.id : 0);
-  const maxDay = $derived(Math.max(1, ...(r?.by_day.map((d) => d.total_cents) ?? [0])));
   const KIND = { service: 'Servicio', product: 'Producto' };
+  const cents = (v) => '$' + Math.round(v / 100).toLocaleString('es-MX');
+
+  const best = $derived.by(() => {
+    let b = null;
+    for (const d of r?.by_day ?? []) if (d.total_cents > 0 && (!b || d.total_cents > b.total_cents)) b = d;
+    return b;
+  });
+  const days = $derived((r?.by_day ?? []).map((d) => ({ id: d.date, label: d.date.slice(8) + '/' + d.date.slice(5, 7), value: d.total_cents, formattedValue: cents(d.total_cents) })));
+  const methods = $derived((r?.by_method ?? []).map((m) => ({ id: m.method, label: `${METHODS[m.method]} · ${plural(m.count, 'pago', 'pagos')}`, value: m.amount_cents, formattedValue: money(m.amount_cents) })));
+  const ITEM_COLS = [
+    { key: 'name', label: 'Artículo' },
+    { key: 'qty', label: 'Cantidad', numeric: true },
+    { key: 'total_cents', label: 'Total', numeric: true }
+  ];
+  const STAFF_COLS = [
+    { key: 'name', label: 'Persona' },
+    { key: 'items', label: 'Partidas', numeric: true },
+    { key: 'revenue_cents', label: 'Ingreso', numeric: true },
+    { key: 'commission_cents', label: 'Comisión', numeric: true },
+    { key: 'tip_cents', label: 'Propinas', numeric: true }
+  ];
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Reportes</h1>
-    <p>{view === 'ventas' ? 'Ventas del periodo. Las ventas canceladas no cuentan.' : view === 'ocupacion' ? 'Qué tanto se llena tu agenda y cuándo.' : 'Qué clientes regresan y a quiénes estás perdiendo.'}</p>
-  </div>
-</div>
+<PageHeader title="Reportes" description={DESCRIPTIONS[view]} />
 
-<div class="chips views" role="tablist" aria-label="Tipo de reporte">
-  {#each [['ventas', 'Ingresos'], ['ocupacion', 'Ocupación'], ['retencion', 'Retención']] as [id, label]}
-    <button class="chip" role="tab" aria-selected={view === id} onclick={() => (view = id)}>{label}</button>
-  {/each}
-</div>
+<div class="views"><SegmentedControl label="Tipo de reporte" bind:value={view} options={VIEWS} /></div>
 
-<div class="toolbar">
-  <div class="chips" style="margin: 0">
-    <button class="chip" onclick={() => preset(0)}>Hoy</button>
-    <button class="chip" onclick={() => preset(6)}>7 días</button>
-    <button class="chip" onclick={() => preset(29)}>30 días</button>
-    <button class="chip" onclick={() => preset(89)}>90 días</button>
-  </div>
-  <label class="check">Del <input type="date" bind:value={from} onchange={load} style="width: auto; margin: 0 0 0 6px" /></label>
-  <label class="check">al <input type="date" bind:value={to} onchange={load} style="width: auto; margin: 0 0 0 6px" /></label>
+<FilterBar label="Periodo y sucursal">
+  <SegmentedControl label="Periodo" bind:value={period} options={PERIODS} onchange={preset} />
+  <DateRangeFields bind:from bind:to onchange={() => ((period = ''), load())} />
   <BranchPicker onchange={load} />
-</div>
+</FilterBar>
 
 {#if view === 'ocupacion'}
   <Occupancy {from} {to} {branch} />
 {:else if view === 'retencion'}
   <Retention {from} {to} {branch} />
 {:else}
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
 
-{#if r}
-  <div class="kpis">
-    <div class="card"><span class="label">Vendido</span><span class="value">{money(r.total_cents)}</span><small>{plural(r.sales, 'venta', 'ventas')}</small></div>
-    <div class="card"><span class="label">Propinas</span><span class="value">{money(r.tip_cents)}</span><small>Total cobrado {money(r.collected_cents)}</small></div>
-    <div class="card"><span class="label">Descuentos</span><span class="value">{money(r.discount_cents)}</span><small>Subtotal {money(r.subtotal_cents)}</small></div>
-    <div class="card"><span class="label">Costo de productos</span><span class="value">{money(r.cost_cents)}</span><small>Lo vendido menos costo: {money(r.total_cents - r.cost_cents)}</small></div>
+{#if loading}
+  <LoadingState />
+{:else if r}
+  <div class="metrics">
+    <MetricCard label="Vendido" value={money(r.total_cents)} hint={plural(r.sales, 'venta', 'ventas')} />
+    <MetricCard label="Propinas" value={money(r.tip_cents)} hint={`Total cobrado ${money(r.collected_cents)}`} />
+    <MetricCard label="Descuentos" value={money(r.discount_cents)} hint={`Subtotal ${money(r.subtotal_cents)}`} />
+    <MetricCard label="Costo de productos" value={money(r.cost_cents)} hint={`Lo vendido menos costo: ${money(r.total_cents - r.cost_cents)}`} />
   </div>
 
   {#if r.sales === 0}
-    <div class="empty" style="margin-top: 1.5rem">No hay ventas en este periodo.</div>
+    <Surface><EmptyState title="No hay ventas en este periodo" description="Prueba con otro rango de fechas o con otra sucursal." /></Surface>
   {:else}
-    <section>
-      <h2>Por día</h2>
-      <div class="bars" role="img" aria-label="Ventas por día">
-        {#each r.by_day as d (d.date)}
-          <div class="bar-row"><span class="meta">{d.date.slice(5)}</span><div class="track"><div class="fill" style="width: {(d.total_cents / maxDay) * 100}%"></div></div><b>{money(d.total_cents)}</b><small class="meta">{d.sales}</small></div>
-        {/each}
+    <Surface title="Ventas por día" description={best ? `Mejor día: ${best.date.slice(8)}/${best.date.slice(5, 7)} con ${money(best.total_cents)}` : ''}>
+      <div class="scroll" tabindex="0" role="region" aria-label="Ventas por día, desplazable">
+        <div style="min-width: {Math.max(0, days.length * 48)}px">
+          <BarChart label="Ventas por día" items={days} selectedId={best?.date} />
+        </div>
       </div>
-    </section>
+    </Surface>
 
     <div class="two">
-      <section>
-        <h2>Por método de pago</h2>
-        <div class="list">
-          {#each r.by_method as m}<div class="item-row"><span class="grow">{METHODS[m.method]}</span><small class="meta">{plural(m.count, 'pago', 'pagos')}</small><b>{money(m.amount_cents)}</b></div>{/each}
-        </div>
-      </section>
-      <section>
-        <h2>Lo más vendido</h2>
-        <div class="list">
-          {#each r.top_items as it}<div class="item-row"><span class="grow">{it.name}<small class="meta">{' · '}{KIND[it.kind]} · {it.qty}</small></span><b>{money(it.total_cents)}</b></div>{/each}
-        </div>
-      </section>
+      <Surface title="Por método de pago">
+        <BarChart label="Por método de pago" items={methods} orientation="horizontal" />
+      </Surface>
+      <Surface title="Lo más vendido" padding="flush">
+        <DataTable caption="Lo más vendido" columns={ITEM_COLS} rows={r.top_items} rowKey={(it) => it.kind + it.name}>
+          {#snippet cell({ row, column })}
+            {#if column.key === 'name'}{row.name}<small class="kind">{KIND[row.kind]}</small>
+            {:else if column.key === 'total_cents'}<b>{money(row.total_cents)}</b>
+            {:else}{row[column.key]}{/if}
+          {/snippet}
+        </DataTable>
+      </Surface>
     </div>
 
-    <section>
-      <h2>Por persona</h2>
-      <div class="list">
-        {#each r.by_staff as s (s.staff_id)}
-          <div class="item-row"><span class="grow"><b>{s.name}</b><small class="meta">{' · '}{plural(s.items, 'partida', 'partidas')}</small></span>
-            <span class="meta">Ingreso {money(s.revenue_cents)}</span><span>Comisión <b>{money(s.commission_cents)}</b></span><span>Propinas <b>{money(s.tip_cents)}</b></span></div>
-        {:else}<p class="meta">Ninguna partida tiene persona asignada.</p>{/each}
-      </div>
-    </section>
+    <Surface title="Por persona" padding="flush">
+      {#if r.by_staff.length}
+        <DataTable caption="Ventas por persona" columns={STAFF_COLS} rows={r.by_staff} rowKey="staff_id">
+          {#snippet cell({ row, column })}
+            {#if column.key === 'name'}<b class="nm">{row.name}</b>
+            {:else if column.key === 'items'}{row.items}
+            {:else}{money(row[column.key])}{/if}
+          {/snippet}
+        </DataTable>
+      {:else}
+        <EmptyState title="Ninguna partida tiene persona asignada" />
+      {/if}
+    </Surface>
   {/if}
 {/if}
 {/if}
 
 <style>
-  .views { margin: 0 0 1rem; }
-  .views .chip[aria-selected='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
-  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
-  .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-  .kpis .card { display: grid; gap: 2px; }
-  .label { color: var(--muted); font-size: 0.9rem; }
-  .value { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.9rem; line-height: 1.15; }
-  small { color: var(--muted); }
-  section { margin-top: 2rem; }
-  section h2 { font-size: 1.35rem; }
-  .two { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  .bars { display: grid; gap: 8px; }
-  .bar-row { display: grid; grid-template-columns: 52px 1fr 100px 28px; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; }
-  .track { height: 14px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
-  .fill { height: 100%; background: var(--accent); border-radius: 999px; min-width: 2px; }
-  b { font-variant-numeric: tabular-nums; }
+  .views { margin-bottom: 16px; }
+  .metrics { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 16px; }
+  @media (min-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1000px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); margin: 16px 0; align-items: start; }
+  .nm { white-space: nowrap; }
+  .kind { display: block; color: var(--muted); font-size: 0.8rem; }
+  .scroll { overflow-x: auto; }
+  .scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
