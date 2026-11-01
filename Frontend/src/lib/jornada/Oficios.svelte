@@ -1,157 +1,156 @@
 <script>
-  // 12:40 → 18:00. Cuatro sillas en un recorrido horizontal. El dibujo de cada una sale de su propio oficio:
-  // las guías de la máquina, los esmaltes, el mapa de pestañas y la tarjeta de sesiones.
-  import { scene } from './scroll.js';
+  // 12:40 → 18:00. Cuatro oficios, cuatro franjas de proporciones distintas. Cada una trae su propia pieza de producto
+  // (agenda por barbero, servicio largo con anticipo, mensajes, saldo de paquete) con datos de ejemplo.
+  import AppointmentSummary from '$lib/ui/AppointmentSummary.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import PackageBalance from '$lib/ui/PackageBalance.svelte';
 
-  const guias = [['#4', '12 mm'], ['#3', '9 mm'], ['#2', '6 mm'], ['#1', '3 mm'], ['#0', '1.5 mm']];
-  const esmaltes = [['Cereza', '#8f3a3c'], ['Nude rosado', '#cfa597'], ['Ciruela', '#55323f'], ['Coral', '#c9725f'], ['Perla', '#efe6dc'], ['Azabache', '#141416']];
-  // mapa de pestañas: largo en mm de la esquina interna a la externa
-  const largos = [8, 9, 10, 11, 12, 12, 11, 10, 9];
+  // Ejemplo ilustrativo
+  const barberia = [
+    ['12:40', 'Toño', 'Corte', 'Terminada', 'success', '$60'],
+    ['13:20', 'Iker', 'Fade', 'En la silla', 'accent', '$60'],
+    ['14:00', 'Beto', 'Barba', 'Agendada', 'neutral', '$40'],
+    ['14:40', 'Memo', 'Corte', 'Agendada', 'neutral', '$60']
+  ];
+  const mensajes = [
+    ['Reactivación', 'Para quien dejó de venir', 'Hola Sara, hace rato que no te vemos. ¿Agendamos tu relleno?'],
+    ['Lista de espera', 'Se liberó un lugar', 'Se liberó el jueves a las 12:30. ¿La quieres, Paola?'],
+    ['Cumpleaños', 'Con el nombre de tu negocio', 'Feliz cumpleaños, Ivonne. Te saludamos todos en Barbería y Salón Ébano.']
+  ];
+  const tramo = ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'];
 </script>
 
-<section id="oficios" class="oficios" use:scene data-steps="4" style="--s: 0" aria-labelledby="t-oficios">
-  <h2 id="t-oficios" class="sr">Para cada oficio</h2>
-  <div class="cuadro">
-    <div class="pista">
-      <!-- Barbería -->
-      <article class="silla barberia" style="--i: 0" data-hora="12:40" data-momento="Barbería">
-        <div class="texto">
-          <p class="hora">12:40 · Barbería</p>
-          <h3>Citas de 40 minutos, una tras otra.</h3>
-          <p>Agenda por barbero que no deja empalmar, la fila del día a la vista y la comisión de cada servicio calculada sola.</p>
+<section id="oficios" class="oficios" aria-labelledby="t-oficios">
+  <div class="envoltura">
+    <h2 id="t-oficios" class="cabeza">Para cada oficio</h2>
+
+    <!-- Barbería -->
+    <article class="franja barberia">
+      <div class="texto">
+        <p class="kicker"><time>12:40</time><span class="of">Barbería</span></p>
+        <h3>Citas de 40 minutos, una tras otra.</h3>
+        <p>Agenda por barbero que no deja empalmar, la fila del día a la vista y la comisión de cada servicio calculada sola.</p>
+      </div>
+      <figure class="pieza" aria-label="Agenda de Marco, ejemplo ilustrativo">
+        <p class="rotulo"><b>Marco</b> · jueves 19</p>
+        {#each barberia as [hora, cliente, servicio, estado, tono, comision]}
+          <AppointmentSummary timeLabel={hora} client={cliente} service={servicio} statusLabel={estado} tone={tono}>
+            {#snippet actions()}<span class="com">Comisión {comision}</span>{/snippet}
+          </AppointmentSummary>
+        {/each}
+        <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+      </figure>
+    </article>
+
+    <!-- Uñas -->
+    <article class="franja unas">
+      <figure class="pieza" aria-label="Un servicio largo con anticipo, ejemplo ilustrativo">
+        <p class="rotulo"><b>Acrílico almendra</b> · Dani · 3 horas</p>
+        <div class="regla" aria-hidden="true">
+          {#each tramo as t}<span>{t}</span>{/each}
         </div>
-        <figure class="dibujo" aria-label="Las guías de la máquina, de la más larga a la más corta, como en un degradado">
-          {#each guias as [n, mm], k}
-            <div class="guia" style="--k: {k}"><b>{n}</b><span class="barra"></span><small>{mm}</small></div>
+        <div class="bloque"><b>Andrea Solís</b><small>14:00 a 17:00</small></div>
+        <dl>
+          <div><dt>Anticipo</dt><dd>$150.00 <StatusBadge label="Pagado" tone="success" /></dd></div>
+          <div><dt>Recordatorio</dt><dd>WhatsApp, antes de la cita</dd></div>
+        </dl>
+        <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+      </figure>
+      <div class="texto">
+        <p class="kicker"><time>14:00</time><span class="of">Uñas</span></p>
+        <h3>Tres horas de acrílico, apartadas con anticipo.</h3>
+        <p>Servicios largos con su duración real, anticipo para que nadie te deje plantada y recordatorio por WhatsApp antes de la cita.</p>
+      </div>
+    </article>
+
+    <!-- Pestañas -->
+    <article class="franja pestanas">
+      <div class="texto">
+        <p class="kicker"><time>16:30</time><span class="of">Pestañas</span></p>
+        <h3>Tus clientas vuelven a su relleno.</h3>
+        <p>Reactivación para quien dejó de venir, lista de espera cuando se libera un lugar y felicitación de cumpleaños con tu nombre.</p>
+      </div>
+      <figure class="pieza" aria-label="Tres mensajes automáticos, ejemplo ilustrativo">
+        <ul class="mensajes">
+          {#each mensajes as [tipo, cuando, texto]}
+            <li><p class="tipo"><b>{tipo}</b><small>{cuando}</small></p><p class="msg">{texto}</p></li>
           {/each}
-          <figcaption>Degradado: de la guía 4 a la 0</figcaption>
-        </figure>
-      </article>
+        </ul>
+        <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+      </figure>
+    </article>
 
-      <!-- Uñas -->
-      <article class="silla unas" style="--i: 1" data-hora="14:00" data-momento="Uñas">
-        <div class="texto">
-          <p class="hora">14:00 · Uñas</p>
-          <h3>Tres horas de acrílico, apartadas con anticipo.</h3>
-          <p>Servicios largos con su duración real, anticipo para que nadie te deje plantada y recordatorio por WhatsApp antes de la cita.</p>
-        </div>
-        <figure class="dibujo" aria-label="Seis tonos de esmalte">
-          <div class="unas-fila">
-            {#each esmaltes as [nombre, color], k}
-              <div class="tono" style="--k: {k}; --c: {color}"><span class="una"></span><small>{nombre}</small></div>
-            {/each}
-          </div>
-        </figure>
-      </article>
-
-      <!-- Pestañas -->
-      <article class="silla pestanas" style="--i: 2" data-hora="16:30" data-momento="Pestañas">
-        <div class="texto">
-          <p class="hora">16:30 · Pestañas</p>
-          <h3>Tus clientas vuelven a su relleno.</h3>
-          <p>Reactivación para quien dejó de venir, lista de espera cuando se libera un lugar y felicitación de cumpleaños con tu nombre.</p>
-        </div>
-        <figure class="dibujo" aria-label="Mapa de pestañas: largos de 8 a 12 milímetros a lo largo del ojo">
-          <svg viewBox="0 0 400 200" role="presentation">
-            <path class="parpado" d="M30 150 Q200 40 370 150" />
-            {#each largos as l, k}
-              {@const t = (k + 0.5) / largos.length}
-              {@const x = 30 + 340 * t}
-              {@const y = 150 - 4 * t * (1 - t) * 110 + 2}
-              {@const ang = (t - 0.5) * 70}
-              <g transform="translate({x} {y}) rotate({ang})" style="--k: {k}">
-                <line class="pestana" x1="0" y1="0" x2="0" y2={-l * 6.2} pathLength="1" />
-                <text x="0" y={-l * 6.2 - 10} text-anchor="middle">{l}</text>
-              </g>
-            {/each}
-          </svg>
-          <figcaption>Mapa de largos en milímetros</figcaption>
-        </figure>
-      </article>
-
-      <!-- Spa -->
-      <article class="silla spa" style="--i: 3" data-hora="18:00" data-momento="Spa">
-        <div class="texto">
-          <p class="hora">18:00 · Spa</p>
-          <h3>Diez masajes pagados, canjeados uno por uno.</h3>
-          <p>Paquetes y membresías que vendes por adelantado y se canjean en caja, con el saldo de cada cliente siempre a la vista.</p>
-        </div>
-        <figure class="dibujo tarjeta" aria-label="Tarjeta de un paquete de diez masajes con cuatro sesiones usadas">
-          <p class="t-nombre">Paquete 10 masajes <span>Fer Ruiz</span></p>
-          <div class="hoyos">
-            {#each Array(10) as _, k}<span class:usada={k < 4} style="--k: {k}"></span>{/each}
-          </div>
-          <p class="t-saldo">Quedan <b>6</b> sesiones</p>
-        </figure>
-      </article>
-    </div>
+    <!-- Spa -->
+    <article class="franja spa">
+      <figure class="pieza" aria-label="Saldo de un paquete de masajes, ejemplo ilustrativo">
+        <p class="rotulo"><b>Fer Ruiz</b> · se canjea en caja</p>
+        <PackageBalance name="Paquete 10 masajes" remaining={6} total={10} statusLabel="Vigente" />
+        <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+      </figure>
+      <div class="texto">
+        <p class="kicker"><time>18:00</time><span class="of">Spa</span></p>
+        <h3>Diez masajes pagados, canjeados uno por uno.</h3>
+        <p>Paquetes y membresías que vendes por adelantado y se canjean en caja, con el saldo de cada cliente siempre a la vista.</p>
+      </div>
+    </article>
   </div>
 </section>
 
 <style>
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .oficios { height: 440vh; }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; }
-  .pista { display: flex; width: 400vw; height: 100%; transform: translate3d(calc(var(--s) * -300vw), 0, 0); will-change: transform; }
-  .silla {
-    --q: clamp(0, calc((var(--s) * 3 - var(--i)) * 2.2 + 1), 1);
-    flex: none; width: 100vw; height: 100%; display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); align-items: center; gap: clamp(24px, 4vw, 72px);
-    padding: 88px clamp(16px, 5vw, 80px) 40px;
-  }
-  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-  h3 { margin: 0 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2.2rem, 4.6vw, 4.2rem); line-height: 1; max-width: 13ch; text-wrap: balance; }
-  .texto > p:last-child { margin: 0; max-width: 42ch; font-size: 1.05rem; line-height: 1.55; text-wrap: pretty; }
-  figure { margin: 0; }
-  figcaption { margin-top: 18px; font-size: 0.82rem; color: var(--tinta-suave); }
+  .oficios { padding: clamp(72px, 9vw, 112px) 0 clamp(40px, 6vw, 72px); background: var(--papel-2); color: var(--tinta); }
+  .cabeza { margin: 0 0 clamp(24px, 3vw, 40px); padding-bottom: 14px; border-bottom: 2px solid var(--tinta); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
 
-  /* Barbería: cuero de sillón y acero */
-  /* Todas las sillas sobre el mismo papel; el oficio pone su color solo en su dibujo */
-  .silla { background: var(--ticket); color: var(--tinta); }
-  .silla .hora { color: var(--tono); }
-  .silla .texto > p:last-child { color: var(--tinta-suave); }
-  .dibujo { padding: clamp(24px, 3vw, 40px); border-radius: 18px; background: var(--suave); }
-  .barberia { --tono: var(--cuero); --suave: var(--s-barberia); }
-  .guia { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgb(var(--ink-rgb) / 0.1); }
-  .guia b { font-family: var(--rotulo); font-stretch: 75%; font-size: 1.6rem; }
-  .guia small { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
-  .barra { height: 18px; border-radius: 2px; background: #a3a9ae; box-shadow: inset 0 -5px 0 #858c92; transform-origin: left; transform: scaleX(calc((1 - var(--k) * 0.19) * clamp(0, calc(var(--q) * 1.4 - var(--k) * 0.08), 1))); }
+  .franja { display: grid; align-items: center; gap: clamp(28px, 5vw, 80px); padding: clamp(36px, 5vw, 64px) 0; border-bottom: 1px solid var(--border); }
+  .franja:last-child { border-bottom: 0; }
+  /* proporciones y lado distintos en cada una */
+  .barberia { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .unas { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .pestanas { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
+  .spa { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+  .spa .pieza { max-width: 460px; }
+  .pestanas .pieza { max-width: 640px; justify-self: end; width: 100%; }
+  .unas .pieza { max-width: 600px; }
 
-  /* Uñas: el tono nude de la base */
-  .unas { --tono: var(--esmalte); --suave: var(--s-unas); }
-  .unas-fila { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; max-width: 440px; }
-  .tono { display: grid; justify-items: center; gap: 10px; }
-  .una { width: 64px; height: 92px; border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%; background: var(--c); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.12), inset 8px 10px 0 -4px rgb(255 255 255 / 0.28);
-    /* el esmalte se pinta de la cutícula a la punta */
-    clip-path: inset(0 0 calc((1 - clamp(0, calc(var(--q) * 1.6 - var(--k) * 0.12), 1)) * 100%) 0 round 32px); }
-  .tono small { font-size: 0.85rem; font-weight: 600; }
+  .barberia { --tono: var(--cuero); }
+  .unas { --tono: var(--esmalte); }
+  .pestanas { --tono: var(--tinta); }
+  .spa { --tono: var(--eucalipto); }
+  .of { color: var(--tinta); }
+  .of::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 2px; background: var(--tono); }
 
-  /* Pestañas: tinta */
-  .pestanas { --tono: var(--tinta); --suave: var(--s-pestanas); }
-  svg { width: 100%; max-width: 520px; overflow: visible; }
-  .parpado { fill: none; stroke: rgb(var(--ink-rgb) / 0.45); stroke-width: 2; }
-  .pestana { stroke: var(--tinta); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1)); }
-  svg text { fill: var(--tinta-suave); font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 15px; opacity: clamp(0, calc(var(--q) * 1.5 - var(--k) * 0.06), 1); }
+  h3 { margin: 0 0 16px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 700; font-size: clamp(1.7rem, 2.9vw, 2.6rem); line-height: 1.04; letter-spacing: -0.02em; max-width: 16ch; text-wrap: balance; }
+  .texto > p:last-child { margin: 0; max-width: 42ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
 
-  /* Spa: eucalipto */
-  .spa { --tono: var(--eucalipto); --suave: var(--s-spa); }
-  .tarjeta { max-width: 440px; padding: 28px; border-radius: 14px; background: var(--carta); color: var(--tinta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08); }
-  .t-nombre { margin: 0 0 22px; display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.4rem; font-weight: 650; }
-  .t-nombre span { font-family: var(--texto); font-size: 0.9rem; font-weight: 500; color: var(--tinta-suave); align-self: center; }
-  .hoyos { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; gap: 16px; }
-  .hoyos span { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(var(--ink-rgb) / 0.25); }
-  .hoyos .usada { background: var(--eucalipto); box-shadow: inset 0 3px 4px rgb(0 0 0 / 0.35); transform: scale(clamp(0, calc(var(--q) * 1.8 - var(--k) * 0.2), 1)); }
-  .t-saldo { margin: 22px 0 0; color: var(--tinta-suave); }
-  .t-saldo b { color: var(--tinta); font-variant-numeric: tabular-nums; }
+  .pieza { margin: 0; min-width: 0; padding: 20px 24px 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--carta); }
+  .rotulo { margin: 0 0 6px; font-size: 0.9rem; color: var(--tinta-suave); }
+  .rotulo b { color: var(--tinta); }
+  .pieza .ejemplo { margin-top: 12px; }
+  .com { font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tinta-suave); }
 
-  :global(.oficios.still) { height: auto; }
-  :global(.oficios.still) .cuadro { position: relative; height: auto; }
-  :global(.oficios.still) .pista { display: block; width: auto; transform: none; }
-  :global(.oficios.still) .silla { --q: 1; width: auto; min-height: 100svh; }
+  /* Servicio largo: la duración se ve como un bloque, no como un número */
+  .regla { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 14px; font-size: 0.72rem; color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
+  .regla span:last-child { text-align: right; }
+  .regla span { padding-bottom: 4px; border-bottom: 1px solid var(--tinta); }
+  .bloque { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 6px 0 16px; padding: 18px 16px; border-radius: 4px; background: var(--s-unas); box-shadow: inset 4px 0 0 var(--esmalte); }
+  .bloque small { color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
+  dl { margin: 0; }
+  dl > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 0.92rem; }
+  dt { color: var(--tinta-suave); }
+  dd { margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Mensajes */
+  .mensajes { margin: 0; padding: 0; list-style: none; }
+  .mensajes li { padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .mensajes li:first-child { padding-top: 4px; }
+  .mensajes li:last-child { border-bottom: 0; }
+  .tipo { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .tipo small { color: var(--tinta-suave); }
+  .msg { margin: 0; padding-left: 14px; border-left: 3px solid var(--tinta); line-height: 1.45; }
 
   @media (max-width: 860px) {
-    .oficios { height: auto; }
-    .cuadro { position: relative; height: auto; }
-    .pista { display: block; width: auto; transform: none; }
-    .silla { --q: 1; width: auto; height: auto; grid-template-columns: 1fr; padding-block: 72px; }
+    .franja { grid-template-columns: 1fr; gap: 24px; }
+    /* en una columna el texto va primero en todas */
+    .unas .texto, .spa .texto { order: -1; }
+    .pestanas .pieza { justify-self: stretch; }
   }
 </style>

@@ -1,5 +1,16 @@
 <script>
   import { onMount } from 'svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import DateRangeFields from '$lib/ui/DateRangeFields.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import FilterBar from '$lib/ui/FilterBar.svelte';
+  import FormSection from '$lib/ui/FormSection.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { formatDate, money, plural } from '$lib/format.js';
   import { addDays, todayIn } from '$lib/time.js';
@@ -11,6 +22,7 @@
 
   let from = $state(today.slice(0, 8) + '01'); // desde el día 1 del mes
   let to = $state(today);
+  let period = $state('month'); // periodo rápido activo; '' cuando las fechas se editan a mano
   let report = $state({ staff: [], lines: [] });
   let selected = $state(null);
   let rules = $state([]);
@@ -71,91 +83,138 @@
     await loadRules();
   }
   const totals = $derived(report.staff.reduce((t, s) => ({ c: t.c + s.commission_cents, tip: t.tip + s.tip_cents }), { c: 0, tip: 0 }));
+  function preset(p) {
+    to = today;
+    from = p === 'month' ? today.slice(0, 8) + '01' : addDays(today, -6);
+    loadReport();
+  }
+  const PERIODS = [
+    { value: 'month', label: 'Este mes' },
+    { value: '6', label: '7 días' }
+  ];
+  const STAFF_COLS = [
+    { key: 'name', label: 'Persona' },
+    { key: 'items', label: 'Partidas', numeric: true },
+    { key: 'revenue_cents', label: 'Ingreso', numeric: true },
+    { key: 'commission_cents', label: 'Comisión', numeric: true },
+    { key: 'tip_cents', label: 'Propinas', numeric: true }
+  ];
+  const LINE_COLS = [
+    { key: 'folio', label: 'Folio' },
+    { key: 'item', label: 'Partida' },
+    { key: 'created_at', label: 'Fecha' },
+    { key: 'base_cents', label: 'Base', numeric: true },
+    { key: 'pct', label: '%', numeric: true },
+    { key: 'commission_cents', label: 'Comisión', numeric: true }
+  ];
+  const RULE_COLS = [
+    { key: 'item_name', label: 'Aplica a' },
+    { key: 'user_name', label: 'Persona' },
+    { key: 'percent', label: 'Comisión', numeric: true },
+    { key: 'active', label: 'Estado' },
+    { key: 'act', label: 'Acción' }
+  ];
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Comisiones</h1>
-    <p>{isAdmin ? 'Lo que le corresponde a cada persona por lo que vendió.' : 'Lo que has generado en el periodo.'} Las ventas canceladas no cuentan.</p>
-  </div>
+<PageHeader title="Comisiones" description={`${isAdmin ? 'Lo que le corresponde a cada persona por lo que vendió.' : 'Lo que has generado en el periodo.'} Las ventas canceladas no cuentan.`} />
+
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
+
+<FilterBar label="Periodo">
+  <SegmentedControl label="Periodo" bind:value={period} options={PERIODS} onchange={preset} />
+  <DateRangeFields bind:from bind:to onchange={() => ((period = ''), loadReport())} />
+</FilterBar>
+
+<div class="metrics">
+  <MetricCard label="Comisiones" value={money(totals.c)} hint={plural(report.staff.reduce((n, s) => n + s.items, 0), 'partida', 'partidas')} />
+  <MetricCard label="Propinas" value={money(totals.tip)} hint="Aparte de la comisión" />
 </div>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-
-<div class="toolbar">
-  <div class="chips" style="margin: 0">
-    <button class="chip" onclick={() => ((from = today.slice(0, 8) + '01'), (to = today), loadReport())}>Este mes</button>
-    <button class="chip" onclick={() => ((from = addDays(today, -6)), (to = today), loadReport())}>7 días</button>
-  </div>
-  <label class="check">Del <input type="date" bind:value={from} onchange={loadReport} style="width: auto; margin: 0 0 0 6px" /></label>
-  <label class="check">al <input type="date" bind:value={to} onchange={loadReport} style="width: auto; margin: 0 0 0 6px" /></label>
-</div>
-
-{#if report.staff.length === 0}
-  <div class="empty">No hay comisiones en este periodo.</div>
-{:else}
-  <div class="list">
-    {#each report.staff as s (s.staff_id)}
-      <button class="item-row row" class:sel={selected === s.staff_id} onclick={() => isAdmin && pick(s.staff_id)} disabled={!isAdmin}>
-        <span class="grow"><b>{s.name}</b><small class="meta">{' · '}{plural(s.items, 'partida', 'partidas')} · ingreso {money(s.revenue_cents)}</small></span>
-        <span>Comisión <b>{money(s.commission_cents)}</b></span>
-        <span>Propinas <b>{money(s.tip_cents)}</b></span>
-      </button>
-    {/each}
-  </div>
-  {#if report.staff.length > 1}<p class="meta" style="margin-top: 0.75rem">Total: comisiones {money(totals.c)} · propinas {money(totals.tip)}</p>{/if}
-{/if}
+<Surface title={isAdmin ? 'Por persona' : 'Tu periodo'} description={isAdmin ? 'Toca un nombre para ver solo sus partidas; vuelve a tocarlo para quitar el filtro.' : ''} padding="flush">
+  {#if report.staff.length === 0}
+    <EmptyState title="No hay comisiones en este periodo" description="Prueba con otro rango de fechas." />
+  {:else}
+    <DataTable caption="Comisiones por persona" columns={STAFF_COLS} rows={report.staff} rowKey="staff_id">
+      {#snippet cell({ row, column })}
+        {#if column.key === 'name'}
+          {#if isAdmin}
+            <button class="pick" class:sel={selected === row.staff_id} aria-pressed={selected === row.staff_id} onclick={() => pick(row.staff_id)}>{row.name}</button>
+          {:else}<b>{row.name}</b>{/if}
+        {:else if column.key === 'items'}{row.items}
+        {:else if column.key === 'commission_cents'}<b>{money(row.commission_cents)}</b>
+        {:else}{money(row[column.key])}{/if}
+      {/snippet}
+    </DataTable>
+  {/if}
+</Surface>
 
 {#if report.lines.length}
-  <section>
-    <h2>Detalle</h2>
-    <div class="list">
-      {#each report.lines as l, i (i)}
-        <div class="item-row"><span class="meta">#{l.folio}</span><span class="grow">{l.qty} × {l.item}<small class="meta">{' · '}{formatDate(l.created_at)}</small></span>
-          <small class="meta">{money(l.base_cents)} × {l.pct} %</small><b>{money(l.commission_cents)}</b></div>
-      {/each}
-    </div>
-  </section>
+  <div class="gap">
+    <Surface title="Detalle" description={`${plural(report.lines.length, 'partida', 'partidas')} del periodo`} padding="flush">
+      <DataTable caption="Detalle de partidas con comisión" columns={LINE_COLS} rows={report.lines} rowKey={(l) => l.folio + '|' + l.item + '|' + l.created_at + '|' + l.base_cents}>
+        {#snippet cell({ row, column })}
+          {#if column.key === 'folio'}#{row.folio}
+          {:else if column.key === 'item'}{row.qty} × {row.item}
+          {:else if column.key === 'created_at'}<span class="nw">{formatDate(row.created_at)}</span>
+          {:else if column.key === 'pct'}{row.pct} %
+          {:else if column.key === 'commission_cents'}<b>{money(row.commission_cents)}</b>
+          {:else}{money(row.base_cents)}{/if}
+        {/snippet}
+      </DataTable>
+    </Surface>
+  </div>
 {/if}
 
 {#if isAdmin}
-  <section>
-    <h2>Reglas</h2>
-    <p class="meta">Cada persona tiene su comisión general (en Equipo) para servicios. Aquí defines excepciones por servicio o producto. Gana la más específica: persona + artículo, luego el artículo, luego la general.</p>
-    <form class="card" onsubmit={addRule} style="margin: 1rem 0">
-      <div class="form-grid">
-        <label class="field">Aplica a
-          <select bind:value={form.kind} onchange={() => (form.itemId = '')}><option value="service">Un servicio</option><option value="product">Un producto</option></select>
-        </label>
-        <label class="field">{form.kind === 'service' ? 'Servicio' : 'Producto'}
-          <select bind:value={form.itemId}><option value="">Elige…</option>{#each form.kind === 'service' ? services : products as it (it.id)}<option value={it.id}>{it.name}</option>{/each}</select>
-        </label>
-        <label class="field">Persona
-          <select bind:value={form.userId}><option value="">Todas</option>{#each team.filter((m) => m.active) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
-        </label>
-        <label class="field">Comisión (%) <input type="number" min="0" max="100" step="0.5" bind:value={form.percent} required /></label>
-      </div>
-      <button class="btn">Agregar regla</button>
-    </form>
-    <div class="list">
-      {#each rules as r (r.id)}
-        <div class="item-row" class:off={!r.active}>
-          <span class="grow"><b>{r.item_name}</b><small class="meta">{' · '}{r.user_name || 'Todas las personas'}</small></span>
-          <input type="number" min="0" max="100" step="0.5" value={r.percent} aria-label="Porcentaje" style="width: 90px; margin: 0; min-height: 38px"
-            onchange={(e) => patchRule(r, { percent: Number(e.currentTarget.value) })} /> %
-          <button class="btn ghost sm" onclick={() => patchRule(r, { active: !r.active })}>{r.active ? 'Desactivar' : 'Activar'}</button>
+  <h2 class="sep">Reglas</h2>
+  <Surface>
+    <FormSection title="Excepciones por artículo" description="Cada persona tiene su comisión general (en Equipo) para servicios. Aquí defines excepciones por servicio o producto. Gana la más específica: persona + artículo, luego el artículo, luego la general.">
+      <form onsubmit={addRule}>
+        <div class="form-grid">
+          <label class="field">Aplica a
+            <select bind:value={form.kind} onchange={() => (form.itemId = '')}><option value="service">Un servicio</option><option value="product">Un producto</option></select>
+          </label>
+          <label class="field">{form.kind === 'service' ? 'Servicio' : 'Producto'}
+            <select bind:value={form.itemId}><option value="">Elige…</option>{#each form.kind === 'service' ? services : products as it (it.id)}<option value={it.id}>{it.name}</option>{/each}</select>
+          </label>
+          <label class="field">Persona
+            <select bind:value={form.userId}><option value="">Todas</option>{#each team.filter((m) => m.active) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
+          </label>
+          <label class="field">Comisión (%) <input type="number" min="0" max="100" step="0.5" bind:value={form.percent} required /></label>
         </div>
-      {:else}<p class="meta">Aún no hay reglas.</p>{/each}
-    </div>
-  </section>
+        <button class="btn">Agregar regla</button>
+      </form>
+    </FormSection>
+  </Surface>
+  <div class="gap">
+    <Surface title="Reglas vigentes" padding="flush">
+      {#if rules.length === 0}
+        <EmptyState title="Aún no hay reglas" description="Se usa la comisión general de cada persona." />
+      {:else}
+        <DataTable caption="Reglas de comisión" columns={RULE_COLS} rows={rules} rowKey="id">
+          {#snippet cell({ row, column })}
+            {#if column.key === 'item_name'}<b>{row.item_name}</b>
+            {:else if column.key === 'user_name'}{row.user_name || 'Todas las personas'}
+            {:else if column.key === 'percent'}
+              <span class="pct"><input type="number" min="0" max="100" step="0.5" value={row.percent} aria-label={`Porcentaje de ${row.item_name}`}
+                onchange={(e) => patchRule(row, { percent: Number(e.currentTarget.value) })} /> %</span>
+            {:else if column.key === 'active'}<StatusBadge label={row.active ? 'Activa' : 'Inactiva'} tone={row.active ? 'success' : 'neutral'} />
+            {:else}<button class="btn ghost sm" onclick={() => patchRule(row, { active: !row.active })}>{row.active ? 'Desactivar' : 'Activar'}</button>{/if}
+          {/snippet}
+        </DataTable>
+      {/if}
+    </Surface>
+  </div>
 {/if}
 
 <style>
-  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
-  .row { width: 100%; text-align: left; font: inherit; color: var(--text); }
-  .row:not(:disabled) { cursor: pointer; }
-  .row:not(:disabled):hover, .row.sel { border-color: var(--accent); }
-  section { margin-top: 2rem; }
-  section h2 { font-size: 1.35rem; }
-  b { font-variant-numeric: tabular-nums; }
+  .metrics { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 16px; }
+  @media (min-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  .gap { margin-top: 16px; }
+  .sep { margin: 40px 0 16px; font-size: 1.35rem; }
+  .pick { min-height: 44px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; }
+  .pick:hover, .pick.sel { color: var(--accent); text-decoration-color: currentColor; }
+  .nw { white-space: nowrap; }
+  .pct { display: inline-flex; align-items: center; gap: 6px; }
+  .pct input { width: 90px; margin: 0; min-height: 44px; }
 </style>

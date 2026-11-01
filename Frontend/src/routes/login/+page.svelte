@@ -51,7 +51,7 @@
 
 <svelte:head><title>Iniciar sesión · Barbella</title></svelte:head>
 
-<AuthLayout title="Bienvenido" accent="de vuelta" subtitle="Entra para ver tu agenda, tus clientes y tu negocio.">
+<AuthLayout title="Entra a tu" accent="agenda" subtitle="Ingresa para ver tus citas, tus clientes y la caja de hoy.">
   <form onsubmit={submit} novalidate>
     {#if challenge}
       <h2 class="step">Verificación en dos pasos</h2>
@@ -94,19 +94,20 @@
 </AuthLayout>
 
 <style>
-  .step { font-family: var(--font-body, inherit); font-size: 1.05rem; margin: 0 0 1rem; }
-  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 0.9rem; font-weight: 500; }
-  .link { font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none; }
+  form > .btn.block { margin-top: 0.5rem; }
+  .step { font-family: var(--font-body, inherit); font-size: 1.1rem; margin: 0 0 1rem; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; font-weight: 500; }
+  .link { display: inline-flex; align-items: center; min-height: 44px; font: inherit; font-size: 0.88rem; font-weight: 500; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none; }
   .link:hover { text-decoration: underline; }
   .link.muted { color: var(--muted); }
   .pass { position: relative; margin-top: 0.4rem; }
   .pass input { padding-right: 3rem; }
-  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+  .eye { position: absolute; right: 1px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; }
   .eye:hover { color: var(--text); background: var(--surface-2); }
   .caps { display: block; margin-top: 0.4rem; font-size: 0.82rem; font-weight: 500; color: var(--warn); }
   .code { font-family: ui-monospace, monospace; font-size: 1.15rem; letter-spacing: 0.2em; }
   .links { display: flex; justify-content: space-between; gap: 12px; margin-top: 1rem; }
   .alt { display: grid; gap: 10px; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 0.9rem; }
-  .home { display: block; margin-top: 1rem; text-align: center; font-size: 0.88rem; font-weight: 500; color: var(--muted); text-decoration: none; }
+  .home { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 0.5rem; text-align: center; font-size: 0.88rem; font-weight: 500; color: var(--muted); text-decoration: none; }
   .home:hover { color: var(--text); }
 </style>

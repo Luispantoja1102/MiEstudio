@@ -3,6 +3,7 @@
   import Icon from '$lib/Icon.svelte';
   import { api } from '$lib/api.js';
   import { money } from '$lib/format.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   // Anticipo por transferencia de una cita apartada: datos para pagar, comprobante y confirmación del titular.
   // appt: id, deposit_cents, proof_at, reject_reason, manage_path, client_name (lo que traiga la agenda)
@@ -86,7 +87,7 @@
     <button class="btn ghost sm" onclick={() => copy(message, 'msg')}>{copied === 'msg' ? 'Mensaje copiado' : 'Copiar mensaje para el cliente'}</button>
   {/if}
 
-  {#if appt.reject_reason}<p class="note bad">Se rechazó el comprobante anterior: {appt.reject_reason}. El cliente puede mandar otro.</p>{/if}
+  {#if appt.reject_reason}<InlineNotice tone="danger" message="Se rechazó el comprobante anterior: {appt.reject_reason}. El cliente puede mandar otro." />{/if}
 
   {#if appt.proof_at}
     <p class="note ok"><Icon name="check" size={15} />Comprobante recibido {new Date(appt.proof_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.
@@ -116,20 +117,20 @@
       <button class="btn sm" disabled={busy || reason.trim().length < 3} onclick={reject}>Rechazar comprobante</button>
     </div>
   {/if}
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
 </section>
 
 <style>
-  .tp { display: grid; gap: 0.8rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
-  h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-body, inherit); font-size: 0.95rem; }
-  dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 0; }
-  dt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .tp { display: grid; gap: 1rem; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-body, inherit); font-size: 1rem; }
+  dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 16px; margin: 0; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  dt { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   dd { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; font-weight: 600; }
   .mono { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-  .mini { flex: none; padding: 2px 10px; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+  .mini { flex: none; min-height: 44px; padding: 0 14px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--accent); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm); cursor: pointer; }
+  .mini:hover { background: var(--surface-2); }
   .note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; font-size: 0.88rem; color: var(--muted); }
   .note.ok { color: var(--text); }
-  .note.bad { color: var(--danger); }
   .note a { font-weight: 600; }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .file { cursor: pointer; }

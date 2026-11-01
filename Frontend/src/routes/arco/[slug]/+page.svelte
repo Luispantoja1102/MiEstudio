@@ -41,18 +41,18 @@
 
 <PublicLayout title="Ejercer mis derechos" subtitle="Acceso, rectificación, cancelación u oposición sobre tus datos personales." businessTheme={bizTheme}>
   {#if done}
-    <div class="card" role="status">
+    <div class="card done" role="status">
       <h2>Recibimos tu solicitud</h2>
       <p>El negocio te responderá en un máximo de {done.days} días hábiles{form.email ? ` al correo ${form.email}` : ''}.</p>
       <p>Guarda este enlace para ver su estado:</p>
       <a class="btn" href={done.status_path}>Ver el estado de mi solicitud</a>
     </div>
   {:else}
-    <form class="card" onsubmit={submit}>
+    <form class="card form" onsubmit={submit}>
       <fieldset class="kinds">
         <legend>¿Qué derecho quieres ejercer?</legend>
         {#each KINDS as [value, label, hint]}
-          <label class="check kind"><input type="radio" name="kind" {value} bind:group={form.kind} /> <span><b>{label}</b><small>{hint}</small></span></label>
+          <label class="kind" class:on={form.kind === value}><input type="radio" name="kind" {value} bind:group={form.kind} /> <span><b>{label}</b><small>{hint}</small></span></label>
         {/each}
       </fieldset>
       <label class="field">Tu nombre <input bind:value={form.name} autocomplete="name" required maxlength="120" /></label>
@@ -64,18 +64,29 @@
       <label class="field">Cuéntanos qué necesitas
         <textarea bind:value={form.detail} required minlength="5" maxlength="1500"></textarea>
       </label>
-      <label class="check"><input type="checkbox" bind:checked={form.accept_privacy} required /> He leído el <a href="/aviso/{slug}">aviso de privacidad</a></label>
-      {#if error}<p class="error" role="alert" style="margin-top: 1rem">{error}</p>{/if}
-      <div class="form-actions"><button class="btn" disabled={busy || !form.accept_privacy}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button></div>
+      <label class="check accept"><input type="checkbox" bind:checked={form.accept_privacy} required /> He leído el <a href="/aviso/{slug}">aviso de privacidad</a></label>
+      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <div class="form-actions"><button class="btn lg" disabled={busy || !form.accept_privacy}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button></div>
     </form>
   {/if}
 </PublicLayout>
 
 <style>
-  .kinds { border: 0; padding: 0; margin: 0 0 1.25rem; display: grid; gap: 8px; }
-  .kinds legend { font-weight: 600; margin-bottom: 0.5rem; padding: 0; }
-  .kind { align-items: flex-start; }
-  .kind span { display: grid; }
-  .kind small { color: var(--muted); font-weight: 400; }
-  .hint { color: var(--muted); font-size: 0.85rem; margin: -0.4rem 0 1rem; }
+  .form { padding: 24px; }
+  .kinds { border: 0; padding: 0; margin: 0 0 1.5rem; display: grid; }
+  .kinds legend { font-weight: 600; font-size: 1.05rem; margin-bottom: 0.75rem; padding: 0; }
+  .kind { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 14px 12px; border-bottom: 1px solid var(--border); cursor: pointer; border-left: 3px solid transparent; }
+  .kind:first-of-type { border-top: 1px solid var(--border); }
+  .kind:hover { background: var(--surface-2); }
+  .kind.on { background: var(--accent-soft); border-left-color: var(--accent); }
+  .kind input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+  .kind span { display: grid; gap: 2px; min-width: 0; }
+  .kind small { color: var(--muted); font-size: 0.88rem; }
+  .kind:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: -0.4rem 0 1.25rem; }
+  .accept { margin-top: 0.25rem; }
+  .error { margin: 1rem 0 0; }
+  .done { padding: 24px; display: grid; gap: 0.75rem; justify-items: start; border-left: 3px solid var(--accent); }
+  .done h2, .done p { margin: 0; }
+  @media (max-width: 480px) { .form, .done { padding: 18px 16px; } .form-actions .btn { width: 100%; } }
 </style>

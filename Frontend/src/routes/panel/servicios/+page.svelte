@@ -3,6 +3,14 @@
   import { api } from '$lib/api.js';
   import { money, toCents, toPesos } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
+  import Modal from '$lib/Modal.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   const admin = session.me.role === 'admin';
   const sells = ['admin', 'cashier', 'reception'].includes(session.me.role);
@@ -26,6 +34,7 @@
     packages = await api('/api/packages' + (admin ? '?all=1' : ''));
   }
   function startPkg(k) {
+    error = '';
     pkg = k ? { name: k.name, service_id: k.service_id, sessions: k.sessions, price: toPesos(k.price_cents), valid_days: k.valid_days ?? '' } : blankPkg();
     pkgForm = k ? k.id : 'new';
   }
@@ -72,13 +81,31 @@
   }
   onMount(() => load().catch((e) => ((error = e.message), (loading = false))));
 
+  const svcCols = [
+    { key: 'name', label: 'Servicio' },
+    { key: 'duration', label: 'Duración', numeric: true },
+    { key: 'buffer', label: 'Preparación', numeric: true },
+    { key: 'price', label: 'Precio', numeric: true },
+    { key: 'state', label: 'Estado' },
+    ...(admin ? [{ key: 'acts', label: 'Acciones' }] : [])
+  ];
+  const pkgCols = [
+    { key: 'name', label: 'Paquete' },
+    { key: 'sessions', label: 'Sesiones', numeric: true },
+    { key: 'valid', label: 'Vigencia' },
+    { key: 'price', label: 'Precio', numeric: true },
+    { key: 'state', label: 'Estado' },
+    ...(admin ? [{ key: 'acts', label: 'Acciones' }] : [])
+  ];
   const staffNames = (s) => team.filter((m) => s.staff_ids.includes(m.id)).map((m) => m.name).join(', ');
 
   function startNew() {
+    error = '';
     form = blank();
     editing = 'new';
   }
   function startEdit(s) {
+    error = '';
     form = { name: s.name, duration_min: s.duration_min, buffer_min: s.buffer_min, price: toPesos(s.price_cents), staff_ids: [...s.staff_ids] };
     editing = s.id;
   }
@@ -118,19 +145,79 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Servicios</h1>
-    <p>Lo que ofreces, con su duración y precio.</p>
-  </div>
-  {#if admin}<button class="btn" onclick={startNew}>Nuevo servicio</button>{/if}
-</div>
+<PageHeader title="Servicios" description="Lo que ofreces, con su duración y precio.">
+  {#snippet actions()}
+    {#if admin}<button class="btn" onclick={startNew}>Nuevo servicio</button>{/if}
+  {/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error && editing === null && pkgForm === null}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
+{/if}
 
-{#if editing !== null}
-  <form class="card" onsubmit={save} style="margin-bottom: 1.5rem">
-    <h3>{editing === 'new' ? 'Nuevo servicio' : 'Editar servicio'}</h3>
+<Surface padding="flush">
+  {#if loading}
+    <LoadingState />
+  {:else if services.length === 0}
+    <EmptyState title="Todavía no hay servicios" description={admin ? 'Crea el primero para poder agendarlo y cobrarlo.' : 'Un administrador debe crear los servicios.'}>
+      {#snippet actions()}{#if admin}<button class="btn" onclick={startNew}>Nuevo servicio</button>{/if}{/snippet}
+    </EmptyState>
+  {:else}
+    <DataTable caption="Servicios" columns={svcCols} rows={services}>
+      {#snippet cell({ row: s, column })}
+        {#if column.key === 'name'}
+          <span class="name" class:off={!s.active}>{s.name}</span>
+          {#if admin && staffNames(s)}<span class="sub">{staffNames(s)}</span>{/if}
+        {:else if column.key === 'duration'}{s.duration_min} min
+        {:else if column.key === 'buffer'}{s.buffer_min ? `${s.buffer_min} min` : '—'}
+        {:else if column.key === 'price'}<strong>{money(s.price_cents)}</strong>
+        {:else if column.key === 'state'}<StatusBadge label={s.active ? 'Activo' : 'Inactivo'} tone={s.active ? 'success' : 'neutral'} />
+        {:else}
+          <span class="acts">
+            <button class="btn ghost sm" onclick={() => startEdit(s)}>Editar</button>
+            <button class="btn ghost sm" onclick={() => toggle(s)}>{s.active ? 'Desactivar' : 'Activar'}</button>
+          </span>
+        {/if}
+      {/snippet}
+    </DataTable>
+  {/if}
+</Surface>
+
+{#if sells}
+  <div class="gap"></div>
+  <Surface padding="flush" title="Paquetes" description="Vende varias sesiones de un servicio por adelantado; se canjean una a una al cobrar.">
+    {#snippet actions()}
+      {#if admin && services.some((s) => s.active)}<button class="btn" onclick={() => startPkg(null)}>Nuevo paquete</button>{/if}
+    {/snippet}
+    {#if loading}
+      <LoadingState />
+    {:else if packages.length === 0}
+      <EmptyState title="Todavía no hay paquetes" description={admin ? 'Crea uno con «Nuevo paquete».' : ''} />
+    {:else}
+      <DataTable caption="Paquetes" columns={pkgCols} rows={packages}>
+        {#snippet cell({ row: k, column })}
+          {#if column.key === 'name'}
+            <span class="name" class:off={!k.active}>{k.name}</span>
+            <span class="sub">{k.service_name}</span>
+          {:else if column.key === 'sessions'}{k.sessions}
+          {:else if column.key === 'valid'}{k.valid_days ? `${k.valid_days} días` : 'Sin vencimiento'}
+          {:else if column.key === 'price'}<strong>{money(k.price_cents)}</strong>
+          {:else if column.key === 'state'}<StatusBadge label={k.active ? 'Activo' : 'Inactivo'} tone={k.active ? 'success' : 'neutral'} />
+          {:else}
+            <span class="acts">
+              <button class="btn ghost sm" onclick={() => startPkg(k)}>Editar</button>
+              <button class="btn ghost sm" onclick={() => togglePkg(k)}>{k.active ? 'Desactivar' : 'Activar'}</button>
+            </span>
+          {/if}
+        {/snippet}
+      </DataTable>
+    {/if}
+  </Surface>
+{/if}
+
+<Modal bind:open={() => editing !== null, (v) => { if (!v) editing = null; }} title={editing === 'new' ? 'Nuevo servicio' : 'Editar servicio'}>
+  <form onsubmit={save}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={form.name} required /></label>
       <label class="field">Precio (MXN) <input inputmode="decimal" bind:value={form.price} placeholder="150.00" required /></label>
@@ -153,46 +240,15 @@
       {/each}
     </fieldset>
     <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       <button type="button" class="btn ghost" onclick={() => (editing = null)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
     </div>
   </form>
-{/if}
+</Modal>
 
-{#if loading}
-  <p class="meta">Cargando…</p>
-{:else if services.length === 0}
-  <div class="empty">Todavía no hay servicios.{#if admin} Crea el primero con «Nuevo servicio».{/if}</div>
-{:else}
-  <div class="list">
-    {#each services as s (s.id)}
-      <div class="item-row" class:off={!s.active}>
-        <div class="grow">
-          <div class="title">{s.name} {#if !s.active}<span class="badge muted">Inactivo</span>{/if}</div>
-          <div class="meta">{s.duration_min} min{#if s.buffer_min} + {s.buffer_min} de preparación{/if}{#if admin && staffNames(s)}{' · ' + staffNames(s)}{/if}</div>
-        </div>
-        <strong>{money(s.price_cents)}</strong>
-        {#if admin}
-          <button class="btn ghost sm" onclick={() => startEdit(s)}>Editar</button>
-          <button class="btn ghost sm" onclick={() => toggle(s)}>{s.active ? 'Desactivar' : 'Activar'}</button>
-        {/if}
-      </div>
-    {/each}
-  </div>
-{/if}
-
-{#if sells}
-<div class="page-head" style="margin-top: 2.5rem">
-  <div>
-    <h2 style="font-size: 1.6rem">Paquetes</h2>
-    <p>Vende varias sesiones de un servicio por adelantado; se canjean una a una al cobrar.</p>
-  </div>
-  {#if admin && services.some((s) => s.active)}<button class="btn" onclick={() => startPkg(null)}>Nuevo paquete</button>{/if}
-</div>
-
-{#if pkgForm !== null}
-  <form class="card" onsubmit={savePkg} style="margin-bottom: 1.5rem">
-    <h3>{pkgForm === 'new' ? 'Nuevo paquete' : 'Editar paquete'}</h3>
+<Modal bind:open={() => pkgForm !== null, (v) => { if (!v) pkgForm = null; }} title={pkgForm === 'new' ? 'Nuevo paquete' : 'Editar paquete'}>
+  <form onsubmit={savePkg}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={pkg.name} required placeholder="5 cortes" /></label>
       <label class="field">
@@ -208,37 +264,22 @@
     </div>
     {#if pkgForm !== 'new'}<p class="meta">El servicio y las sesiones no se editan; crea otro paquete para otra oferta. Los paquetes ya vendidos no cambian.</p>{/if}
     <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       <button type="button" class="btn ghost" onclick={() => (pkgForm = null)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
     </div>
   </form>
-{/if}
-
-{#if !loading}
-  {#if packages.length === 0}
-    <div class="empty">Todavía no hay paquetes.{#if admin} Crea uno con «Nuevo paquete».{/if}</div>
-  {:else}
-    <div class="list">
-      {#each packages as k (k.id)}
-        <div class="item-row" class:off={!k.active}>
-          <div class="grow">
-            <div class="title">{k.name} {#if !k.active}<span class="badge muted">Inactivo</span>{/if}</div>
-            <div class="meta">{k.sessions} sesiones de {k.service_name}{k.valid_days ? ` · vigencia de ${k.valid_days} días` : ''}</div>
-          </div>
-          <strong>{money(k.price_cents)}</strong>
-          {#if admin}
-            <button class="btn ghost sm" onclick={() => startPkg(k)}>Editar</button>
-            <button class="btn ghost sm" onclick={() => togglePkg(k)}>{k.active ? 'Desactivar' : 'Activar'}</button>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-{/if}
-{/if}
+</Modal>
 
 <style>
+  .notice { margin-bottom: 16px; }
+  .gap { height: 32px; }
+  .name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .name.off { color: var(--muted); }
+  .sub { display: block; max-width: 56ch; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .acts { display: inline-flex; gap: 8px; justify-content: flex-end; white-space: nowrap; }
+  @media (max-width: 1100px) and (min-width: 641px) { .acts { flex-direction: column; align-items: stretch; } }
+  .acts .btn { min-height: 44px; }
   .staff { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 4px 20px; }
   .staff legend { padding: 0 6px; font-size: 0.9rem; font-weight: 500; }
-  h3 { font-size: 1.25rem; }
+  .form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 </style>

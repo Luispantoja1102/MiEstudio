@@ -108,7 +108,7 @@
     height: 100vh;
     overflow-y: auto;
   }
-  .brand { display: flex; align-items: center; gap: 8px; padding: 4px 12px 20px; }
+  .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 12px 20px; }
   .tag { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--side-muted); }
   .side nav { display: grid; gap: 2px; }
   .side nav:not(.foot) { flex: 1; align-content: start; }

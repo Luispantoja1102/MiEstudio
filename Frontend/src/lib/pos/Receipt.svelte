@@ -38,14 +38,15 @@
 </article>
 
 <style>
-  .receipt { max-width: 380px; margin: 0 auto; padding: 1.25rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
+  .receipt { max-width: 380px; margin: 0 auto; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   header { text-align: center; margin-bottom: 0.75rem; }
-  h3 { margin-bottom: 0.2rem; font-size: 1.3rem; }
+  h3 { margin: 0 0 0.2rem; font-size: 1.2rem; }
+  header { padding-bottom: 0.75rem; border-bottom: 1px dashed var(--border); }
   header p { margin: 0; }
   .void { color: var(--danger); font-weight: 700; margin-top: 0.4rem; }
   table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-  td { padding: 3px 0; vertical-align: top; }
-  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td { padding: 4px 0; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
   small { color: var(--muted); }
   tfoot tr:first-child td { border-top: 1px solid var(--border); padding-top: 8px; }
   .strong td { font-weight: 700; }
@@ -55,6 +56,6 @@
   @media print {
     :global(body *) { visibility: hidden; }
     :global(.print-area), :global(.print-area *) { visibility: visible; }
-    :global(.print-area) { position: absolute; left: 0; top: 0; width: 100%; max-width: none; border: 0; background: #fff; color: #000; }
+    :global(.print-area.receipt) { position: fixed; left: 0; top: 0; box-sizing: border-box; width: 100%; max-width: none; margin: 0; padding: 12mm; border: 0; border-radius: 0; background: #fff; color: #000; }
   }
 </style>

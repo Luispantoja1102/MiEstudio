@@ -2,6 +2,13 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import HoursEditor from '$lib/HoursEditor.svelte';
+  import Modal from '$lib/Modal.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
   import { api } from '$lib/api.js';
   import { ROLES } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
@@ -69,18 +76,76 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Equipo</h1>
-    <p>Personas con acceso a tu negocio y lo que pueden hacer.</p>
-  </div>
-  <button class="btn" onclick={() => (showForm = !showForm)}>{showForm ? 'Cancelar' : 'Agregar persona'}</button>
-</div>
+<PageHeader title="Equipo" description="Personas con acceso a tu negocio y lo que pueden hacer.">
+  {#snippet actions()}
+    <button class="btn" onclick={() => ((error = ''), (showForm = true))}>Agregar persona</button>
+  {/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error && !showForm}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
+{/if}
 
-{#if showForm}
-  <form class="card" onsubmit={add} style="margin-bottom: 1.5rem">
+<Surface padding="flush">
+  {#if loading}
+    <LoadingState />
+  {:else if team.length === 0}
+    <EmptyState title="Todavía no hay personas" description="Agrega a quien atiende o administra tu negocio." />
+  {:else}
+    <ul class="team">
+      {#each team as m (m.id)}
+        {@const me = m.id === session.me.id}
+        <li class:off={!m.active}>
+          <div class="row">
+            <div class="who">
+              <span class="name">{m.name}</span>
+              <span class="mail">{m.email}</span>
+              <span class="tags">
+                {#if me}<StatusBadge label="Tú" tone="accent" />{/if}
+                <StatusBadge label={m.active ? 'Activo' : 'Inactivo'} tone={m.active ? 'success' : 'neutral'} />
+                {#if m.two_factor}<StatusBadge label="2 pasos" tone="info" />{/if}
+              </span>
+            </div>
+
+            <div class="field-sm">
+              <label for="role-{m.id}">Rol</label>
+              <select id="role-{m.id}" value={m.role} disabled={me} onchange={(e) => patch(m, { role: e.currentTarget.value })}>
+                {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
+              </select>
+            </div>
+
+            <div class="field-sm com">
+              <label for="com-{m.id}">Comisión %</label>
+              <input id="com-{m.id}" type="number" inputmode="decimal" min="0" max="100" step="0.5" value={m.commission_pct}
+                onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
+            </div>
+
+            <label class="check agenda"><input type="checkbox" checked={m.bookable} onchange={(e) => patch(m, { bookable: e.currentTarget.checked })} />En agenda</label>
+
+            <div class="acts">
+              {#if m.bookable && m.active}
+                <button class="btn ghost sm" aria-expanded={hoursFor === m.id} onclick={() => (hoursFor = hoursFor === m.id ? null : m.id)}>
+                  {hoursFor === m.id ? 'Cerrar horario' : 'Horario'}
+                </button>
+              {/if}
+              {#if m.two_factor && !me}
+                <button class="btn ghost sm" onclick={() => resetTwoFactor(m)}>Quitar 2 pasos</button>
+              {/if}
+              {#if !me}
+                <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
+              {/if}
+            </div>
+          </div>
+          {#if hoursFor === m.id}<HoursEditor member={m} {branches} />{/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</Surface>
+
+<Modal bind:open={showForm} title="Agregar persona">
+  <form onsubmit={add}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre <input bind:value={form.name} required /></label>
       <label class="field">Correo <input type="email" bind:value={form.email} required /></label>
@@ -101,41 +166,38 @@
       </label>
     </div>
     <label class="check"><input type="checkbox" bind:checked={form.bookable} />Aparece en la agenda (atiende clientes)</label>
-    <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button></div>
+    <div class="actions">
+      <button type="button" class="btn ghost" onclick={() => (showForm = false)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button>
+    </div>
   </form>
-{/if}
+</Modal>
 
-{#if loading}
-  <p class="meta">Cargando…</p>
-{:else}
-  <div class="list">
-    {#each team as m (m.id)}
-      {@const me = m.id === session.me.id}
-      <div class="item-row" class:off={!m.active}>
-        <div class="grow">
-          <div class="title">{m.name} {#if me}<span class="badge">Tú</span>{/if}{#if !m.active}<span class="badge muted">Inactivo</span>{/if}</div>
-          <div class="meta">{m.email}</div>
-        </div>
-        <label class="sr-only" for="role-{m.id}">Rol de {m.name}</label>
-        <select id="role-{m.id}" value={m.role} disabled={me} onchange={(e) => patch(m, { role: e.currentTarget.value })} style="width: auto; margin: 0">
-          {#each Object.entries(ROLES) as [value, label]}<option {value}>{label}</option>{/each}
-        </select>
-        <label class="check"><input type="checkbox" checked={m.bookable} onchange={(e) => patch(m, { bookable: e.currentTarget.checked })} />En agenda</label>
-        <label class="meta" for="com-{m.id}">Comisión %</label>
-        <input id="com-{m.id}" type="number" min="0" max="100" step="0.5" value={m.commission_pct} style="width: 84px; margin: 0"
-          onchange={(e) => patch(m, { commission_pct: Number(e.currentTarget.value) })} />
-        {#if m.bookable && m.active}
-          <button class="btn ghost sm" onclick={() => (hoursFor = hoursFor === m.id ? null : m.id)}>Horario</button>
-        {/if}
-        {#if m.two_factor}<span class="badge" title="Tiene verificación en dos pasos">2 pasos</span>{/if}
-        {#if m.two_factor && !me}
-          <button class="btn ghost sm" onclick={() => resetTwoFactor(m)}>Quitar 2 pasos</button>
-        {/if}
-        {#if !me}
-          <button class="btn ghost sm" onclick={() => patch(m, { active: !m.active })}>{m.active ? 'Desactivar' : 'Reactivar'}</button>
-        {/if}
-        {#if hoursFor === m.id}<HoursEditor member={m} {branches} />{/if}
-      </div>
-    {/each}
-  </div>
-{/if}
+<style>
+  .notice { margin-bottom: 16px; }
+  .team { list-style: none; margin: 0; padding: 0; }
+  li { container-type: inline-size; border-bottom: 1px solid var(--border); padding: 16px 20px; }
+  li:last-child { border-bottom: 0; }
+  li.off .name, li.off .mail { color: var(--muted); }
+  .row { display: grid; grid-template-columns: minmax(0, 1.4fr) 170px 120px auto; gap: 12px 20px; align-items: end; }
+  .who { display: grid; gap: 2px; min-width: 0; align-self: center; }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .mail { color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .field-sm { display: grid; gap: 4px; }
+  .field-sm label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .field-sm select, .field-sm input { margin: 0; min-height: 44px; width: 100%; }
+  .agenda { align-self: end; }
+  .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+  @container (min-width: 900px) {
+    .row { grid-template-columns: minmax(0, 1fr) 170px 110px 120px 340px; }
+    .acts { grid-column: auto; justify-content: flex-end; }
+  }
+  @container (max-width: 560px) {
+    .row { grid-template-columns: 1fr 1fr; }
+    .who, .agenda { grid-column: 1 / -1; }
+    .acts .btn { flex: 1 1 auto; }
+  }
+  @media (max-width: 640px) { li { padding: 16px; } }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+</style>

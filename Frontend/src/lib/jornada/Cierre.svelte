@@ -1,5 +1,5 @@
 <script>
-  // 21:00. Planes, preguntas y el cierre de la jornada.
+  // 21:00. Planes, preguntas y el cierre de la jornada (en el ámbito claro de la landing).
   import { onMount } from 'svelte';
   import Logo from '$lib/Logo.svelte';
 
@@ -42,11 +42,14 @@
   ];
 </script>
 
-<section id="planes" class="planes" data-hora="21:00" data-momento="Antes de cerrar" aria-labelledby="t-planes">
+<section id="planes" class="planes" aria-labelledby="t-planes">
   <div class="envoltura">
     <header class="cabeza">
-      <h2 id="t-planes">El precio de una jornada así.</h2>
-      <p>14 días gratis con tus propios clientes, sin tarjeta. Precios en pesos; cambias de plan cuando quieras.</p>
+      <div>
+        <p class="kicker"><time>21:00</time>Antes de cerrar</p>
+        <h2 id="t-planes" class="titulo">El precio de una jornada así.</h2>
+        <p class="lead">14 días gratis con tus propios clientes, sin tarjeta. Precios en pesos; cambias de plan cuando quieras.</p>
+      </div>
       <div class="periodo" role="group" aria-label="Periodo de pago">
         <button type="button" aria-pressed={!yearly} onclick={() => (yearly = false)}>Mensual</button>
         <button type="button" aria-pressed={yearly} onclick={() => (yearly = true)}>Anual · 2 meses gratis</button>
@@ -72,7 +75,7 @@
 
 <section id="preguntas" class="preguntas" aria-labelledby="t-preguntas">
   <div class="envoltura dos">
-    <h2 id="t-preguntas">Lo que preguntan en el mostrador.</h2>
+    <h2 id="t-preguntas" class="titulo">Lo que preguntan en el mostrador.</h2>
     <div>
       {#each faqs as [q, a]}
         <details>
@@ -85,13 +88,18 @@
 </section>
 
 <!-- Fin de la jornada -->
-<section class="baja" data-hora="21:30" data-momento="Fin del día" aria-labelledby="t-baja">
-  <div class="final">
-    <h2 id="t-baja">Mañana abres con la agenda llena.</h2>
-    <p>Crea tu cuenta, pon tu horario y tus servicios, y comparte tu enlace hoy mismo.</p>
-    <div class="acciones">
-      <a class="btn" href="/registro">Crear mi cuenta gratis</a>
-      <a class="link" href="/login">Ya tengo cuenta</a>
+<section class="baja" aria-labelledby="t-baja">
+  <div class="envoltura final">
+    <div>
+      <p class="kicker"><time>21:30</time>Fin del día</p>
+      <h2 id="t-baja" class="titulo">Mañana abres con la agenda llena.</h2>
+    </div>
+    <div class="lado">
+      <p>Crea tu cuenta, pon tu horario y tus servicios, y comparte tu enlace hoy mismo.</p>
+      <div class="acciones">
+        <a class="btn" href="/registro">Crear mi cuenta gratis</a>
+        <a class="link" href="/login">Ya tengo cuenta</a>
+      </div>
     </div>
   </div>
 </section>
@@ -99,89 +107,89 @@
 <footer class="pie">
   <div class="envoltura pie-g">
     <div>
-      <Logo onDark />
+      <Logo />
       <p>Agenda, caja y reservas en línea para barberías, salones de uñas, pestañas, estéticas y spas. Hecho en México.</p>
     </div>
     <nav aria-label="Producto"><h3>Producto</h3><a href="#madrugada">La jornada</a><a href="#oficios">Oficios</a><a href="#planes">Planes</a><a href="#preguntas">Preguntas</a></nav>
     <nav aria-label="Cuenta"><h3>Cuenta</h3><a href="/registro">Crear cuenta</a><a href="/login">Iniciar sesión</a></nav>
     <nav aria-label="Legal"><h3>Legal</h3><a href="/privacidad">Aviso de privacidad</a><a href="/terminos">Términos</a></nav>
   </div>
-  <p class="envoltura copy">© {new Date().getFullYear()} Barbella</p>
+  <div class="envoltura"><p class="copy">© {new Date().getFullYear()} Barbella</p></div>
 </footer>
 
 <style>
-  .envoltura { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
-  h2 { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2.2rem, 4.6vw, 4rem); line-height: 1; letter-spacing: -0.01em; text-wrap: balance; }
-
-  /* Planes */
-  .planes { padding: 120px 0 96px; background: var(--ticket); color: var(--tinta); }
-  .cabeza { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 16px 40px; margin-bottom: 48px; }
-  .cabeza h2 { max-width: 12ch; }
-  .cabeza p { grid-column: 1; margin: 0; max-width: 52ch; color: var(--tinta-suave); line-height: 1.5; }
-  .periodo { grid-column: 2; grid-row: 1 / span 2; align-self: end; display: inline-flex; padding: 4px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.2); }
-  .periodo button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 600; color: var(--tinta-suave); cursor: pointer; }
-  .periodo button[aria-pressed='true'] { background: var(--tinta); color: var(--ticket); }
+  /* Planes: una sola superficie con separadores, no cuatro tarjetas */
+  .planes { padding: clamp(72px, 9vw, 112px) 0; background: var(--papel-2); }
+  .cabeza { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 20px 40px; margin-bottom: clamp(28px, 4vw, 48px); }
+  .titulo { max-width: 14ch; }
+  .lead { margin: 18px 0 0; max-width: 52ch; color: var(--tinta-suave); line-height: 1.5; }
+  .periodo { display: inline-flex; padding: 3px; border-radius: 8px; background: var(--carta); box-shadow: inset 0 0 0 1px var(--border); }
+  .periodo button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-weight: 600; color: var(--tinta-suave); cursor: pointer; }
+  .periodo button[aria-pressed='true'] { background: var(--tinta); color: #fff; }
   .periodo button:focus-visible { outline: 3px solid var(--bermellon); outline-offset: 2px; }
-  .lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--tinta); }
-  .plan { display: flex; flex-direction: column; padding: 28px 28px 0; }
-  .plan + .plan { border-left: 1px solid rgb(var(--ink-rgb) / 0.18); }
-  .plan.fuerte { background: var(--carta); box-shadow: inset 0 0 0 2px var(--tinta); border-radius: 0 0 14px 14px; padding-bottom: 28px; }
-  h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.9rem; font-weight: 650; }
-  h3 { flex-wrap: wrap; }
-  h3 span { order: -1; flex-basis: 100%; margin-bottom: -6px; font-family: var(--texto); font-size: 0.82rem; font-weight: 600; color: var(--bermellon); }
-  .desc { margin: 8px 0 22px; min-height: 2.8em; color: var(--tinta-suave); line-height: 1.4; }
-  .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
-  .precio small { font-family: var(--texto); font-stretch: 100%; font-size: 1rem; font-weight: 500; margin-left: 4px; }
-  .equiv { margin: 8px 0 22px; font-size: 0.9rem; color: var(--tinta-suave); }
-  ul { margin: 0 0 28px; padding: 0; list-style: none; display: grid; gap: 10px; flex: 1; }
+
+  .lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 8px; background: var(--carta); overflow: hidden; }
+  .plan { position: relative; display: flex; flex-direction: column; padding: 30px 26px 28px; }
+  .plan + .plan { border-left: 1px solid var(--border); }
+  .plan.fuerte { box-shadow: inset 0 3px 0 var(--bermellon); }
+  h3 { display: flex; flex-direction: column; margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-size: 1.6rem; font-weight: 700; min-height: 2.4em; justify-content: flex-end; }
+  h3 span { order: -1; margin-bottom: 4px; font-family: var(--texto); font-stretch: 100%; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); }
+  .desc { margin: 8px 0 22px; min-height: 4.2em; color: var(--tinta-suave); line-height: 1.4; font-size: 0.95rem; }
+  .precio { margin: 0; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 3.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .precio small { font-family: var(--texto); font-stretch: 100%; font-size: 1rem; font-weight: 500; margin-left: 4px; color: var(--tinta-suave); }
+  .equiv { margin: 8px 0 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--tinta-suave); }
+  ul { margin: 0 0 28px; padding: 0; list-style: none; display: grid; gap: 10px; flex: 1; align-content: start; font-size: 0.95rem; }
   li { position: relative; padding-left: 20px; line-height: 1.35; }
-  li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 9px; height: 2px; background: currentColor; }
-  li.no { color: rgb(var(--ink-rgb) / 0.4); text-decoration: line-through; text-decoration-thickness: 1px; }
-  li.no::before { opacity: 0.4; }
+  li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 9px; height: 2px; background: var(--tinta); }
+  li.no { color: rgb(var(--ink-rgb) / 0.5); text-decoration: line-through; text-decoration-thickness: 1px; }
+  li.no::before { opacity: 0.35; }
   .plan .btn { align-self: stretch; }
 
-  /* Preguntas */
-  .preguntas { padding: 96px 0 120px; background: var(--ticket); color: var(--tinta); border-top: 1px solid rgb(var(--ink-rgb) / 0.12); }
-  .dos { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 40px 64px; }
-  .dos h2 { max-width: 11ch; font-size: clamp(2rem, 3.6vw, 3.2rem); }
-  details { border-bottom: 1px solid rgb(var(--ink-rgb) / 0.16); }
-  summary { display: flex; justify-content: space-between; gap: 16px; min-height: 64px; align-items: center; font-weight: 600; font-size: 1.1rem; cursor: pointer; list-style: none; }
+  /* Preguntas: título a un lado, respuestas sobre blanco */
+  .preguntas { padding: clamp(72px, 9vw, 112px) 0; background: var(--carta); }
+  .dos { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 32px clamp(32px, 6vw, 88px); align-items: start; }
+  .dos .titulo { position: sticky; top: 96px; max-width: 11ch; font-size: clamp(2rem, 3.4vw, 3rem); }
+  details { border-bottom: 1px solid var(--border); }
+  details:first-child { border-top: 2px solid var(--tinta); }
+  summary { display: flex; justify-content: space-between; gap: 16px; min-height: 64px; align-items: center; font-weight: 600; font-size: 1.08rem; cursor: pointer; list-style: none; }
   summary::-webkit-details-marker { display: none; }
-  summary::after { content: '+'; font-family: var(--rotulo); font-size: 1.6rem; font-weight: 500; transition: transform 300ms var(--ease); }
+  summary::after { content: '+'; flex: none; font-family: var(--rotulo); font-size: 1.6rem; font-weight: 500; transition: transform 200ms var(--ease); }
   details[open] summary::after { transform: rotate(45deg); }
   summary:focus-visible { outline: 3px solid var(--bermellon); outline-offset: 4px; }
   details p { margin: 0 0 22px; max-width: 60ch; line-height: 1.6; color: var(--tinta-suave); }
 
   /* Cierre */
-  .baja { padding: clamp(96px, 14vw, 160px) 20px; background: var(--ticket); color: var(--tinta); border-top: 1px solid rgb(var(--ink-rgb) / 0.12); }
-  .final { display: grid; justify-items: center; gap: 18px; text-align: center; }
-  .final h2 { max-width: 13ch; font-size: clamp(2.4rem, 5.6vw, 4.8rem); }
-  .final p { margin: 0; max-width: 46ch; color: var(--tinta-suave); line-height: 1.5; }
-  .acciones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 24px; margin-top: 10px; }
+  .baja { padding: clamp(72px, 10vw, 128px) 0; background: var(--ticket); }
+  .final { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); align-items: end; gap: 28px clamp(32px, 6vw, 96px); }
+  .final .titulo { max-width: 13ch; font-size: clamp(2.4rem, 5vw, 4.4rem); }
+  .lado p { margin: 0; max-width: 40ch; color: var(--tinta-suave); line-height: 1.55; }
+  .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 22px; }
 
   /* Pie */
-  .pie { padding: 64px 0 28px; background: #08080a; color: rgb(var(--ink-rgb) / 0.72); border-top: 1px solid rgb(var(--ink-rgb) / 0.1); }
-  .pie-g { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 32px; }
-  .pie-g p { max-width: 36ch; line-height: 1.55; }
-  .pie h3 { margin: 0 0 12px; font-size: 0.9rem; color: var(--ticket); }
-  .pie nav { display: grid; align-content: start; gap: 10px; }
-  .pie a { color: inherit; text-decoration: none; }
-  .pie a:hover { color: var(--ticket); }
-  .copy { margin-top: 40px; font-size: 0.85rem; opacity: 0.6; }
+  .pie { padding: 40px 0 24px; background: var(--papel-2); color: var(--tinta-suave); border-top: 1px solid var(--border); font-size: 0.92rem; }
+  .pie-g { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 28px; }
+  .pie-g p { max-width: 38ch; margin: 12px 0 0; line-height: 1.55; }
+  .pie .copy { max-width: none; }
+  .pie h3 { display: block; min-height: 0; margin: 0 0 10px; font-family: var(--texto); font-stretch: 100%; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta); }
+  .pie nav { display: grid; align-content: start; gap: 4px; }
+  .pie nav a { display: inline-flex; align-items: center; min-height: 32px; color: inherit; text-decoration: none; }
+  .pie nav a:hover { color: var(--tinta); text-decoration: underline; }
+  .copy { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.82rem; }
 
   /* Tableta: dos planes por fila */
   @media (min-width: 901px) and (max-width: 1180px) {
     .lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .plan:nth-child(odd) { border-left: 0; }
-    .plan:nth-child(n + 3) { border-top: 1px solid rgb(var(--ink-rgb) / 0.18); }
-    .plan { padding-bottom: 28px; }
+    .plan:nth-child(n + 3) { border-top: 1px solid var(--border); }
   }
   @media (max-width: 900px) {
     .cabeza { grid-template-columns: 1fr; }
-    .periodo { grid-column: 1; grid-row: auto; justify-self: start; }
+    .periodo { justify-self: start; }
     .lista { grid-template-columns: 1fr; }
-    .plan + .plan { border-left: 0; border-top: 1px solid rgb(var(--ink-rgb) / 0.18); }
-    .plan { padding-bottom: 28px; }
-    .dos, .pie-g { grid-template-columns: 1fr; }
+    .plan + .plan { border-left: 0; border-top: 1px solid var(--border); }
+    h3, .desc { min-height: 0; }
+    .dos, .final, .pie-g { grid-template-columns: 1fr; }
+    .dos .titulo { position: static; }
   }
+  @media (max-width: 520px) { .periodo button { padding: 0 12px; font-size: 0.9rem; } }
 </style>

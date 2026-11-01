@@ -3,6 +3,9 @@
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
 
   let branches = $state([]);
   let error = $state('');
@@ -52,39 +55,54 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Sucursales</h1>
-    <p>Los lugares donde atiendes. La agenda y los horarios se organizan por sucursal.</p>
-  </div>
-  <button class="btn" onclick={startNew}>Nueva sucursal</button>
-</div>
+<PageHeader title="Sucursales" description="Los lugares donde atiendes. La agenda y los horarios se organizan por sucursal.">
+  {#snippet actions()}<button class="btn" onclick={startNew}>Nueva sucursal</button>{/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<div class="gap"><InlineNotice tone="danger" message={error} /></div>{/if}
 
 {#if editing !== null}
-  <form class="card" onsubmit={save} style="margin-bottom: 1.5rem">
-    <div class="form-grid">
-      <label class="field">Nombre <input bind:value={form.name} required /></label>
-      <label class="field">Dirección <input bind:value={form.address} maxlength="300" /></label>
-      <label class="field">Teléfono <input type="tel" bind:value={form.phone} maxlength="30" /></label>
-    </div>
-    <div class="form-actions">
-      <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
-      <button type="button" class="btn ghost" onclick={() => (editing = null)}>Cancelar</button>
-    </div>
-  </form>
+  <div class="gap">
+    <Surface title={editing === 'new' ? 'Nueva sucursal' : 'Editar sucursal'}>
+      <form onsubmit={save}>
+        <div class="form-grid">
+          <label class="field">Nombre <input bind:value={form.name} required /></label>
+          <label class="field">Dirección <input bind:value={form.address} maxlength="300" /></label>
+          <label class="field">Teléfono <input type="tel" bind:value={form.phone} maxlength="30" /></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+          <button type="button" class="btn ghost" onclick={() => (editing = null)}>Cancelar</button>
+        </div>
+      </form>
+    </Surface>
+  </div>
 {/if}
 
-<div class="list">
-  {#each branches as b (b.id)}
-    <div class="item-row" class:off={!b.active}>
-      <div class="grow">
-        <div class="title">{b.name} {#if !b.active}<span class="badge muted">Inactiva</span>{/if}</div>
-        <div class="meta">{[b.address, b.phone].filter(Boolean).join(' · ') || 'Sin dirección'}</div>
-      </div>
-      <button class="btn ghost sm" onclick={() => startEdit(b)}>Editar</button>
-      <button class="btn ghost sm" onclick={() => toggle(b)}>{b.active ? 'Desactivar' : 'Activar'}</button>
-    </div>
-  {/each}
-</div>
+<Surface padding="flush">
+  <ul class="rows">
+    {#each branches as b (b.id)}
+      <li class="br" class:off={!b.active}>
+        <div class="grow">
+          <div class="title">{b.name} {#if !b.active}<span class="badge muted">Inactiva</span>{/if}</div>
+          <div class="meta">{[b.address, b.phone].filter(Boolean).join(' · ') || 'Sin dirección'}</div>
+        </div>
+        <button class="btn ghost sm" onclick={() => startEdit(b)}>Editar</button>
+        <button class="btn ghost sm" onclick={() => toggle(b)}>{b.active ? 'Desactivar' : 'Activar'}</button>
+      </li>
+    {:else}
+      <li class="br"><span class="meta">Aún no hay sucursales.</span></li>
+    {/each}
+  </ul>
+</Surface>
+
+<style>
+  .gap { margin-bottom: 16px; }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .br { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); }
+  .br:first-child { border-top: 0; }
+  .br.off .grow { opacity: 0.6; }
+  .grow { flex: 1 1 200px; min-width: 0; }
+  .title { font-weight: 600; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 0.88rem; overflow-wrap: anywhere; }
+</style>

@@ -2,6 +2,13 @@
   import { onMount, onDestroy } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
   import Receipt from '$lib/pos/Receipt.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import SearchField from '$lib/ui/SearchField.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { METHODS, money, newToken, toCents, toPesos, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
@@ -307,227 +314,235 @@
   );
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Cobrar</h1>
-    <p>{#if cash}Caja abierta · efectivo esperado {money(cash.expected_cents)} · {plural(cash.sales, 'venta', 'ventas')}{:else}Abre la caja para empezar a cobrar.{/if}</p>
-  </div>
-  <div class="form-actions" style="margin: 0">
-    <BranchPicker onchange={load} />
-  </div>
-</div>
+<PageHeader title="Cobrar" description={cash ? `Caja abierta · efectivo esperado ${money(cash.expected_cents)} · ${plural(cash.sales, 'venta', 'ventas')}` : 'Abre la caja para empezar a cobrar.'}>
+  {#snippet actions()}<BranchPicker onchange={load} />{/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
 
 {#if !ready}
-  <p class="meta">Cargando…</p>
+  <LoadingState />
 {:else if !branches.id}
-  <div class="empty">No hay sucursales activas.</div>
+  <EmptyState title="No hay sucursales activas" description="Activa o crea una sucursal en Ajustes para poder cobrar." />
 {:else if receipt}
   <div class="done">
-    <p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">Venta #{receipt.folio} registrada ✓</p>
-    <Receipt sale={receipt} business={session.me.business.name} />
+    <InlineNotice tone="success" message={`Venta #${receipt.folio} registrada`} />
+    <div class="done-receipt"><Receipt sale={receipt} business={session.me.business.name} /></div>
     <div class="form-actions" style="justify-content: center; margin-top: 1rem">
-      <button class="btn" onclick={() => (receipt = null)}>Nueva venta</button>
-      <button class="btn ghost" onclick={() => window.print()}>Imprimir</button>
+      <button type="button" class="btn" onclick={() => (receipt = null)}>Nueva venta</button>
+      <button type="button" class="btn ghost" onclick={() => window.print()}>Imprimir</button>
     </div>
   </div>
 {:else if !cash}
-  <form class="card open" onsubmit={openCash}>
-    <h2>Caja cerrada</h2>
-    <p class="meta">Cuenta el efectivo con el que empiezas y ábrela para cobrar.</p>
-    <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
-    <button class="btn">Abrir caja</button>
-  </form>
+  <div class="open">
+    <Surface title="Caja cerrada" description="Cuenta el efectivo con el que empiezas y ábrela para cobrar.">
+      <form onsubmit={openCash}>
+        <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
+        <button class="btn">Abrir caja</button>
+      </form>
+    </Surface>
+  </div>
 {:else}
   <div class="pos">
     <!-- catálogo -->
     <section class="catalog">
-      <div class="tabs" role="tablist">
-        {#each [['services', 'Servicios'], ['products', 'Productos'], ['packages', 'Paquetes'], ['appts', `Citas de hoy (${appts.length})`]] as [value, label]}
-          <button class="chip" role="tab" aria-selected={tab === value} aria-pressed={tab === value} onclick={() => (tab = value)}>{label}</button>
-        {/each}
-      </div>
-      {#if tab === 'packages'}
-        {#if !client}<p class="meta">Elige primero al cliente en el ticket para venderle un paquete.</p>{/if}
-        <div class="grid">
-          {#each packages as k (k.id)}
-            <button class="item" disabled={!client} onclick={() => addPackage(k)}>
-              <b>{k.name}</b>
-              <span>{money(k.price_cents)}</span>
-              <small>{k.sessions} sesiones de {k.service_name}{k.valid_days ? ` · ${k.valid_days} días` : ''}</small>
-            </button>
-          {:else}
-            <p class="meta">No hay paquetes. El administrador los crea en Servicios.</p>
-          {/each}
+      <Surface padding="compact">
+        <div class="cat-bar">
+          <SegmentedControl
+            label="Qué cobrar"
+            bind:value={tab}
+            options={[
+              { value: 'services', label: 'Servicios' },
+              { value: 'products', label: 'Productos' },
+              { value: 'packages', label: 'Paquetes' },
+              { value: 'appts', label: `Citas (${appts.length})` }
+            ]}
+          />
+          {#if tab === 'services' || tab === 'products'}<SearchField bind:value={q} label="Buscar en el catálogo" placeholder="Buscar…" />{/if}
         </div>
-      {:else if tab !== 'appts'}
-        <input type="search" placeholder="Buscar…" aria-label="Buscar en el catálogo" bind:value={q} style="margin-bottom: 0.75rem" />
-        <div class="grid">
-          {#each shown as it (it.id)}
-            <button class="item" disabled={tab === 'products' && it.stock < 1} onclick={() => (tab === 'services' ? addService(it) : addProduct(it))}>
-              <b>{it.name}</b>
-              <span>{money(it.price_cents)}</span>
-              {#if tab === 'products'}<small>{it.stock < 1 ? 'Agotado' : `${it.stock} en existencia`}</small>{:else}<small>{it.duration_min} min</small>{/if}
-            </button>
-          {:else}
-            <p class="meta">No hay {tab === 'services' ? 'servicios' : 'productos'} para mostrar.</p>
-          {/each}
-        </div>
-      {:else}
-        <div class="list">
-          {#each appts as a (a.id)}
-            <button class="item-row appt" onclick={() => addAppointment(a)}>
-              <span class="grow"><b>{fmtTime(a.starts_at, tz)} · {a.client_name}</b><small class="meta">{a.service_name} · con {a.staff_name}</small></span>
-              <span>{money(a.price_cents)}</span>
-              {#if a.deposit_status === 'paid'}<span class="badge">Anticipo {money(a.deposit_cents)} ✓</span>{/if}
-              {#if a.status === 'completed'}<span class="badge muted">Completada</span>{/if}
-            </button>
-          {:else}
-            <p class="meta">No hay citas para hoy en esta sucursal.</p>
-          {/each}
-        </div>
-      {/if}
+        {#if tab === 'packages'}
+          {#if !client}<p class="meta hint">Elige primero al cliente en el ticket para venderle un paquete.</p>{/if}
+          <div class="items">
+            {#each packages as k (k.id)}
+              <button type="button" class="item" disabled={!client} onclick={() => addPackage(k)}>
+                <span class="grow"><b>{k.name}</b><small>{k.sessions} sesiones de {k.service_name}{k.valid_days ? ` · ${k.valid_days} días` : ''}</small></span>
+                <span class="price">{money(k.price_cents)}</span>
+              </button>
+            {:else}
+              <p class="meta none">No hay paquetes. El administrador los crea en Servicios.</p>
+            {/each}
+          </div>
+        {:else if tab !== 'appts'}
+          <div class="items">
+            {#each shown as it (it.id)}
+              <button type="button" class="item" disabled={tab === 'products' && it.stock < 1} onclick={() => (tab === 'services' ? addService(it) : addProduct(it))}>
+                <span class="grow"><b>{it.name}</b>{#if tab === 'products'}<small>{it.stock < 1 ? 'Agotado' : `${it.stock} en existencia`}</small>{:else}<small>{it.duration_min} min</small>{/if}</span>
+                <span class="price">{money(it.price_cents)}</span>
+              </button>
+            {:else}
+              <p class="meta none">No hay {tab === 'services' ? 'servicios' : 'productos'} para mostrar.</p>
+            {/each}
+          </div>
+        {:else}
+          <div class="items">
+            {#each appts as a (a.id)}
+              <button type="button" class="item" onclick={() => addAppointment(a)}>
+                <span class="grow"><b>{fmtTime(a.starts_at, tz)} · {a.client_name}</b><small>{a.service_name} · con {a.staff_name}</small></span>
+                {#if a.deposit_status === 'paid'}<span class="badge">Anticipo {money(a.deposit_cents)} ✓</span>{/if}
+                {#if a.status === 'completed'}<span class="badge muted">Completada</span>{/if}
+                <span class="price">{money(a.price_cents)}</span>
+              </button>
+            {:else}
+              <p class="meta none">No hay citas para hoy en esta sucursal.</p>
+            {/each}
+          </div>
+        {/if}
+      </Surface>
     </section>
 
     <!-- ticket -->
-    <button class="scrim" class:open={ticketOpen} aria-label="Cerrar el ticket" tabindex="-1" onclick={() => (ticketOpen = false)}></button>
-    <section class="ticket card" class:open={ticketOpen} aria-label="Ticket">
-      <div class="sheet-head">
-        <h2>Ticket</h2>
-        <button class="btn ghost sm close" onclick={() => (ticketOpen = false)}>Seguir agregando</button>
-      </div>
+    <button type="button" class="scrim" class:open={ticketOpen} aria-label="Cerrar el ticket" tabindex="-1" onclick={() => (ticketOpen = false)}></button>
+    <section class="ticket" class:open={ticketOpen} aria-label="Ticket">
+      <div class="t-top">
+        <div class="sheet-head">
+          <h2>Ticket</h2>
+          <button type="button" class="btn ghost sm close" onclick={() => (ticketOpen = false)}>Seguir agregando</button>
+        </div>
 
-      <div class="client">
-        {#if client}
-          <div class="item-row"><span class="grow title">{client.name}</span>{#if !appointmentId}<button class="btn ghost sm" onclick={() => (client = null)}>Quitar</button>{/if}</div>
-        {:else}
-          <input type="search" placeholder="Cliente (opcional)" aria-label="Buscar cliente" bind:value={clientQuery} oninput={searchClient} style="margin: 0" />
-          {#each clientResults as c (c.id)}<button class="pick" onclick={() => ((client = c), (clientResults = []), (clientQuery = ''))}>{c.name}<small>{c.phone}</small></button>{/each}
-        {/if}
+        <div class="client">
+          {#if client}
+            <div class="client-on"><span class="grow title">{client.name}</span>{#if !appointmentId}<button type="button" class="btn ghost sm" onclick={() => (client = null)}>Quitar</button>{/if}</div>
+          {:else}
+            <SearchField bind:value={clientQuery} label="Buscar cliente" placeholder="Cliente (opcional)" oninput={searchClient} />
+            {#each clientResults as c (c.id)}<button type="button" class="pick" onclick={() => ((client = c), (clientResults = []), (clientQuery = ''))}>{c.name}<small>{c.phone}</small></button>{/each}
+          {/if}
+        </div>
       </div>
 
       {#if lines.length === 0}
-        <p class="empty" style="padding: 1.5rem 1rem">Toca un servicio, producto o cita para agregarlo.</p>
+        <p class="t-empty">Toca un servicio, producto o cita para agregarlo.</p>
       {:else}
-        <ul class="lines">
-          {#each lines as l (l.key)}
-            <li>
-              <div class="l-top">
-                <b>{l.name}</b>
-                <span class="amt">{money(l.qty * l.unit)}</span>
-              </div>
-              <div class="l-bot">
-                <div class="qty" aria-label="Cantidad" hidden={l.kind === 'package'}>
-                  <button aria-label="Menos" onclick={() => (l.qty > 1 ? l.qty-- : removeLine(l))}>−</button>
-                  <span>{l.qty}</span>
-                  <button aria-label="Más" disabled={l.qty >= maxQty(l)} onclick={() => l.qty++}>+</button>
+        <div class="t-body">
+          <ul class="lines">
+            {#each lines as l (l.key)}
+              <li>
+                <div class="l-top">
+                  <b>{l.name}</b>
+                  <span class="amt">{money(l.qty * l.unit)}</span>
                 </div>
-                {#if l.kind === 'package'}
-                  <small class="meta">Se le abona al cliente al cobrar</small>
-                {:else if l.kind === 'service'}
-                  <select bind:value={l.staffId} aria-label="Quién lo realizó" style="width: auto; margin: 0; min-height: 36px">
-                    <option value="">Sin asignar</option>
-                    {#each staff as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-                  </select>
-                {/if}
-                <button class="btn ghost sm" onclick={() => removeLine(l)}>Quitar</button>
-              </div>
-            </li>
-          {/each}
-        </ul>
+                <div class="l-bot">
+                  <div class="qty" aria-label="Cantidad" hidden={l.kind === 'package'}>
+                    <button type="button" aria-label="Menos" onclick={() => (l.qty > 1 ? l.qty-- : removeLine(l))}>−</button>
+                    <span>{l.qty}</span>
+                    <button type="button" aria-label="Más" disabled={l.qty >= maxQty(l)} onclick={() => l.qty++}>+</button>
+                  </div>
+                  {#if l.kind === 'package'}
+                    <small class="meta">Se le abona al cliente al cobrar</small>
+                  {:else if l.kind === 'service'}
+                    <select bind:value={l.staffId} aria-label="Quién lo realizó" class="who">
+                      <option value="">Sin asignar</option>
+                      {#each staff as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+                    </select>
+                  {/if}
+                  <button type="button" class="btn ghost sm" onclick={() => removeLine(l)}>Quitar</button>
+                </div>
+              </li>
+            {/each}
+          </ul>
 
-        <div class="sums">
-          <div><span>Subtotal</span><span>{money(subtotal)}</span></div>
-          <label class="disc"><span>Descuento (MXN)</span><input inputmode="decimal" bind:value={discount} placeholder="0.00" aria-label="Descuento" /></label>
-          <div class="strong"><span>Total</span><span>{money(total)}</span></div>
+          <div class="sums">
+            <div><span>Subtotal</span><span>{money(subtotal)}</span></div>
+            <label class="disc"><span>Descuento (MXN)</span><input inputmode="decimal" bind:value={discount} placeholder="0.00" aria-label="Descuento" /></label>
+            <div class="strong"><span>Total</span><span>{money(total)}</span></div>
+          </div>
+
+          <fieldset class="tip">
+            <legend>Propina</legend>
+            <div class="chips" style="margin: 0">
+              {#each [['none', 'Sin'], ['10', '10 %'], ['15', '15 %'], ['20', '20 %'], ['custom', 'Otra']] as [v, label]}
+                <button type="button" class="chip" aria-pressed={tipMode === v} onclick={() => (tipMode = v)}>{label}</button>
+              {/each}
+            </div>
+            {#if tipMode === 'custom'}<input inputmode="decimal" placeholder="Monto" aria-label="Propina" bind:value={tipCustom} style="margin-top: 8px" />{/if}
+            {#if tipCents > 0 && staffIds.length > 1}
+              <label class="field" style="margin: 8px 0 0">Para quién
+                <select bind:value={tipStaffId}>
+                  <option value="">Sin asignar</option>
+                  {#each staff.filter((s) => staffIds.includes(s.id)) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+                </select>
+              </label>
+            {/if}
+            {#if tipCents > 0}<p class="meta" style="margin: 6px 0 0">Propina: {money(tipCents)}</p>{/if}
+          </fieldset>
+
+          <div class="pay">
+            <h3>Pagos</h3>
+            <div class="chips">
+              {#each ['cash', 'card', 'transfer'] as m}<button type="button" class="chip" onclick={() => addPayment(m)}>+ {METHODS[m]}</button>{/each}
+              {#each clientPkgs as k (k.id)}
+                <button type="button" class="chip" disabled={!pkgUsable(k)} title={`Quedan ${k.remaining} sesiones`} onclick={() => addPackagePayment(k)}>+ {k.name} ({k.remaining})</button>
+              {/each}
+              <button type="button" class="chip" disabled={!point.ok} title={point.ok ? 'Cobrar con la terminal' : point.message} onclick={() => addPayment('mp_point')}>+ Terminal MP</button>
+            </div>
+            {#if !point.ok && point.message}<p class="meta" style="margin: -0.4rem 0 0.6rem">Terminal no disponible: {point.message}</p>{/if}
+
+            {#each payments as p (p.key)}
+              <div class="prow">
+                <div class="prow-head">
+                  <b>{METHODS[p.method]}</b>
+                  {#if !p.locked}<button type="button" class="btn ghost sm" onclick={() => removePayment(p)}>Quitar</button>{/if}
+                </div>
+                <label class="field mini">Monto
+                  <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null || p.locked || p.fixed} />
+                </label>
+                {#if p.method === 'package'}
+                  <p class="ok" role="status">✓ Una sesión de «{p.name}»</p>
+                {:else if p.method === 'deposit'}
+                  <p class="ok" role="status">✓ Anticipo pagado en línea. Quita la cita del ticket para no descontarlo.</p>
+                {:else if p.method === 'cash'}
+                  <label class="field mini">Recibido
+                    <input inputmode="decimal" bind:value={p.received} placeholder="Exacto" />
+                  </label>
+                  {#if p.received && (toCents(p.received) || 0) >= (toCents(p.amount || '0') || 0)}<p class="meta">Cambio: <b>{money((toCents(p.received) || 0) - (toCents(p.amount || '0') || 0))}</b></p>{/if}
+                {:else if p.method === 'mp_point'}
+                  {#if !p.charge}
+                    <button type="button" class="btn sm" onclick={() => sendToTerminal(p)}>Enviar a la terminal</button>
+                  {:else if p.charge.status === 'open'}
+                    <p class="meta wait" role="status">Esperando el pago en la terminal…</p>
+                    <button type="button" class="btn ghost sm" onclick={() => cancelCharge(p)}>Cancelar cobro</button>
+                  {:else if p.charge.status === 'approved'}
+                    <p class="ok" role="status">✓ Pago aprobado en la terminal</p>
+                  {:else}
+                    <p class="error" role="alert" style="margin: 0.4rem 0">{p.charge.detail || 'El cobro no se completó.'}</p>
+                    <button type="button" class="btn ghost sm" onclick={() => (p.charge = null)}>Intentar de nuevo</button>
+                  {/if}
+                {:else}
+                  <label class="field mini">Referencia (opcional)
+                    <input bind:value={p.reference} maxlength="100" />
+                  </label>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <label class="field" style="margin: 0.25rem 0 0">Nota (opcional) <input bind:value={note} maxlength="500" /></label>
         </div>
 
-        <fieldset class="tip">
-          <legend>Propina</legend>
-          <div class="chips" style="margin: 0">
-            {#each [['none', 'Sin'], ['10', '10 %'], ['15', '15 %'], ['20', '20 %'], ['custom', 'Otra']] as [v, label]}
-              <button class="chip" aria-pressed={tipMode === v} onclick={() => (tipMode = v)}>{label}</button>
-            {/each}
-          </div>
-          {#if tipMode === 'custom'}<input inputmode="decimal" placeholder="Monto" aria-label="Propina" bind:value={tipCustom} style="margin-top: 8px" />{/if}
-          {#if tipCents > 0 && staffIds.length > 1}
-            <label class="field" style="margin: 8px 0 0">Para quién
-              <select bind:value={tipStaffId}>
-                <option value="">Sin asignar</option>
-                {#each staff.filter((s) => staffIds.includes(s.id)) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-              </select>
-            </label>
-          {/if}
-          {#if tipCents > 0}<p class="meta" style="margin: 6px 0 0">Propina: {money(tipCents)}</p>{/if}
-        </fieldset>
-
-        <div class="due"><span>A cobrar</span><strong>{money(due)}</strong></div>
-
-        <div class="pay">
-          <h3>Pagos</h3>
-          <div class="chips">
-            {#each ['cash', 'card', 'transfer'] as m}<button class="chip" onclick={() => addPayment(m)}>+ {METHODS[m]}</button>{/each}
-            {#each clientPkgs as k (k.id)}
-              <button class="chip" disabled={!pkgUsable(k)} title={`Quedan ${k.remaining} sesiones`} onclick={() => addPackagePayment(k)}>+ {k.name} ({k.remaining})</button>
-            {/each}
-            <button class="chip" disabled={!point.ok} title={point.ok ? 'Cobrar con la terminal' : point.message} onclick={() => addPayment('mp_point')}>+ Terminal MP</button>
-          </div>
-          {#if !point.ok && point.message}<p class="meta" style="margin: -0.4rem 0 0.6rem">Terminal no disponible: {point.message}</p>{/if}
-
-          {#each payments as p (p.key)}
-            <div class="prow">
-              <div class="prow-head">
-                <b>{METHODS[p.method]}</b>
-                {#if !p.locked}<button class="btn ghost sm" onclick={() => removePayment(p)}>Quitar</button>{/if}
-              </div>
-              <label class="field mini">Monto
-                <input inputmode="decimal" bind:value={p.amount} disabled={p.charge !== null || p.locked || p.fixed} />
-              </label>
-              {#if p.method === 'package'}
-                <p class="ok" role="status">✓ Una sesión de «{p.name}»</p>
-              {:else if p.method === 'deposit'}
-                <p class="ok" role="status">✓ Anticipo pagado en línea. Quita la cita del ticket para no descontarlo.</p>
-              {:else if p.method === 'cash'}
-                <label class="field mini">Recibido
-                  <input inputmode="decimal" bind:value={p.received} placeholder="Exacto" />
-                </label>
-                {#if p.received && (toCents(p.received) || 0) >= (toCents(p.amount || '0') || 0)}<p class="meta">Cambio: <b>{money((toCents(p.received) || 0) - (toCents(p.amount || '0') || 0))}</b></p>{/if}
-              {:else if p.method === 'mp_point'}
-                {#if !p.charge}
-                  <button class="btn sm" onclick={() => sendToTerminal(p)}>Enviar a la terminal</button>
-                {:else if p.charge.status === 'open'}
-                  <p class="meta wait" role="status">Esperando el pago en la terminal…</p>
-                  <button class="btn ghost sm" onclick={() => cancelCharge(p)}>Cancelar cobro</button>
-                {:else if p.charge.status === 'approved'}
-                  <p class="ok" role="status">✓ Pago aprobado en la terminal</p>
-                {:else}
-                  <p class="error" role="alert" style="margin: 0.4rem 0">{p.charge.detail || 'El cobro no se completó.'}</p>
-                  <button class="btn ghost sm" onclick={() => (p.charge = null)}>Intentar de nuevo</button>
-                {/if}
-              {:else}
-                <label class="field mini">Referencia (opcional)
-                  <input bind:value={p.reference} maxlength="100" />
-                </label>
-              {/if}
-            </div>
-          {/each}
-
+        <div class="t-foot">
+          <div class="due"><span>A cobrar</span><strong>{money(due)}</strong></div>
           {#if payments.length}
             <p class="balance" class:bad={remaining !== 0}>
               {#if remaining > 0}Faltan {money(remaining)}{:else if remaining < 0}Sobran {money(-remaining)}{:else}Pagos completos ✓{#if change > 0} · cambio {money(change)}{/if}{/if}
             </p>
           {/if}
+          <button type="button" class="btn block lg" disabled={!canPay} onclick={charge}>{busy ? 'Cobrando…' : `Cobrar ${money(due)}`}</button>
+          {#if mpPending}<p class="meta" style="text-align: center; margin: 0.5rem 0 0">Espera a que la terminal apruebe el pago.</p>{/if}
         </div>
-
-        <label class="field" style="margin: 0.75rem 0 0">Nota (opcional) <input bind:value={note} maxlength="500" /></label>
-        <button class="btn block lg" style="margin-top: 0.75rem" disabled={!canPay} onclick={charge}>{busy ? 'Cobrando…' : `Cobrar ${money(due)}`}</button>
-        {#if mpPending}<p class="meta" style="text-align: center; margin: 0.5rem 0 0">Espera a que la terminal apruebe el pago.</p>{/if}
       {/if}
     </section>
 
     {#if lines.length > 0}
-      <button class="ticketbar" onclick={() => (ticketOpen = true)}>
+      <button type="button" class="ticketbar" onclick={() => (ticketOpen = true)}>
         <span class="tb-count">{plural(lines.reduce((n, l) => n + l.qty, 0), 'artículo', 'artículos')}</span>
         <span class="tb-total">{money(due)}</span>
         <span class="tb-go">Ver ticket y cobrar</span>
@@ -537,88 +552,113 @@
 {/if}
 
 <style>
-  .item-row.appt small { display: block; }
-  .open { max-width: 420px; }
+  .open { max-width: 460px; }
+  .done { max-width: 440px; margin: 0 auto; }
+  .done-receipt { margin-top: 1rem; }
   .pos { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
-  @media (min-width: 760px) { .pos { grid-template-columns: 1.1fr 0.9fr; } .ticket { position: sticky; top: 16px; } }
+  @media (min-width: 760px) {
+    .pos { grid-template-columns: minmax(0, 1fr) minmax(340px, 400px); }
+    .ticket { position: sticky; top: 16px; max-height: calc(100vh - 112px); }
+  }
+
+  /* catálogo: lista limpia, precio a la derecha en cifras tabulares */
+  .catalog { min-width: 0; }
+  .cat-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .cat-bar :global(.search) { flex: 1 1 200px; }
+  .cat-bar :global(.seg) { display: flex; flex: 1 1 100%; }
+  .cat-bar :global(.seg button) { flex: 1 1 auto; padding: 0 8px; }
+  .hint { margin: 0 0 8px; }
+  .none { margin: 12px 4px; }
+  .items { display: grid; }
+  .item {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 12px; text-align: left; font: inherit; color: var(--text);
+    background: none; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; cursor: pointer;
+    transition: background-color var(--dur-ui) var(--ease);
+  }
+  .item:last-child { border-bottom: 0; }
+  .item:hover:not(:disabled) { background: var(--surface-2); }
+  .item:active:not(:disabled) { background: var(--accent-soft); }
+  .item:disabled { opacity: 0.5; cursor: not-allowed; }
+  .item .grow { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+  .item small { color: var(--muted); font-size: 0.85rem; }
+  .price { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+
+  /* ticket: encabezado y cliente arriba, cuerpo con scroll, total y cobrar siempre a la vista */
+  .ticket { display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .t-top { padding: 20px 20px 12px; }
+  .t-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 20px 16px; }
+  .t-foot { padding: 14px 20px calc(16px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
+  .t-empty { margin: 0 20px 20px; padding: 28px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+  .ticket h2 { font-size: 1.25rem; margin: 0 0 12px; }
+  .ticket h3 { font-size: 0.95rem; margin: 0 0 8px; }
+  .sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .sheet-head .close { display: none; }
+  .client { display: grid; gap: 4px; }
+  .client-on { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+  .client-on .grow { flex: 1 1 auto; min-width: 0; }
+  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 44px; align-items: center; padding: 0 0.8rem; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .pick small { color: var(--muted); }
+
+  .lines { list-style: none; margin: 0 0 8px; padding: 0; }
+  .lines li { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .l-top { display: flex; justify-content: space-between; gap: 8px; }
+  .amt { font-variant-numeric: tabular-nums lining-nums; font-weight: 600; white-space: nowrap; }
+  .l-bot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .qty { display: inline-flex; align-items: center; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); }
+  .qty[hidden] { display: none; }
+  .qty button { width: 44px; height: 44px; font-size: 1.2rem; color: var(--text); background: none; border: 0; cursor: pointer; }
+  .qty button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qty span { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
+  .who { width: auto; flex: 1 1 110px; min-width: 0; margin: 0; }
+
+  .sums { display: grid; gap: 8px; padding: 12px 0; font-variant-numeric: tabular-nums lining-nums; }
+  .sums > div, .disc { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .disc input { width: 120px; margin: 0; text-align: right; }
+  .strong { font-weight: 700; font-size: 1.05rem; }
+
+  .tip { margin: 4px 0 12px; padding: 10px 12px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .tip :global(.chip) { padding: 0 0.7rem; }
+  .tip legend { padding: 0 6px; font-size: 0.85rem; font-weight: 500; }
+  .pay { margin-bottom: 12px; }
+
+  .due { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; color: var(--text); }
+  .due span { font-weight: 600; }
+  .due strong { font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.9rem; letter-spacing: -0.01em; }
+
+  .prow { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; padding: 12px; margin-bottom: 8px; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .prow > * { grid-column: 1 / -1; margin: 0; }
+  .prow > .field.mini { grid-column: auto; }
+  .prow-head { display: flex; justify-content: space-between; align-items: center; }
+  .field.mini input { min-height: 44px; }
+  .ok { color: var(--success, var(--accent)); font-weight: 600; }
+  .wait::after { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .balance { margin: 0 0 10px; font-weight: 600; text-align: center; color: var(--accent); }
+  .balance.bad { color: var(--danger); }
 
   /* celular: barra con el total siempre a la vista y el ticket como hoja */
-  .ticketbar, .scrim, .sheet-head .close { display: none; }
-  .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .scrim { display: none; }
+  .ticketbar { display: none; }
   @media (max-width: 759px) {
     .ticketbar {
       position: fixed; inset: auto 12px calc(72px + env(safe-area-inset-bottom)) 12px; z-index: 35;
-      display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 12px; padding: 0.6rem 1rem; text-align: left;
+      display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 12px; min-height: 56px; padding: 0.6rem 1rem; text-align: left;
       font: inherit; color: var(--accent-contrast); background: var(--accent); border: 0; border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer;
       transition: transform var(--dur-press) var(--ease);
     }
     .ticketbar:active { transform: scale(0.98); }
-    .tb-count { font-size: 0.8rem; opacity: 0.85; }
-    .tb-total { grid-column: 2; grid-row: 1 / 3; justify-self: end; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tb-count { font-size: 0.8rem; opacity: 0.9; }
+    .tb-total { grid-column: 2; grid-row: 1 / 3; justify-self: end; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
     .tb-go { font-weight: 600; }
     .scrim { display: block; position: fixed; inset: 0; z-index: 55; border: 0; padding: 0; background: rgba(20, 18, 14, 0.45); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease); }
     .scrim.open { opacity: 1; pointer-events: auto; }
     .ticket {
-      position: fixed; inset: auto 0 0 0; z-index: 60; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      position: fixed; inset: auto 0 0 0; z-index: 60; max-height: 90vh; max-height: 90dvh; border-radius: 16px 16px 0 0; border-bottom: 0;
       transform: translateY(105%); visibility: hidden; transition: transform 260ms var(--ease), visibility 0s linear 260ms; box-shadow: var(--shadow);
     }
     .ticket.open { transform: none; visibility: visible; transition: transform 260ms var(--ease); }
     .sheet-head .close { display: inline-flex; }
     .done, .pos { padding-bottom: 88px; }
   }
-  @media (prefers-reduced-motion: reduce) { .ticket, .ticket.open { transition: none; } }
-
-  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.75rem; }
-  .tabs .chip { margin: 0; }
-  .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-  .item {
-    display: grid; gap: 2px; min-height: 84px; padding: 0.75rem; text-align: left; font: inherit; color: var(--text);
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
-    transition: border-color 0.2s var(--ease), transform 0.15s var(--ease);
-  }
-  .item:hover:not(:disabled) { border-color: var(--accent); }
-  .item:active:not(:disabled) { transform: scale(0.98); }
-  .item:disabled { opacity: 0.5; cursor: not-allowed; }
-  .item span { color: var(--accent); font-weight: 600; }
-  .item small { color: var(--muted); }
-  .appt { width: 100%; text-align: left; font: inherit; color: var(--text); cursor: pointer; }
-  .appt:hover { border-color: var(--accent); }
-
-  .ticket h2 { font-size: 1.4rem; margin-bottom: 0.75rem; }
-  .ticket h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
-  .client { margin-bottom: 0.75rem; }
-  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 40px; align-items: center; padding: 0 0.8rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-  .pick small { color: var(--muted); }
-
-  .lines { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 8px; }
-  .lines li { padding: 0.65rem 0.75rem; background: var(--surface-2); border-radius: var(--radius-sm); }
-  .l-top { display: flex; justify-content: space-between; gap: 8px; }
-  .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .l-bot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .qty { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
-  .qty button { width: 36px; height: 36px; font-size: 1.2rem; color: var(--text); background: none; border: 0; cursor: pointer; }
-  .qty button:disabled { opacity: 0.4; cursor: not-allowed; }
-  .qty span { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
-
-  .sums { display: grid; gap: 6px; padding: 0.5rem 0; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
-  .sums > div, .disc { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .disc input { width: 120px; margin: 0; min-height: 38px; text-align: right; }
-  .strong { font-weight: 700; font-size: 1.05rem; }
-
-  .tip { margin: 0.5rem 0; padding: 0.6rem 0.8rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-  .tip legend { padding: 0 6px; font-size: 0.85rem; font-weight: 500; }
-  .due { display: flex; justify-content: space-between; align-items: baseline; margin: 0.75rem 0; padding: 0.75rem 1rem; background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-sm); }
-  .due strong { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 1.7rem; }
-
-  .prow { padding: 0.7rem 0.8rem; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-  .prow-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .field.mini { margin: 0 0 6px; }
-  .field.mini input { min-height: 40px; }
-  .ok { color: var(--accent); font-weight: 600; margin: 0.4rem 0 0; }
-  .wait::after { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .balance { margin: 0.5rem 0 0; font-weight: 600; color: var(--accent); }
-  .balance.bad { color: var(--danger); }
-
-  .done { max-width: 440px; margin: 0 auto; }
+  @media (prefers-reduced-motion: reduce) { .ticket, .ticket.open { transition: none; } .scrim { transition: none; } .wait::after { animation: none; } }
 </style>

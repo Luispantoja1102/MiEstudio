@@ -6,6 +6,7 @@
   import TransferPanel from '$lib/TransferPanel.svelte';
   import { money, toCents, toPesos } from '$lib/format.js';
   import { session } from '$lib/session.svelte.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   let { branchId, date: initialDate, tz, ondone } = $props();
 
@@ -95,7 +96,7 @@
 
 {#if created}
   <div class="stack">
-    <p class="okmsg">Cita apartada. Pasa los datos de pago al cliente y, cuando mande el comprobante, adjúntalo aquí o desde la agenda.</p>
+    <InlineNotice tone="success" message="Cita apartada. Pasa los datos de pago al cliente y, cuando mande el comprobante, adjúntalo aquí o desde la agenda." />
     <TransferPanel appt={created} canReview={isAdmin} canView={true} onchange={ondone} />
     <div class="form-actions"><button class="btn ghost" onclick={ondone}>Listo, cerrar</button></div>
   </div>
@@ -104,11 +105,11 @@
   <div>
     <span class="lbl">Cliente</span>
     {#if client}
-      <div class="item-row"><span class="grow title">{client.name}</span><button class="btn ghost sm" onclick={() => (client = null)}>Cambiar</button></div>
+      <div class="chosen"><span class="grow title">{client.name}</span><button class="btn ghost sm" onclick={() => (client = null)}>Cambiar</button></div>
     {:else if quick}
-      <form class="item-row" onsubmit={createQuick} style="gap: 8px">
-        <input placeholder="Nombre" bind:value={quickForm.name} required style="flex: 1 1 160px; margin: 0" aria-label="Nombre del cliente" />
-        <input placeholder="Teléfono" type="tel" bind:value={quickForm.phone} style="flex: 1 1 130px; margin: 0" aria-label="Teléfono" />
+      <form class="chosen" onsubmit={createQuick}>
+        <input placeholder="Nombre" bind:value={quickForm.name} required aria-label="Nombre del cliente" />
+        <input placeholder="Teléfono" type="tel" bind:value={quickForm.phone} aria-label="Teléfono" />
         <button class="btn sm">Crear</button>
         <button type="button" class="btn ghost sm" onclick={() => (quick = false)}>Cancelar</button>
       </form>
@@ -121,7 +122,7 @@
     {/if}
   </div>
 
-  <div class="form-grid">
+  <div class="grid3">
     <label class="field" style="margin: 0">
       Servicio
       <select bind:value={serviceId} onchange={() => ((staffId = ''), (picked = null))}>
@@ -166,7 +167,7 @@
     </div>
   {/if}
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
   <div class="form-actions">
     <button class="btn" disabled={!client || !picked || busy} onclick={submit}>{busy ? 'Agendando…' : wantDeposit ? 'Apartar y pedir anticipo' : 'Agendar cita'}</button>
   </div>
@@ -174,12 +175,15 @@
 {/if}
 
 <style>
-  .stack { display: grid; gap: 1.1rem; }
-  .lbl { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; font-weight: 500; }
-  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 44px; align-items: center; padding: 0 0.9rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-  .pick:hover { border-color: var(--accent); }
-  .pick small { color: var(--muted); }
-  .dep { padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
-  .okmsg { margin: 0; padding: 0.7rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 0.9rem; }
-  .link { margin-top: 6px; padding: 0; font: inherit; font-size: 0.9rem; color: var(--accent); background: none; border: 0; cursor: pointer; text-align: left; }
+  .stack { display: grid; gap: 1.25rem; }
+  .grid3 { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .lbl { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; font-weight: 600; }
+  .chosen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 8px 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .chosen .grow { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+  .chosen input { flex: 1 1 140px; margin: 0; }
+  .pick { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; align-items: center; padding: 0 0.9rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .pick:hover { border-color: var(--text); background: var(--surface-2); }
+  .pick small { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dep { padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .link { display: inline-flex; align-items: center; min-height: 44px; padding: 0; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--accent); background: none; border: 0; cursor: pointer; text-align: left; }
 </style>

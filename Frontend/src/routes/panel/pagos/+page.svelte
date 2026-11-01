@@ -4,6 +4,11 @@
   import { api } from '$lib/api.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { session } from '$lib/session.svelte.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
 
   let status = $state(null);
   let terminals = $state([]);
@@ -75,70 +80,90 @@
   };
   const register = (b) => run(() => api('/api/payments/mercadopago/terminals', { method: 'PUT', body: { branch_id: b.id, terminal_id: choice[b.id] } }), `Terminal registrada en ${b.name}.`);
   const disconnect = () => confirm('¿Desconectar Mercado Pago? Dejarás de poder cobrar con la terminal.') && run(() => api('/api/payments/mercadopago', { method: 'DELETE' }), 'Cuenta desconectada.');
+  const columns = [
+    { key: 'branch', label: 'Sucursal' },
+    { key: 'current', label: 'Terminal actual' },
+    { key: 'pick', label: 'Cambiar a' },
+    { key: 'act', label: '' }
+  ];
   const labelOf = (id) => status?.terminals.find((t) => t.branch_id === id)?.label;
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Pagos</h1>
-    <p>Cobra con tu terminal Mercado Pago Point desde la pantalla de cobro.</p>
-  </div>
+<PageHeader title="Pagos" description="Cobra con tu terminal Mercado Pago Point desde la pantalla de cobro." />
+
+<div class="stack">
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
+  {#if notice}<InlineNotice tone="success" message={notice} />{/if}
+
+  {#if status && !status.enabled}
+    <Surface title="Mercado Pago" description="Cobro con terminal Point">
+      <div class="state"><StatusBadge label="No habilitado" tone="warning" /></div>
+      <p class="meta">Este servidor no tiene configurada la clave de cifrado (<code>TOKEN_ENC_KEY</code>), así que no puede guardar credenciales de Mercado Pago. Pide a quien administra la plataforma que la configure.</p>
+    </Surface>
+  {:else if status}
+    <Surface title="Cuenta de Mercado Pago">
+      {#snippet actions()}
+        {#if status.connected}
+          <StatusBadge label="Conectada" tone="success" />
+        {:else}
+          <StatusBadge label="Sin conectar" tone="neutral" />
+        {/if}
+      {/snippet}
+      {#if status.connected}
+        <p class="meta">Cuenta conectada{status.source === 'oauth' ? ' con Mercado Pago' : ' con token manual'}.</p>
+        <div class="form-actions">
+          {#if status.oauth_available}<button class="btn ghost sm" onclick={connectOAuth} disabled={busy}>Volver a conectar</button>{/if}
+          <button class="btn ghost sm" onclick={disconnect} disabled={busy}>Desconectar</button>
+        </div>
+      {:else}
+        {#if status.oauth_available}
+          <p class="meta">Te llevaremos a Mercado Pago para que autorices a Barbella a cobrar con tu terminal. No compartimos tu contraseña.</p>
+          <button class="btn" onclick={connectOAuth} disabled={busy}>{busy ? 'Redirigiendo…' : 'Conectar con Mercado Pago'}</button>
+        {/if}
+        <details class="manual" open={!status.oauth_available}>
+          <summary>{status.oauth_available ? 'Usar un token manual (avanzado)' : 'Conectar con un token de acceso'}</summary>
+          <p class="meta">Pega el <b>access token de producción</b> de tu aplicación en <i>Mercado Pago → Tu negocio → Configuración → Credenciales</i>. Se guarda cifrado y nunca se vuelve a mostrar.</p>
+          <form onsubmit={connect}>
+            <label class="field">Access token <input type="password" bind:value={token} autocomplete="off" placeholder="APP_USR-…" required /></label>
+            <button class="btn" disabled={busy}>{busy ? 'Comprobando…' : 'Conectar'}</button>
+          </form>
+        </details>
+      {/if}
+    </Surface>
+
+    {#if status.connected}
+      <Surface title="Terminal por sucursal" description="Al registrarla, la terminal pasa a modo punto de venta: solo cobra lo que envía Barbella." padding="flush">
+        {#if terminals.length === 0}<div class="pad"><InlineNotice tone="info" message="No encontramos terminales en tu cuenta de Mercado Pago." /></div>{/if}
+        <DataTable caption="Terminal de cobro por sucursal" {columns} rows={branches.list}>
+          {#snippet cell({ row: b, column })}
+            {#if column.key === 'branch'}
+              <b>{b.name}</b>
+            {:else if column.key === 'current'}
+              {#if labelOf(b.id)}<StatusBadge label={labelOf(b.id)} tone="success" />{:else}<span class="meta">Sin terminal</span>{/if}
+            {:else if column.key === 'pick'}
+              <select bind:value={choice[b.id]} aria-label="Terminal de {b.name}">
+                <option value={undefined}>Elige una terminal</option>
+                {#each terminals as t (t.id)}<option value={t.id}>{t.external_pos_id || t.id}</option>{/each}
+              </select>
+            {:else}
+              <button class="btn sm" disabled={!choice[b.id] || busy} onclick={() => register(b)}>Registrar</button>
+            {/if}
+          {/snippet}
+        </DataTable>
+      </Surface>
+    {/if}
+  {/if}
 </div>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">{notice}</p>{/if}
-
-{#if status && !status.enabled}
-  <div class="card"><h2>No habilitado</h2><p class="meta" style="margin: 0">Este servidor no tiene configurada la clave de cifrado (<code>TOKEN_ENC_KEY</code>), así que no puede guardar credenciales de Mercado Pago. Pide a quien administra la plataforma que la configure.</p></div>
-{:else if status}
-  <section class="card">
-    <h2>1. Cuenta de Mercado Pago</h2>
-    {#if status.connected}
-      <p class="ok">✓ Cuenta conectada{status.source === 'oauth' ? ' con Mercado Pago' : ' con token manual'}</p>
-      <div class="form-actions">
-        {#if status.oauth_available}<button class="btn ghost sm" onclick={connectOAuth} disabled={busy}>Volver a conectar</button>{/if}
-        <button class="btn ghost sm" onclick={disconnect} disabled={busy}>Desconectar</button>
-      </div>
-    {:else}
-      {#if status.oauth_available}
-        <p class="meta">Te llevaremos a Mercado Pago para que autorices a Barbella a cobrar con tu terminal. No compartimos tu contraseña.</p>
-        <button class="btn" onclick={connectOAuth} disabled={busy}>{busy ? 'Redirigiendo…' : 'Conectar con Mercado Pago'}</button>
-      {/if}
-      <details class="manual" open={!status.oauth_available}>
-        <summary>{status.oauth_available ? 'Usar un token manual (avanzado)' : 'Conectar con un token de acceso'}</summary>
-        <p class="meta">Pega el <b>access token de producción</b> de tu aplicación en <i>Mercado Pago → Tu negocio → Configuración → Credenciales</i>. Se guarda cifrado y nunca se vuelve a mostrar.</p>
-        <form onsubmit={connect}>
-          <label class="field">Access token <input type="password" bind:value={token} autocomplete="off" placeholder="APP_USR-…" required /></label>
-          <button class="btn" disabled={busy}>{busy ? 'Comprobando…' : 'Conectar'}</button>
-        </form>
-      </details>
-    {/if}
-  </section>
-
-  {#if status.connected}
-    <section class="card" style="margin-top: 1rem">
-      <h2>2. Terminal por sucursal</h2>
-      <p class="meta">Al registrarla, la terminal pasa a modo punto de venta: solo cobra lo que envía Barbella.</p>
-      {#if terminals.length === 0}<p class="meta">No encontramos terminales en tu cuenta de Mercado Pago.</p>{/if}
-      {#each branches.list as b (b.id)}
-        <div class="item-row" style="margin-top: 8px">
-          <span class="grow"><b>{b.name}</b>{#if labelOf(b.id)}<small class="meta">{' · '}actual: {labelOf(b.id)}</small>{/if}</span>
-          <select bind:value={choice[b.id]} aria-label="Terminal de {b.name}" style="width: auto; margin: 0; min-height: 38px">
-            <option value={undefined}>Elige una terminal</option>
-            {#each terminals as t (t.id)}<option value={t.id}>{t.external_pos_id || t.id}</option>{/each}
-          </select>
-          <button class="btn sm" disabled={!choice[b.id] || busy} onclick={() => register(b)}>Registrar</button>
-        </div>
-      {/each}
-    </section>
-  {/if}
-{/if}
-
 <style>
-  h2 { font-size: 1.3rem; }
-  .ok { color: var(--accent); font-weight: 600; }
-  .manual { margin-top: 1rem; }
-  .manual summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 32px; }
-  .manual[open] summary { margin-bottom: 0.75rem; }
+  .stack { display: grid; gap: 16px; max-width: 880px; }
+  .state { margin-bottom: 12px; }
+  .meta { margin: 0 0 12px; }
+  .pad { padding: 0 24px 16px; }
+  .manual { margin-top: 16px; }
+  .manual summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 44px; display: flex; align-items: center; }
+  .manual[open] summary { margin-bottom: 8px; }
   code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
+  select { width: auto; min-width: 180px; margin: 0; min-height: 44px; }
+  .btn.sm { min-height: 44px; }
 </style>

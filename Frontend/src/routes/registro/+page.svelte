@@ -32,6 +32,12 @@
     return p ? Math.max(1, s) : 0;
   });
   const strengthLabel = ['', 'Débil', 'Aceptable', 'Fuerte'];
+  const strengthTip = [
+    '',
+    `Usa al menos ${MIN} caracteres, con mayúsculas, minúsculas y números.`,
+    'Para subirla, combina mayúsculas, minúsculas y números, y añade un símbolo o llega a 12 caracteres.',
+    'Buena contraseña.'
+  ];
 
   const problems = $derived({
     business_name: form.business_name.trim().length < 2 ? 'Escribe el nombre de tu negocio.' : '',
@@ -69,89 +75,123 @@
   {#if touched && problems[key]}<span class="bad">{problems[key]}</span>{/if}
 {/snippet}
 
-<AuthLayout wide title="Crea tu" accent="negocio" subtitle="Toma menos de un minuto. Después te ayudamos a configurar todo lo demás.">
+<AuthLayout wide title="Crea tu" accent="negocio" subtitle="Toma menos de un minuto. Después te ayudamos a configurar horarios, servicios y equipo.">
   {#if mode === 'closed'}
-    <p class="banner" role="status">El registro está cerrado por ahora. Escríbenos para darte de alta.</p>
+    <div class="notice closed" role="status">
+      <strong>El registro está cerrado por ahora.</strong>
+      <span>Escríbenos para darte de alta. Mientras tanto, el formulario no se puede enviar.</span>
+    </div>
   {:else if mode === 'approval'}
-    <p class="banner" role="status">Revisamos cada registro: tu cuenta se activará cuando la aprobemos.</p>
+    <div class="notice" role="status">
+      <strong>Revisamos cada registro.</strong>
+      <span>Tu cuenta se activará cuando la aprobemos; no hace falta que vuelvas a registrarte.</span>
+    </div>
   {/if}
 
   <form onsubmit={submit} novalidate>
-    <div class="grid">
-      <label class="field">Nombre del negocio
-        <input bind:value={form.business_name} placeholder="Ej. Barbería Don Luis" autocomplete="organization" aria-invalid={touched && !!problems.business_name} />
-        {@render err('business_name')}
-      </label>
-      <label class="field">Giro
-        <select bind:value={form.kind}>
-          {#each Object.entries(KINDS) as [value, label]}<option {value}>{label}</option>{/each}
-        </select>
-      </label>
-    </div>
-
-    <div class="grid sep">
-      <label class="field full">Tu nombre <span class="soft">(serás el administrador)</span>
-        <input bind:value={form.name} placeholder="Nombre y apellido" autocomplete="name" aria-invalid={touched && !!problems.name} />
-        {@render err('name')}
-      </label>
-      <label class="field full">Correo electrónico
-        <input type="email" bind:value={form.email} placeholder="negocio@correo.com" autocomplete="email" autocapitalize="none" aria-invalid={touched && !!problems.email} />
-        {@render err('email')}
-      </label>
-      <div class="field">
-        <label for="r-pass">Contraseña</label>
-        <div class="pass">
-          <input id="r-pass" type={showPass ? 'text' : 'password'} bind:value={form.password} placeholder="Mínimo {MIN} caracteres" maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.password} />
-          <button type="button" class="eye" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onclick={() => (showPass = !showPass)}>
-            <Icon name={showPass ? 'eye-off' : 'eye'} size={20} />
-          </button>
-        </div>
-        {#if form.password}
-          <div class="meter" aria-label="Seguridad de la contraseña: {strengthLabel[strength]}">
-            {#each [1, 2, 3] as bar}<i class:on={strength >= bar} data-level={strength}></i>{/each}
-            <b>{strengthLabel[strength]}</b>
-          </div>
-        {/if}
-        {@render err('password')}
+    <fieldset disabled={mode === 'closed'}>
+      <legend><span class="n">1</span>Tu negocio</legend>
+      <div class="grid">
+        <label class="field">Nombre del negocio
+          <input bind:value={form.business_name} placeholder="Ej. Barbería Don Luis" autocomplete="organization" aria-invalid={touched && !!problems.business_name} />
+          <span class="hint">Así lo verán tus clientes al reservar.</span>
+          {@render err('business_name')}
+        </label>
+        <label class="field">Giro
+          <select bind:value={form.kind}>
+            {#each Object.entries(KINDS) as [value, label]}<option {value}>{label}</option>{/each}
+          </select>
+          <span class="hint">Define los servicios de ejemplo con los que arrancas.</span>
+        </label>
       </div>
-      <label class="field">Confirmar contraseña
-        <input type={showPass ? 'text' : 'password'} bind:value={confirm} maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.confirm} />
-        {@render err('confirm')}
-      </label>
-    </div>
+    </fieldset>
+
+    <fieldset disabled={mode === 'closed'}>
+      <legend><span class="n">2</span>Tu cuenta</legend>
+      <div class="grid">
+        <label class="field full">Tu nombre
+          <input bind:value={form.name} placeholder="Nombre y apellido" autocomplete="name" aria-invalid={touched && !!problems.name} />
+          <span class="hint">Serás el administrador del negocio.</span>
+          {@render err('name')}
+        </label>
+        <label class="field full">Correo electrónico
+          <input type="email" bind:value={form.email} placeholder="negocio@correo.com" autocomplete="email" autocapitalize="none" spellcheck="false" aria-invalid={touched && !!problems.email} />
+          <span class="hint">Con este correo entrarás a tu agenda.</span>
+          {@render err('email')}
+        </label>
+        <div class="field">
+          <label for="r-pass">Contraseña</label>
+          <div class="pass">
+            <input id="r-pass" type={showPass ? 'text' : 'password'} bind:value={form.password} placeholder="Mínimo {MIN} caracteres" maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.password} aria-describedby="r-pass-help" />
+            <button type="button" class="eye" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onclick={() => (showPass = !showPass)}>
+              <Icon name={showPass ? 'eye-off' : 'eye'} size={20} />
+            </button>
+          </div>
+          <div id="r-pass-help" class="help">
+            {#if form.password}
+              <div class="meter" role="img" aria-label="Seguridad de la contraseña: {strengthLabel[strength]}">
+                {#each [1, 2, 3] as bar}<i class:on={strength >= bar} data-level={strength}></i>{/each}
+              </div>
+              <span class="hint"><b class="lvl" data-level={strength}>{strengthLabel[strength]}.</b> {strengthTip[strength]}</span>
+            {:else}
+              <span class="hint">Mínimo {MIN} caracteres; mejor con mayúsculas, minúsculas y números.</span>
+            {/if}
+          </div>
+          {@render err('password')}
+        </div>
+        <label class="field">Confirmar contraseña
+          <input type={showPass ? 'text' : 'password'} bind:value={confirm} maxlength="72" autocomplete="new-password" aria-invalid={touched && !!problems.confirm} />
+          <span class="hint">Escríbela otra vez para evitar errores.</span>
+          {@render err('confirm')}
+        </label>
+      </div>
+    </fieldset>
 
     <div class="terms">
       <label class="check">
-        <input type="checkbox" bind:checked={form.accept_terms} />
+        <input type="checkbox" bind:checked={form.accept_terms} disabled={mode === 'closed'} />
         <span>Acepto los <a href="/terminos" target="_blank" rel="noopener">términos</a> y el <a href="/privacidad" target="_blank" rel="noopener">aviso de privacidad</a></span>
       </label>
       {@render err('accept_terms')}
     </div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button class="btn block lg" disabled={busy || mode === 'closed'}>{busy ? 'Creando…' : 'Crear mi negocio'}</button>
+    <button class="btn block lg" disabled={busy || mode === 'closed'}>{busy ? 'Creando…' : mode === 'approval' ? 'Enviar mi registro' : 'Crear mi negocio'}</button>
+    {#if mode === 'approval'}<p class="after">Te avisaremos por correo cuando tu cuenta esté aprobada.</p>{/if}
   </form>
 
-  <p class="alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a> · <a class="soft-link" href="/">Volver al inicio</a></p>
+  <p class="alt">¿Ya tienes cuenta? <a class="inl" href="/login">Inicia sesión</a><span aria-hidden="true"> · </span><a class="inl soft-link" href="/">Volver al inicio</a></p>
 </AuthLayout>
 
 <style>
-  .grid { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
-  .sep { margin-top: 0.25rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
-  .soft { font-weight: 400; color: var(--muted); }
+  fieldset { border: 0; margin: 0 0 0.5rem; padding: 0; min-width: 0; }
+  fieldset + fieldset { padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  legend { float: left; width: 100%; display: flex; align-items: center; gap: 10px; padding: 0; margin-bottom: 1rem; font-family: var(--font-heading); font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+  legend + .grid { clear: both; }
+  .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--surface); font-family: var(--font-body, inherit); font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .grid { display: grid; gap: 0 16px; grid-template-columns: 1fr; }
+  .notice { display: grid; gap: 2px; margin-bottom: 1.25rem; padding: 0.85rem 1rem; border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--surface-2); font-size: 0.9rem; color: var(--text); }
+  .notice.closed { border-left-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
   .bad { display: block; margin-top: 0.35rem; font-size: 0.82rem; font-weight: 600; color: var(--danger); }
   .pass { position: relative; margin-top: 0.4rem; }
   .pass input { padding-right: 3rem; }
-  .eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+  .eye { position: absolute; right: 1px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; }
   .eye:hover { color: var(--text); background: var(--surface-2); }
-  .meter { display: grid; grid-template-columns: repeat(3, 1fr) auto; align-items: center; gap: 6px; margin-top: 0.6rem; }
-  .meter i { height: 6px; border-radius: 999px; background: var(--border); }
+  .meter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 0.6rem; }
+  .meter i { height: 4px; border-radius: 2px; background: var(--border); }
   .meter i.on[data-level='1'] { background: var(--danger); }
   .meter i.on[data-level='2'] { background: var(--warn); }
-  .meter i.on[data-level='3'] { background: var(--ok, #2f8f5b); }
-  .meter b { margin-left: 4px; font-size: 0.78rem; color: var(--muted); }
-  .terms { margin-bottom: 1.1rem; }
-  .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.25rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--border); }
-  .soft-link { color: inherit; font-weight: 500; }
+  .meter i.on[data-level='3'] { background: var(--success); }
+  .lvl { font-weight: 600; }
+  .lvl[data-level='1'] { color: var(--danger); }
+  .lvl[data-level='2'] { color: var(--warn); }
+  .lvl[data-level='3'] { color: var(--success); }
+  .terms { margin: 0.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .terms a, .inl { color: var(--accent); }
+  .after { margin: 0.75rem 0 0; text-align: center; font-size: 0.85rem; color: var(--muted); }
+  .alt { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1.25rem 0 0; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+  .alt { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 8px; }
+  .alt a { display: inline-flex; align-items: center; min-height: 44px; }
+  .soft-link { color: var(--muted); font-weight: 500; }
   @media (min-width: 560px) {
     .grid { grid-template-columns: 1fr 1fr; }
     .full { grid-column: 1 / -1; }

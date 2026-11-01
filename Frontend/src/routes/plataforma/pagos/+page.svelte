@@ -2,6 +2,20 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import { PAY_METHODS, PLANS, formatDate, formatDay, money, plural } from '$lib/format.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+
+  const columns = [
+    { key: 'business', label: 'Negocio' },
+    { key: 'amount', label: 'Importe', numeric: true },
+    { key: 'method', label: 'Método' },
+    { key: 'period', label: 'Periodo' },
+    { key: 'plan', label: 'Plan' }
+  ];
 
   let rows = $state([]);
   let error = $state('');
@@ -17,36 +31,45 @@
   const total = $derived(rows.filter((p) => p.method !== 'courtesy').reduce((n, p) => n + p.amount_cents, 0));
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Pagos</h1>
-    <p>Los últimos pagos de suscripción de todos los negocios.</p>
-  </div>
-  {#if rows.length}<span class="badge">{money(total)} en esta lista</span>{/if}
-</div>
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+<PageHeader title="Pagos" description="Los últimos pagos de suscripción de todos los negocios.">
+  {#snippet actions()}
+    {#if rows.length}<span class="badge">{money(total)} en esta lista</span>{/if}
+  {/snippet}
+</PageHeader>
 
-{#if loading}
-  <p class="meta">Cargando…</p>
-{:else if rows.length === 0}
-  <p class="empty">Aún no hay pagos.</p>
-{:else}
-  <div class="list">
-    {#each rows as p (p.id)}
-      <a class="item-row link" href="/plataforma/negocios/{p.business_id}">
-        <div class="grow">
-          <div class="title">{p.business}</div>
-          <div class="meta">Plan {PLANS[p.plan] ?? p.plan} · {plural(p.months, 'mes', 'meses')} · hasta {formatDay(p.period_end)} · {p.created_by}{p.note ? ' · ' + p.note : ''}</div>
-        </div>
-        <span class="meta">{PAY_METHODS[p.method]} · {formatDate(p.created_at)}</span>
-        <b>{money(p.amount_cents)}</b>
-      </a>
-    {/each}
-  </div>
+{#if error}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
 {/if}
 
+<Surface padding="flush">
+  {#if loading}
+    <LoadingState />
+  {:else if rows.length === 0}
+    <EmptyState title="Aún no hay pagos" description="Los pagos de suscripción aparecen aquí cuando se registran." />
+  {:else}
+    <DataTable caption="Pagos de suscripción" {columns} {rows}>
+      {#snippet cell({ row, column })}
+        {#if column.key === 'business'}
+          <a class="name" href="/plataforma/negocios/{row.business_id}">{row.business}</a>
+          <span class="sub">{row.created_by}{row.note ? ' · ' + row.note : ''}</span>
+        {:else if column.key === 'amount'}
+          <b>{money(row.amount_cents)}</b>
+        {:else if column.key === 'method'}
+          <span class="two"><span>{PAY_METHODS[row.method]}</span><span class="sub">{formatDate(row.created_at)}</span></span>
+        {:else if column.key === 'period'}
+          <span class="two"><span>{plural(row.months, 'mes', 'meses')}</span><span class="sub">hasta {formatDay(row.period_end)}</span></span>
+        {:else}
+          {PLANS[row.plan] ?? row.plan}
+        {/if}
+      {/snippet}
+    </DataTable>
+  {/if}
+</Surface>
+
 <style>
-  .link { color: var(--text); text-decoration: none; }
-  .link:hover { border-color: var(--accent); }
-  .meta { color: var(--muted); font-size: 0.88rem; }
+  .notice { margin-bottom: 16px; }
+  .name { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+  .name:hover { color: var(--accent); text-decoration: underline; }
+  .sub { display: block; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .two { display: grid; gap: 2px; }
 </style>

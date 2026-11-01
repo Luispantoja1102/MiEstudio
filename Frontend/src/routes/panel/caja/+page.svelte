@@ -1,6 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import BranchPicker from '$lib/BranchPicker.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
   import { api } from '$lib/api.js';
   import { METHODS, formatDate, money, toCents, plural } from '$lib/format.js';
   import { branches, loadBranches } from '$lib/branch.svelte.js';
@@ -72,119 +80,147 @@
       notice = r.diff_cents === 0 ? 'Caja cerrada: cuadra exacto.' : `Caja cerrada con ${r.diff_cents > 0 ? 'sobrante' : 'faltante'} de ${money(Math.abs(r.diff_cents))}.`;
     }, '').then(() => ((counted = ''), (closeNote = ''), (closing = false)));
   };
+  const METHOD_COLS = [
+    { key: 'method', label: 'Método' },
+    { key: 'count', label: 'Pagos', numeric: true },
+    { key: 'amount_cents', label: 'Importe', numeric: true }
+  ];
+  const MOVE_COLS = [
+    { key: 'concept', label: 'Concepto' },
+    { key: 'created_at', label: 'Fecha' },
+    { key: 'amount_cents', label: 'Monto', numeric: true }
+  ];
+  const HIST_COLS = [
+    { key: 'opened_at', label: 'Apertura' },
+    { key: 'opened_by', label: 'Abrió' },
+    { key: 'sales', label: 'Ventas', numeric: true },
+    { key: 'expected_cents', label: 'Esperado', numeric: true },
+    { key: 'counted_cents', label: 'Contado', numeric: true },
+    { key: 'diff_cents', label: 'Diferencia', numeric: true }
+  ];
   const diffLabel = (d) => (d === 0 ? 'Cuadra' : d > 0 ? `+${money(d)}` : `−${money(-d)}`);
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Caja</h1>
-    <p>Apertura, entradas y salidas de efectivo, y corte del día.</p>
-  </div>
-  <BranchPicker onchange={load} />
-</div>
+<PageHeader title="Caja" description="Apertura, entradas y salidas de efectivo, y corte del día.">
+  {#snippet actions()}<BranchPicker onchange={load} />{/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="banner" role="status" style="background: var(--accent-soft); color: var(--accent)">{notice}</p>{/if}
+{#if error}<InlineNotice tone="danger" message={error} />{/if}
+{#if notice}<InlineNotice tone="success" message={notice} />{/if}
 
 {#if !ready}
-  <p class="meta">Cargando…</p>
+  <LoadingState />
 {:else if !cash}
-  <form class="card" onsubmit={open} style="max-width: 420px">
-    <h2>Caja cerrada</h2>
-    <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
-    <button class="btn">Abrir caja</button>
-  </form>
+  <div class="narrow">
+    <Surface title="Caja cerrada" description="Escribe el efectivo con el que arrancas el día para abrir la caja.">
+      <form onsubmit={open}>
+        <label class="field">Efectivo inicial (MXN) <input inputmode="decimal" bind:value={opening} placeholder="0.00" /></label>
+        <button class="btn">Abrir caja</button>
+      </form>
+    </Surface>
+  </div>
 {:else}
-  <section class="card">
-    <h2>Caja abierta</h2>
-    <p class="meta">Desde {formatDate(cash.opened_at)} · abrió {cash.opened_by}</p>
-    <dl>
-      <div><dt>Efectivo inicial</dt><dd>{money(cash.opening_cents)}</dd></div>
-      <div><dt>Ventas en efectivo</dt><dd>{money(cash.cash_in_cents)}</dd></div>
-      <div><dt>Entradas</dt><dd>{money(cash.moves_in_cents)}</dd></div>
-      <div><dt>Salidas</dt><dd>−{money(cash.moves_out_cents)}</dd></div>
-      <div class="total"><dt>Efectivo esperado en caja</dt><dd>{money(cash.expected_cents)}</dd></div>
-    </dl>
-    <h3>Ventas de esta caja · {plural(cash.sales, 'venta', 'ventas')} · {money(cash.sales_cents)}{#if cash.tip_cents} + {money(cash.tip_cents)} de propinas{/if}</h3>
-    <ul class="methods">
-      {#each cash.by_method as m}<li><span>{METHODS[m.method]}</span><b>{money(m.amount_cents)}</b><small>{plural(m.count, 'pago', 'pagos')}</small></li>{:else}<li class="meta">Todavía no hay ventas.</li>{/each}
-    </ul>
-  </section>
+  <p class="since">Caja abierta desde {formatDate(cash.opened_at)} · abrió {cash.opened_by}</p>
+  <div class="metrics">
+    <MetricCard label="Efectivo esperado en caja" value={money(cash.expected_cents)} hint="Inicial + ventas en efectivo + entradas − salidas" />
+    <MetricCard label="Efectivo inicial" value={money(cash.opening_cents)} />
+    <MetricCard label="Ventas en efectivo" value={money(cash.cash_in_cents)} />
+    <MetricCard label="Entradas y salidas" value={`+${money(cash.moves_in_cents)}`} hint={`Salidas −${money(cash.moves_out_cents)}`} />
+  </div>
 
-  <section class="card" style="margin-top: 1rem">
-    <h3>Entrada o salida de efectivo</h3>
-    <form onsubmit={addMove}>
-      <div class="form-grid">
+  <div class="two">
+    <Surface
+      title="Ventas de esta caja"
+      description={`${plural(cash.sales, 'venta', 'ventas')} · ${money(cash.sales_cents)}${cash.tip_cents ? ` + ${money(cash.tip_cents)} de propinas` : ''}`}
+      padding="flush"
+    >
+      {#if cash.by_method.length}
+        <DataTable caption="Ventas de esta caja por método de pago" columns={METHOD_COLS} rows={cash.by_method} rowKey="method">
+          {#snippet cell({ row, column })}
+            {#if column.key === 'method'}{METHODS[row.method]}
+            {:else if column.key === 'amount_cents'}<b>{money(row.amount_cents)}</b>
+            {:else}{row[column.key]}{/if}
+          {/snippet}
+        </DataTable>
+      {:else}
+        <EmptyState title="Todavía no hay ventas" />
+      {/if}
+    </Surface>
+
+    <Surface title="Movimientos de efectivo" description="Entradas y salidas registradas en esta caja." padding="flush">
+      {#if cash.movements.length}
+        <DataTable caption="Movimientos de efectivo" columns={MOVE_COLS} rows={cash.movements}>
+          {#snippet cell({ row, column })}
+            {#if column.key === 'concept'}{row.concept}<small class="sub">{row.by}</small>
+            {:else if column.key === 'created_at'}<span class="nw">{formatDate(row.created_at)}</span>
+            {:else}<b>{row.kind === 'in' ? '+' : '−'}{money(row.amount_cents)}</b>{/if}
+          {/snippet}
+        </DataTable>
+      {:else}
+        <EmptyState title="Sin movimientos" description="Registra aquí gastos, retiros o fondo de cambio." />
+      {/if}
+    </Surface>
+  </div>
+
+  <div class="two forms">
+    <Surface title="Entrada o salida de efectivo" description="Gastos, propinas pagadas, retiros, fondo o cambio.">
+      <form onsubmit={addMove}>
         <label class="field">Tipo
           <select bind:value={move.kind}><option value="out">Salida (gasto, propinas pagadas, retiro)</option><option value="in">Entrada (fondo, cambio)</option></select>
         </label>
         <label class="field">Monto (MXN) <input inputmode="decimal" bind:value={move.amount} required /></label>
         <label class="field">Concepto <input bind:value={move.concept} minlength="2" maxlength="200" placeholder="Ej. Compra de toallas" required /></label>
-      </div>
-      <button class="btn ghost">Registrar</button>
-    </form>
-    {#if cash.movements.length}
-      <ul class="methods" style="margin-top: 1rem">
-        {#each cash.movements as m (m.id)}
-          <li><span>{m.concept}<small>{' · '}{m.by}</small></span><b>{m.kind === 'in' ? '+' : '−'}{money(m.amount_cents)}</b><small>{formatDate(m.created_at)}</small></li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
-
-  <section class="card" style="margin-top: 1rem">
-    {#if !closing}
-      <h3>Cerrar caja</h3>
-      <p class="meta">Cuenta el efectivo y compáralo con lo esperado ({money(cash.expected_cents)}).</p>
-      <button class="btn" onclick={() => (closing = true)}>Hacer corte</button>
-    {:else}
-      <h3>Corte de caja</h3>
-      <form onsubmit={close}>
-        <label class="field">Efectivo contado (MXN) <input inputmode="decimal" bind:value={counted} required /></label>
-        {#if counted && !Number.isNaN(toCents(counted))}
-          <p class="balance" class:bad={toCents(counted) !== cash.expected_cents}>
-            Esperado {money(cash.expected_cents)} · {diffLabel(toCents(counted) - cash.expected_cents)}
-          </p>
-        {/if}
-        <label class="field">Nota (opcional) <input bind:value={closeNote} maxlength="500" /></label>
-        <div class="form-actions">
-          <button class="btn">Cerrar caja</button>
-          <button type="button" class="btn ghost" onclick={() => (closing = false)}>Cancelar</button>
-        </div>
+        <button class="btn ghost">Registrar</button>
       </form>
-    {/if}
-  </section>
+    </Surface>
+
+    <Surface title={closing ? 'Corte de caja' : 'Cerrar caja'} description={closing ? '' : `Cuenta el efectivo y compáralo con lo esperado (${money(cash.expected_cents)}).`}>
+      {#if !closing}
+        <button class="btn" onclick={() => (closing = true)}>Hacer corte</button>
+      {:else}
+        <form onsubmit={close}>
+          <label class="field">Efectivo contado (MXN) <input inputmode="decimal" bind:value={counted} required /></label>
+          {#if counted && !Number.isNaN(toCents(counted))}
+            {@const d = toCents(counted) - cash.expected_cents}
+            <p class="balance" class:bad={d !== 0} role="status">Esperado {money(cash.expected_cents)} · {diffLabel(d)}</p>
+          {/if}
+          <label class="field">Nota (opcional) <input bind:value={closeNote} maxlength="500" /></label>
+          <div class="form-actions">
+            <button class="btn">Cerrar caja</button>
+            <button type="button" class="btn ghost" onclick={() => (closing = false)}>Cancelar</button>
+          </div>
+        </form>
+      {/if}
+    </Surface>
+  </div>
 {/if}
 
 {#if history.length}
-  <section style="margin-top: 2rem">
-    <h2>Cortes anteriores</h2>
-    <div class="list">
-      {#each history as s (s.id)}
-        <div class="item-row">
-          <div class="grow"><div class="title">{formatDate(s.opened_at)}</div><div class="meta">{s.opened_by} · {plural(s.sales, 'venta', 'ventas')} · {money(s.sales_cents)}</div></div>
-          <span class="meta">Esperado {money(s.expected_cents)} · contado {money(s.counted_cents)}</span>
-          <span class="badge" class:warn={s.diff_cents !== 0}>{diffLabel(s.diff_cents)}</span>
-        </div>
-      {/each}
-    </div>
-  </section>
+  <div class="hist">
+    <Surface title="Cortes anteriores" padding="flush">
+      <DataTable caption="Cortes anteriores" columns={HIST_COLS} rows={history}>
+        {#snippet cell({ row, column })}
+          {#if column.key === 'opened_at'}<span class="nw">{formatDate(row.opened_at)}</span>
+          {:else if column.key === 'sales'}{row.sales}<small class="sub">{money(row.sales_cents)}</small>
+          {:else if column.key === 'diff_cents'}<StatusBadge label={diffLabel(row.diff_cents)} tone={row.diff_cents === 0 ? 'success' : 'warning'} />
+          {:else if column.key === 'opened_by'}<span class="nw">{row.opened_by}</span>
+          {:else}{money(row[column.key])}{/if}
+        {/snippet}
+      </DataTable>
+    </Surface>
+  </div>
 {/if}
 
 <style>
-  h2 { font-size: 1.4rem; }
-  h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
-  .card h3:first-child { margin-top: 0; }
-  dl { display: grid; gap: 6px; margin: 1rem 0; }
-  dl div { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
-  dt { color: var(--muted); }
-  dd { margin: 0; font-weight: 600; }
-  .total { padding-top: 8px; border-top: 1px solid var(--border); font-size: 1.15rem; }
-  .total dt { color: var(--text); font-weight: 600; }
-  .methods { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .methods li { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; font-variant-numeric: tabular-nums; }
-  .methods li span { flex: 1; }
-  .methods small { color: var(--muted); }
-  .balance { font-weight: 600; color: var(--accent); }
+  .narrow { max-width: 440px; }
+  .since { margin: 0 0 16px; color: var(--muted); font-size: 0.9rem; }
+  .metrics { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 16px; }
+  @media (min-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1000px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); margin-bottom: 16px; align-items: start; }
+  .hist { margin-top: 24px; }
+  .nw { white-space: nowrap; }
+  .sub { display: block; color: var(--muted); font-size: 0.8rem; }
+  .balance { margin: 0 0 1.1rem; font-weight: 600; color: var(--success); font-variant-numeric: tabular-nums; }
   .balance.bad { color: var(--danger); }
 </style>

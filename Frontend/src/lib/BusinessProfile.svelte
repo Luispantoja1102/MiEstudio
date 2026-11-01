@@ -4,6 +4,8 @@
   import { KINDS } from '$lib/format.js';
   import { loadSession } from '$lib/session.svelte.js';
   import { ZONES } from '$lib/zones.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
 
   // Datos del negocio: nombre, giro y zona horaria. La dirección pública no se cambia aquí (rompería los enlaces compartidos).
 
@@ -45,10 +47,11 @@
   }
 </script>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error}<div class="gap"><InlineNotice tone="danger" message={error} /></div>{/if}
 
 {#if form}
-  <form class="card" onsubmit={save}>
+  <Surface>
+  <form onsubmit={save}>
     <div class="form-grid">
       <label class="field">Nombre del negocio <input bind:value={form.name} required maxlength="120" /></label>
       <label class="field">Giro
@@ -60,17 +63,19 @@
       <span class="hint">Define a qué hora empieza y termina cada día en tu agenda, tus horarios de trabajo, la caja y los recordatorios.</span>
     </label>
     {#if form.timezone !== startTz}
-      <p class="banner" role="status">Al cambiar la zona horaria, los horarios de trabajo y las citas se interpretarán en la nueva zona. Revisa tu agenda después.</p>
+      <div class="gap"><InlineNotice tone="warning" message="Al cambiar la zona horaria, los horarios de trabajo y las citas se interpretarán en la nueva zona. Revisa tu agenda después." /></div>
     {/if}
     <p class="meta">Tu dirección pública es <code>/reservar/{slug}</code>. No cambia al editar el nombre, para que los enlaces que ya compartiste sigan funcionando.</p>
     <div class="form-actions">
       <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
-      {#if saved}<span class="meta" role="status" style="align-self: center">Guardado ✓</span>{/if}
+      {#if saved}<span class="meta" role="status" style="align-self: center">Guardado</span>{/if}
     </div>
   </form>
+  </Surface>
 {/if}
 
 <style>
+  .gap { margin-bottom: 16px; }
   .meta { color: var(--muted); font-size: 0.88rem; }
   code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
 </style>

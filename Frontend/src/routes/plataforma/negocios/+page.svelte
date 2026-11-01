@@ -5,8 +5,29 @@
   import { page } from '$app/state';
   import { BILLING, KINDS, PLANS, formatDay, plural } from '$lib/format.js';
   import { canWritePlatform } from '$lib/session.svelte.js';
+  import Modal from '$lib/Modal.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import FilterBar from '$lib/ui/FilterBar.svelte';
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+  import SearchField from '$lib/ui/SearchField.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   const filters = [['', 'Todos'], ['pending', 'Pendientes'], ['trialing', 'En prueba'], ['trial_expired', 'Prueba vencida'], ['active', 'Activos'], ['past_due', 'Pago atrasado'], ['suspended', 'Suspendidos']];
+  const stateOptions = filters.map(([value, label]) => ({ value, label }));
+  const columns = [
+    { key: 'name', label: 'Negocio' },
+    { key: 'plan', label: 'Giro y plan' },
+    { key: 'state', label: 'Estado' },
+    { key: 'term', label: 'Vigencia' },
+    { key: 'created', label: 'Registro' }
+  ];
+  const TONES = { pending: 'warning', trialing: 'info', trial_expired: 'danger', active: 'success', past_due: 'danger', suspended: 'danger' };
+  const term = (b) => (b.status === 'trial' ? 'Prueba hasta ' + formatDay(b.trial_ends_at) : b.current_period_end ? 'Hasta ' + formatDay(b.current_period_end) : '—');
 
   let businesses = $state([]);
   let state = $state(page.url.searchParams.get('state') ?? '');
@@ -35,14 +56,17 @@
   }
   onMount(load);
 
-  const pick = (value) => {
-    state = value;
-    load();
-  };
+  const pick = () => load();
   const onSearch = () => {
     clearTimeout(timer);
     timer = setTimeout(load, 250);
   };
+
+  function openForm() {
+    error = '';
+    form = blank();
+    showForm = true;
+  }
 
   async function create(e) {
     e.preventDefault();
@@ -58,20 +82,65 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Negocios</h1>
-    <p>Aprueba, suspende y da de alta a los negocios de la plataforma.</p>
+<PageHeader title="Negocios" description="Aprueba, suspende y da de alta a los negocios de la plataforma.">
+  {#snippet actions()}
+    {#if canWritePlatform()}<button class="btn" onclick={openForm}>Nuevo negocio</button>{/if}
+  {/snippet}
+</PageHeader>
+
+{#if error && !showForm}
+  <div class="notice">
+    <InlineNotice tone="danger" message={error}>
+      {#snippet actions()}<button class="btn ghost sm" onclick={load}>Reintentar</button>{/snippet}
+    </InlineNotice>
   </div>
-  {#if canWritePlatform()}
-    <button class="btn" onclick={() => (showForm = !showForm)}>{showForm ? 'Cancelar' : 'Nuevo negocio'}</button>
+{/if}
+
+<FilterBar label="Filtrar negocios">
+  <div class="segs"><SegmentedControl bind:value={state} options={stateOptions} label="Filtrar por estado" onchange={pick} /></div>
+  <div class="srch"><SearchField bind:value={q} oninput={onSearch} label="Buscar negocios" placeholder="Nombre, identificador o correo" /></div>
+  <label class="field plan">
+    <span class="sr-only">Plan</span>
+    <select bind:value={plan} onchange={load}>
+      <option value="">Todos los planes</option>
+      {#each Object.entries(PLANS) as [v, l]}<option value={v}>{l}</option>{/each}
+    </select>
+  </label>
+</FilterBar>
+
+<Surface padding="flush">
+  {#if loading}
+    <LoadingState />
+  {:else if businesses.length === 0}
+    {#if state || plan || q.trim()}
+      <EmptyState title="Sin resultados" description="No hay negocios con ese filtro." />
+    {:else}
+      <EmptyState title="Todavía no hay negocios" description="Los negocios aparecen aquí cuando se registran o cuando das uno de alta." />
+    {/if}
+  {:else}
+    <DataTable caption="Negocios de la plataforma" {columns} rows={businesses}>
+      {#snippet cell({ row, column })}
+        {#if column.key === 'name'}
+          <a class="name" href="/plataforma/negocios/{row.id}">{row.name}</a>
+          <span class="sub meta">{row.owner_email || 'Sin responsable'} · {plural(row.users, 'persona', 'personas')} · {plural(row.clients, 'cliente', 'clientes')}</span>
+        {:else if column.key === 'plan'}
+          <span class="two"><span>{PLANS[row.plan]}</span><span class="sub">{KINDS[row.kind]}</span></span>
+        {:else if column.key === 'state'}
+          {@const [label] = BILLING[row.billing_state]}
+          <StatusBadge {label} tone={TONES[row.billing_state] ?? 'neutral'} />
+        {:else if column.key === 'term'}
+          {term(row)}
+        {:else}
+          {formatDay(row.created_at)}
+        {/if}
+      {/snippet}
+    </DataTable>
   {/if}
-</div>
+</Surface>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-
-{#if showForm}
-  <form class="card" onsubmit={create} style="margin-bottom: 1.5rem">
+<Modal bind:open={showForm} title="Nuevo negocio">
+  <form onsubmit={create}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-grid">
       <label class="field">Nombre del negocio <input bind:value={form.business_name} required /></label>
       <label class="field">
@@ -94,52 +163,24 @@
         </select>
       </label>
     </div>
-    <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Creando…' : 'Crear negocio'}</button></div>
+    <div class="actions">
+      <button type="button" class="btn ghost" onclick={() => (showForm = false)}>Cancelar</button>
+      <button class="btn" disabled={busy}>{busy ? 'Creando…' : 'Crear negocio'}</button>
+    </div>
   </form>
-{/if}
-
-<div class="chips" role="group" aria-label="Filtrar por estado">
-  {#each filters as [value, label]}
-    <button class="chip" aria-pressed={state === value} onclick={() => pick(value)}>{label}</button>
-  {/each}
-</div>
-<div class="bar">
-  <label class="field grow">
-    <span class="sr-only">Buscar negocios</span>
-    <input type="search" placeholder="Buscar por nombre, identificador o correo" bind:value={q} oninput={onSearch} />
-  </label>
-  <label class="field">
-    <span class="sr-only">Plan</span>
-    <select bind:value={plan} onchange={load}>
-      <option value="">Todos los planes</option>
-      {#each Object.entries(PLANS) as [v, l]}<option value={v}>{l}</option>{/each}
-    </select>
-  </label>
-</div>
-
-{#if loading}
-  <p class="meta">Cargando…</p>
-{:else if businesses.length === 0}
-  <div class="empty">No hay negocios con ese filtro.</div>
-{:else}
-  <div class="list">
-    {#each businesses as b (b.id)}
-      {@const [label, tone] = BILLING[b.billing_state]}
-      <a class="item-row link" href="/plataforma/negocios/{b.id}">
-        <div class="grow">
-          <div class="title">{b.name}</div>
-          <div class="meta">{KINDS[b.kind]} · {b.owner_email || 'sin responsable'} · {plural(b.users, 'persona', 'personas')} · {plural(b.clients, 'cliente', 'clientes')}</div>
-        </div>
-        <span class="meta">{PLANS[b.plan]} · {b.status === 'trial' ? 'prueba hasta ' + formatDay(b.trial_ends_at) : b.current_period_end ? 'vigente hasta ' + formatDay(b.current_period_end) : 'alta ' + formatDay(b.created_at)}</span>
-        <span class="badge {tone}">{label}</span>
-      </a>
-    {/each}
-  </div>
-{/if}
+</Modal>
 
 <style>
-  .bar { display: flex; gap: 12px; flex-wrap: wrap; }
-  .bar .grow { flex: 1 1 260px; }
-  .link { color: var(--text); text-decoration: none; transition: border-color 0.2s var(--ease); }
-  .link:hover { border-color: var(--accent); }
+  .notice { margin-bottom: 16px; }
+  .srch { flex: 1 1 260px; }
+  .srch :global(.search) { max-width: 420px; }
+  .plan { min-width: 190px; margin: 0; }
+  .plan :global(select) { margin-top: 0; }
+  .name { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+  .name:hover { color: var(--accent); text-decoration: underline; }
+  .sub { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .two { display: grid; gap: 2px; }
+  .meta { display: block; padding-bottom: 6px; }
+  .segs { flex: 1 1 100%; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 </style>

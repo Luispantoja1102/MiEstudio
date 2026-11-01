@@ -20,7 +20,7 @@
 <style>
   .chart { list-style: none; margin: 0; padding: 0; display: flex; }
   li { display: grid; min-width: 0; font-size: 0.8rem; }
-  .bar { background: var(--accent-soft); border-radius: var(--radius-xs); }
+  .bar { background: color-mix(in srgb, var(--accent) 24%, var(--surface)); border-radius: var(--radius-xs); }
   .sel .bar { background: var(--accent); }
   .val { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
   .lbl { color: var(--muted); }

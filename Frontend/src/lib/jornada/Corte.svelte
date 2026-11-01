@@ -1,82 +1,90 @@
 <script>
-  // 20:30. Corte de caja: el ticket sale de la impresora con el scroll; abajo, lo que le toca a cada quien.
-  import { scene } from './scroll.js';
+  // 20:30. Corte de caja: el recibo real de la caja (el mismo componente del punto de venta) y, al lado, el cierre y las comisiones del día.
+  import Receipt from '$lib/pos/Receipt.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
 
-  // Ejemplo ilustrativo
-  const lineas = [['Corte y barba · Marco', '250.00'], ['Pomada mate', '120.00'], ['Anticipo pagado', '−75.00'], ['Propina para Marco', '40.00']];
-  const comisiones = [['Marco', 'Barbería', '612'], ['Dani', 'Uñas', '540'], ['Sofi', 'Pestañas', '455'], ['Lu', 'Spa', '690']];
+  // Ejemplo ilustrativo. Las horas se arman con componentes locales para que se vean igual en cualquier zona horaria.
+  const venta = {
+    folio: 214,
+    created_at: new Date(2026, 10, 19, 20, 31).toISOString(),
+    client_name: 'Andrea Solís',
+    status: 'paid',
+    items: [
+      { id: 1, qty: 1, name: 'Corte y barba', staff_name: 'Marco', total_cents: 25000 },
+      { id: 2, qty: 1, name: 'Pomada mate', staff_name: '', total_cents: 12000 }
+    ],
+    subtotal_cents: 37000,
+    discount_cents: 0,
+    total_cents: 37000,
+    tip_cents: 4000,
+    tip_staff_name: 'Marco',
+    change_cents: 0,
+    payments: [
+      { method: 'deposit', amount_cents: 7500, reference: '' },
+      { method: 'mp_point', amount_cents: 33500, reference: '' }
+    ]
+  };
+  const caja = [['Fondo inicial', '$500.00'], ['Ventas en efectivo', '$1,240.00'], ['Salidas', '−$200.00'], ['Efectivo esperado', '$1,540.00'], ['Conteo', '$1,540.00']];
+  const comisiones = [['Marco', 'Barbería', '$612'], ['Dani', 'Uñas', '$540'], ['Sofi', 'Pestañas', '$455'], ['Lu', 'Spa', '$690']];
 </script>
 
-<section class="corte" use:scene data-hora="20:30" data-momento="Corte de caja" aria-labelledby="t-corte">
-  <div class="cuadro">
-    <div class="texto">
-      <p class="hora">20:30</p>
-      <h2 id="t-corte">Cierras con la caja cuadrada.</h2>
-      <p>Terminas la cita y pasas directo al cobro: se aplica el anticipo, se suma la propina y se calcula la comisión. Efectivo, tarjeta, transferencia o terminal de Mercado Pago.</p>
-      <dl class="comisiones" aria-label="Comisiones del día (ejemplo ilustrativo)">
-        {#each comisiones as [quien, oficio, monto], k}
-          <div style="--k: {k}"><dt>{quien} <small>{oficio}</small></dt><dd>${monto}</dd></div>
-        {/each}
-      </dl>
+<section class="corte" aria-labelledby="t-corte">
+  <div class="envoltura">
+    <div class="intro">
+      <div>
+        <p class="kicker"><time>20:30</time>Corte de caja</p>
+        <h2 id="t-corte" class="titulo">Cierras con la caja cuadrada.</h2>
+      </div>
+      <p class="lead">Terminas la cita y pasas directo al cobro: se aplica el anticipo, se suma la propina y se calcula la comisión. Efectivo, tarjeta, transferencia o terminal de Mercado Pago.</p>
     </div>
 
-    <div class="impresora" aria-hidden="true">
-      <span class="ranura"></span>
-      <div class="papel">
-        <div class="ticket">
-          <p class="t-neg">Barbería y Salón Ébano</p>
-          <p class="t-meta">Caja 1 · jue 19 nov · 20:31</p>
-          <hr />
-          {#each lineas as [concepto, monto]}<p class="t-linea"><span>{concepto}</span><span>{monto}</span></p>{/each}
-          <hr />
-          <p class="t-total"><span>A cobrar</span><span>$335.00</span></p>
-          <p class="t-pago">Pagado con terminal · Mercado Pago</p>
-          <p class="t-gracias">Gracias, vuelve pronto</p>
-        </div>
+    <div class="cuerpo">
+      <div class="recibo">
+        <Receipt sale={venta} business="Barbería y Salón Ébano" />
+        <p class="ejemplo">Ejemplo ilustrativo</p>
+      </div>
+
+      <div class="resumen">
+        <section aria-labelledby="h-caja">
+          <h3 id="h-caja">Cierre de caja · Caja 1</h3>
+          <dl>
+            {#each caja as [k, v]}<div class:fuerte={k === 'Efectivo esperado'}><dt>{k}</dt><dd>{v}</dd></div>{/each}
+            <div><dt>Diferencia</dt><dd>$0.00 <StatusBadge label="Cuadrada" tone="success" /></dd></div>
+          </dl>
+        </section>
+        <section aria-labelledby="h-com">
+          <h3 id="h-com">Comisiones del día</h3>
+          <dl>
+            {#each comisiones as [quien, oficio, monto]}<div><dt>{quien} <small>{oficio}</small></dt><dd>{monto}</dd></div>{/each}
+          </dl>
+        </section>
+        <p class="ejemplo">Ejemplo ilustrativo</p>
       </div>
     </div>
-    <p class="ejemplo">Ejemplo ilustrativo</p>
   </div>
 </section>
 
 <style>
-  .corte { height: 230vh; background: var(--ticket); color: var(--tinta); }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; gap: clamp(24px, 4vw, 64px); padding: 88px clamp(16px, 4vw, 56px) 40px; }
-  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
-  .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
-  .comisiones { margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; max-width: 460px; }
-  .comisiones div { --on: clamp(0, calc((var(--p) - 0.6 - var(--k) * 0.06) * 8), 1); display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px solid rgb(var(--ink-rgb) / 0.12); opacity: calc(0.25 + var(--on) * 0.75); }
-  dt { font-weight: 600; }
-  dt small { margin-left: 6px; font-weight: 400; opacity: 0.65; }
-  dd { margin: 0; font-family: var(--rotulo); font-stretch: 80%; font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .corte { padding: clamp(72px, 9vw, 112px) 0; background: var(--ticket); color: var(--tinta); }
+  .intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); align-items: end; gap: 20px clamp(32px, 6vw, 96px); margin-bottom: clamp(32px, 4vw, 56px); }
+  .titulo { max-width: 14ch; }
+  .lead { margin: 0; max-width: 50ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
 
-  /* La impresora térmica de la caja */
-  .impresora { position: relative; justify-self: center; width: min(340px, 100%); height: min(560px, 74svh); }
-  .ranura { position: absolute; z-index: 2; top: 0; left: -14px; right: -14px; height: 26px; border-radius: 8px; background: #0e0f11; box-shadow: inset 0 -6px 0 #2a2c31; }
-  .papel { position: absolute; top: 14px; left: 0; right: 0; bottom: 0; overflow: hidden; }
-  .ticket {
-    padding: 34px 26px 30px; background: #fff; color: #1b1b1d; --tinta: #141416; --tinta-suave: #55555c; --ink-rgb: 20 20 22; box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.06); font-family: var(--rotulo); font-stretch: 90%; font-size: 0.95rem;
-    transform: translate3d(0, calc((1 - clamp(0, calc(var(--p) * 1.6), 1)) * -100%), 0);
-  }
-  .ticket::after { content: ''; display: block; height: 10px; margin: 26px -26px -40px; background: radial-gradient(circle at 7px 10px, var(--ticket) 6px, transparent 6.5px) 0 0 / 14px 10px repeat-x; }
-  .ticket p { margin: 0; }
-  .t-neg { font-weight: 800; font-size: 1.1rem; text-align: center; text-transform: uppercase; letter-spacing: 0.03em; }
-  .t-meta { margin-top: 4px !important; text-align: center; font-size: 0.8rem; opacity: 0.7; }
-  hr { margin: 16px 0; border: 0; border-top: 2px dashed rgb(27 27 29 / 0.35); }
-  .t-linea, .t-total { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-variant-numeric: tabular-nums; }
-  .t-total { font-weight: 800; font-size: 1.3rem; }
-  .t-pago, .t-gracias { margin-top: 10px !important; text-align: center; font-size: 0.82rem; }
-  .t-gracias { margin-top: 18px !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-  .ejemplo { position: absolute; right: clamp(16px, 4vw, 56px); bottom: 18px; margin: 0; font-size: 0.75rem; color: var(--tinta-suave); }
+  .cuerpo { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); align-items: start; gap: clamp(32px, 6vw, 96px); }
+  .recibo :global(.receipt) { margin: 0; max-width: none; }
+  .recibo .ejemplo, .resumen > .ejemplo { margin-top: 12px; }
 
-  :global(.corte.still) { height: auto; }
-  :global(.corte.still) .cuadro { position: relative; height: auto; min-height: 100svh; }
+  .resumen { display: grid; gap: 36px; max-width: 520px; }
+  h3 { margin: 0 0 4px; padding-bottom: 10px; border-bottom: 2px solid var(--tinta); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
+  dl { margin: 0; }
+  dl > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  dt { font-weight: 500; }
+  dt small { margin-left: 6px; color: var(--tinta-suave); }
+  dd { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .fuerte dt { font-weight: 700; }
 
-  @media (max-width: 900px) {
-    .corte { height: 200vh; }
-    .cuadro { grid-template-columns: 1fr; align-content: start; padding-top: 80px; gap: 24px; }
-    .comisiones { display: none; }
-    .impresora { height: 440px; }
+  @media (max-width: 860px) {
+    .intro, .cuerpo { grid-template-columns: 1fr; }
+    .recibo { max-width: 380px; }
   }
 </style>

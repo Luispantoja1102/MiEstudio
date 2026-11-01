@@ -34,12 +34,12 @@
 </script>
 
 <div class="hub">
-  <nav class="list" class:hide={section && !wide} aria-label="Secciones de ajustes">
-    <header>
+  <nav class="index" class:hide={section && !wide} aria-label="Secciones de ajustes">
+    <header class="ih">
       <h1>{title}</h1>
       {#if intro}<p>{intro}</p>{/if}
     </header>
-    <div class="card groups">
+    <div class="groups">
       {#each visible as g (g.title)}
         <div class="group">
           <p class="gt">{g.title}</p>
@@ -79,7 +79,7 @@
   {#if section}
     {@const C = section.component}
     <main class="pane">
-      <header>
+      <header class="ph">
         {#if !wide}<button type="button" class="backbtn" aria-label="Volver a Ajustes" onclick={back}><span><Icon name="arrow" size={20} /></span></button>{/if}
         <div>
           <h2>{section.label}</h2>
@@ -90,39 +90,45 @@
       <div class="body">{#key section.id}<C />{/key}</div>
     </main>
   {:else if wide}
-    <div class="card"><p class="meta">No tienes ajustes disponibles con tu rol.</p></div>
+    <div class="empty"><p class="meta">No tienes ajustes disponibles con tu rol.</p></div>
   {/if}
 </div>
 
 <style>
   .hub { display: grid; gap: 24px; }
-  @media (min-width: 768px) { .hub { grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr); align-items: start; } }
-  .list { display: grid; gap: 20px; min-width: 0; }
-  .list.hide { display: none; }
-  .list h1 { font-size: 2.25rem; margin: 0; }
-  .list header p { color: var(--muted); margin: 0.4rem 0 0; }
-  .groups { display: grid; gap: 20px; padding: 12px; }
-  .gt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 12px 6px; }
+  @media (min-width: 768px) { .hub { grid-template-columns: 17rem minmax(0, 1fr); gap: 40px; align-items: start; } }
+  .index { display: grid; gap: 20px; min-width: 0; }
+  .index.hide { display: none; }
+  @media (min-width: 768px) { .index { position: sticky; top: 16px; } }
+  .index h1 { font-size: 1.75rem; margin: 0; }
+  .ih p { color: var(--muted); margin: 0.4rem 0 0; font-size: 0.9rem; }
+  .groups { display: grid; gap: 20px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .gt { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 4px 12px 6px; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-  .row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
-  .row:hover { background: var(--surface-2); color: var(--text); }
-  .row.on { background: var(--accent-soft); color: var(--accent); }
-  .row.danger:hover { background: var(--danger-soft); color: var(--danger); }
+  .row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+  .row:hover { background: var(--surface-2); }
+  .row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .row.on { background: var(--accent-soft); color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
+  .row.danger { color: var(--danger); }
+  .row.danger:hover { background: var(--danger-soft); }
   .rt { display: grid; flex: 1; min-width: 0; }
   .rt b { font-size: 0.95rem; font-weight: 500; }
-  .rt small { font-size: 0.78rem; line-height: 1.3; opacity: 0.85; }
+  .rt small { font-size: 0.78rem; line-height: 1.3; color: var(--muted); }
+  .row.on .rt small { color: inherit; }
+  /* en pantalla ancha la descripción ya se lee en el encabezado de la sección */
+  @media (min-width: 768px) { .rt small, .chev { display: none; } }
   .chev { opacity: 0.55; flex: none; }
   .pane { min-width: 0; }
-  .pane header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 1.25rem; }
-  .pane h2 { font-size: 2rem; margin: 0; }
-  .pane header p { color: var(--muted); margin: 0.3rem 0 0; }
-  .backbtn { display: grid; place-items: center; width: 40px; height: 40px; margin-top: 4px; flex: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; }
+  .ph { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .pane h2 { font-size: 1.5rem; margin: 0; }
+  .ph p { color: var(--muted); margin: 0.3rem 0 0; }
+  .backbtn { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); cursor: pointer; }
+  .backbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .backbtn span { display: grid; transform: rotate(180deg); }
   .meta { color: var(--muted); }
-  /* el encabezado de cada página ya lo da la sección */
+  /* El título de cada página incrustada ya lo da la sección: se oculta el encabezado (.page-head, también el de lib/ui/PageHeader),
+     pero si trae acciones (botón de alta, filtros) se deja solo esa parte, alineada a la derecha. */
   .body :global(.page-head) { display: none; }
-  .body :global(.page-head:has(button)),
-  .body :global(.page-head:has(a.btn)) { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
-  .body :global(.page-head:has(button) > div:first-child),
-  .body :global(.page-head:has(a.btn) > div:first-child) { display: none; }
+  .body :global(.page-head:has(.acts *, > button, > a.btn, > .btn, > div > button, > div > a.btn)) { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+  .body :global(.page-head:has(.acts *, > button, > a.btn, > .btn, > div > button, > div > a.btn) > div:first-child:not(:has(> button, > a.btn))) { display: none; }
 </style>

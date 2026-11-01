@@ -4,6 +4,9 @@
   import QRCode from 'qrcode';
   import { api } from '$lib/api.js';
   import { session } from '$lib/session.svelte.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
 
   // Cuenta propia: contraseña, verificación en dos pasos y cierre de sesiones. Lo usan el panel y la plataforma.
   let status = $state({ enabled: false, recovery_left: 0 });
@@ -96,18 +99,12 @@
   };
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Mi cuenta</h1>
-    <p>{session.me?.name} · {session.me?.email}</p>
-  </div>
-</div>
+<PageHeader title="Mi cuenta" description="{session.me?.name} · {session.me?.email}" />
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="ok" role="status">{notice}</p>{/if}
+{#if error}<div class="sec"><InlineNotice tone="danger" message={error} /></div>{/if}
+{#if notice}<div class="sec"><InlineNotice tone="success" message={notice} /></div>{/if}
 
-<section class="card sec">
-  <h2>Contraseña</h2>
+<div class="sec"><Surface title="Contraseña">
   <form onsubmit={changePassword}>
     <div class="form-grid">
       <label class="field">Contraseña actual <input type="password" bind:value={pw.current} autocomplete="current-password" required /></label>
@@ -116,10 +113,10 @@
     </div>
     <button class="btn" disabled={busy}>Cambiar contraseña</button>
   </form>
-</section>
+</Surface></div>
 
-<section class="card sec">
-  <h2>Verificación en dos pasos {#if status.enabled}<span class="badge">Activa</span>{:else}<span class="badge muted">Desactivada</span>{/if}</h2>
+<div class="sec"><Surface>
+  <h2 class="h">Verificación en dos pasos {#if status.enabled}<span class="badge">Activa</span>{:else}<span class="badge muted">Desactivada</span>{/if}</h2>
   <p class="meta">Además de tu contraseña, se pide un código de una app de autenticación (Google Authenticator, Authy, 1Password…). Protege tu cuenta aunque alguien robe tu contraseña.</p>
 
   {#if codes}
@@ -168,20 +165,18 @@
   {:else}
     <button class="btn" disabled={busy} onclick={startSetup}>Activar verificación en dos pasos</button>
   {/if}
-</section>
+</Surface></div>
 
-<section class="card sec">
-  <h2>Sesiones</h2>
+<div class="sec"><Surface title="Sesiones">
   <p class="meta">Si perdiste un dispositivo o crees que alguien más entró, cierra todas tus sesiones. Tendrás que iniciar sesión de nuevo.</p>
   <button class="btn ghost" disabled={busy} onclick={logoutAll}>Cerrar sesión en todos los dispositivos</button>
-</section>
+</Surface></div>
 
 <style>
-  .sec { margin-bottom: 1.25rem; }
-  .sec h2 { font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+  .sec { margin-bottom: 16px; }
+  .h { font-size: 1.125rem; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .meta { color: var(--muted); font-size: 0.9rem; }
-  .ok { color: var(--accent); padding: 0.7rem 0.9rem; border: 1px solid currentColor; border-radius: var(--radius-sm); margin: 0 0 1rem; font-size: 0.9rem; }
-  .setup img { display: block; margin: 0.5rem 0 1rem; background: #fff; padding: 8px; border-radius: 8px; }
+  .setup img { display: block; margin: 0.5rem 0 1rem; background: #fff; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
   code { background: var(--surface-2); padding: 2px 6px; border-radius: 6px; font-size: 0.9rem; word-break: break-all; }
   .codes { background: var(--surface-2); padding: 1rem; border-radius: var(--radius-sm); }
   .codes ul { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }

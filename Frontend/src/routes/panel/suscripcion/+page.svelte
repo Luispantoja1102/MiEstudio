@@ -5,6 +5,13 @@
   import { api } from '$lib/api.js';
   import { BILLING, PAY_METHODS, formatDay, money, pesos, plural } from '$lib/format.js';
   import { loadSession, session } from '$lib/session.svelte.js';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import MetricCard from '$lib/ui/MetricCard.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
 
   let b = $state(null);
   let error = $state('');
@@ -67,99 +74,132 @@
 
   const lim = (n) => (n === null ? 'Sin límite' : n);
   const state = $derived(b ? BILLING[b.billing_state] : ['', '']);
+  const TONE = { trialing: 'info', active: 'success', trial_expired: 'danger', past_due: 'danger', suspended: 'danger', pending: 'warning' };
+  const yn = (v) => (v ? 'Sí' : 'No');
+  const FEATURES = [
+    { id: 'staff', label: 'Personas en agenda', get: (p) => lim(p.max_staff) },
+    { id: 'branches', label: 'Sucursales', get: (p) => p.max_branches },
+    { id: 'pos', label: 'Caja, ventas e inventario', get: (p) => yn(p.pos) },
+    { id: 'deposits', label: 'Anticipo por transferencia', get: (p) => yn(p.deposits) },
+    { id: 'deposits_mp', label: 'Anticipo con Mercado Pago', get: (p) => yn(p.deposits_mp) },
+    { id: 'terminal', label: 'Cobro con terminal', get: (p) => yn(p.terminal) },
+    { id: 'support', label: 'Soporte', get: (p) => p.support }
+  ];
+  const planCols = $derived(
+    b ? [{ key: 'f', label: 'Plan' }, ...b.plans.map((p) => ({ key: p.id, label: p.id === b.plan.id ? `${p.name} · tu plan` : p.name }))] : []
+  );
+  const planRows = $derived([
+    { id: 'price', label: 'Precio', get: (p) => `${pesos(p.price_month)} / mes` },
+    ...FEATURES,
+    ...(b?.online ? [{ id: 'pay', label: needsPlan ? 'Elige tu plan' : 'Cambiar o renovar' }] : [])
+  ]);
+  const payCols = [
+    { key: 'created_at', label: 'Fecha' },
+    { key: 'amount', label: 'Importe', numeric: true },
+    { key: 'method', label: 'Método' },
+    { key: 'plan', label: 'Plan' },
+    { key: 'period', label: 'Cubre' }
+  ];
   const needsPlan = $derived(b && ['trialing', 'trial_expired', 'past_due'].includes(b.billing_state));
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Suscripción</h1>
-    <p>Tu plan, tu vigencia y tus pagos.</p>
-  </div>
-</div>
+<PageHeader title="Suscripción" description="Tu plan, tu vigencia y tus pagos." />
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
-{#if notice}<p class="ok" role="status">{notice}</p>{/if}
-{#if checking}<p class="banner" role="status">Confirmando tu pago con Mercado Pago…</p>{/if}
+{#if error}<div class="gap"><InlineNotice tone="danger" message={error} /></div>{/if}
+{#if notice}<div class="gap"><InlineNotice tone="success" message={notice} /></div>{/if}
+{#if checking}<div class="gap"><InlineNotice tone="info" message="Confirmando tu pago con Mercado Pago…" /></div>{/if}
 
-{#if b}
-  <section class="card now">
-    <div>
-      <span class="badge {state[1]}">{state[0]}</span>
-      <h2>Plan {b.plan.name}</h2>
-      <p class="meta">
-        {#if b.billing_state === 'trialing'}Prueba gratis hasta el {formatDay(b.trial_ends_at)}.
-        {:else if b.billing_state === 'trial_expired'}Tu prueba terminó el {formatDay(b.trial_ends_at)}.
-        {:else if b.current_period_end}{b.billing_state === 'past_due' ? 'Venció' : 'Vigente hasta'} el {formatDay(b.current_period_end)}.
-        {:else}Activo sin vencimiento.{/if}
-        {#if b.billing_state === 'past_due'} Tienes {plural(b.grace_days, 'día', 'días')} de gracia después de la fecha de vencimiento.{/if}
-      </p>
-    </div>
-    <div class="usage">
-      <span class:over={b.plan.max_staff !== null && b.usage.staff > b.plan.max_staff}>Personas en agenda: <b>{b.usage.staff}</b> / {lim(b.plan.max_staff)}</span>
-      <span class:over={b.usage.branches > b.plan.max_branches}>Sucursales: <b>{b.usage.branches}</b> / {b.plan.max_branches}</span>
-      <span>Clientes: <b>{b.usage.clients}</b></span>
-    </div>
-  </section>
-
-  <h2 class="sec">{needsPlan ? 'Elige tu plan' : 'Cambiar o renovar'}</h2>
-  {#if !b.online}
-    <p class="banner">El pago en línea no está habilitado en este momento. Puedes pagar por transferencia y la plataforma registrará tu pago.</p>
+{#if !b}
+  {#if !error}<LoadingState />{/if}
+{:else}
+  {#if b.billing_state === 'trial_expired'}
+    <div class="gap"><InlineNotice tone="warning" message="Tu prueba terminó. Elige un plan para seguir usando Barbella." /></div>
+  {:else if b.billing_state === 'past_due'}
+    <div class="gap"><InlineNotice tone="warning" message="Tu pago está atrasado. Renueva tu plan para evitar la suspensión." /></div>
   {/if}
-  <div class="plans">
-    {#each b.plans as p (p.id)}
-      <div class="card plan" class:current={p.id === b.plan.id}>
-        {#if p.id === b.plan.id}<span class="badge">Tu plan</span>{/if}
-        <h3>{p.name}</h3>
-        <p class="meta">{p.description}</p>
-        <p class="price">{pesos(p.price_month)}<small>/mes</small></p>
-        <ul>
-          <li><b>{lim(p.max_staff)}</b> {p.max_staff === 1 ? 'persona' : 'personas'} en agenda</li>
-          <li><b>{p.max_branches}</b> {p.max_branches === 1 ? 'sucursal' : 'sucursales'}</li>
-          <li>Caja, ventas e inventario: {p.pos ? 'sí' : 'no'}</li>
-          <li>Anticipo por transferencia: {p.deposits ? 'sí' : 'no'}</li>
-          <li>Anticipo con Mercado Pago: {p.deposits_mp ? 'sí' : 'no'}</li>
-          <li>Cobro con terminal: {p.terminal ? 'sí' : 'no'}</li>
-          <li>Soporte {p.support}</li>
-        </ul>
-        {#if b.online}
-          <button class="btn block" disabled={!!busy} onclick={() => pay(p.id, 1)}>{busy === `${p.id}-1` ? 'Abriendo…' : `Pagar 1 mes · ${pesos(p.price_month)}`}</button>
-          <button class="btn ghost block" disabled={!!busy} onclick={() => pay(p.id, 12)}>{busy === `${p.id}-12` ? 'Abriendo…' : `Pagar 1 año · ${pesos(p.price_year)}`}</button>
-          <p class="meta">El año cuesta 10 meses: te ahorras 2.</p>
-        {/if}
+
+  <Surface>
+    <div class="now">
+      <div>
+        <StatusBadge label={state[0]} tone={TONE[b.billing_state] ?? 'neutral'} />
+        <h2 class="plan-name">Plan {b.plan.name}</h2>
       </div>
-    {/each}
+      <div class="when">
+        {#if b.billing_state === 'trialing'}
+          <span class="lbl">Prueba gratis hasta</span><strong>{formatDay(b.trial_ends_at)}</strong>
+        {:else if b.billing_state === 'trial_expired'}
+          <span class="lbl">Tu prueba terminó el</span><strong>{formatDay(b.trial_ends_at)}</strong>
+        {:else if b.current_period_end}
+          <span class="lbl">{b.billing_state === 'past_due' ? 'Venció el' : 'Vigente hasta'}</span><strong>{formatDay(b.current_period_end)}</strong>
+        {:else}
+          <span class="lbl">Vigencia</span><strong>Activo sin vencimiento</strong>
+        {/if}
+        {#if b.billing_state === 'past_due'}<span class="lbl">Tienes {plural(b.grace_days, 'día', 'días')} de gracia después de la fecha de vencimiento.</span>{/if}
+      </div>
+    </div>
+  </Surface>
+
+  <div class="usage">
+    <MetricCard label="Personas en agenda" value="{b.usage.staff} / {lim(b.plan.max_staff)}" hint={b.plan.max_staff !== null && b.usage.staff > b.plan.max_staff ? 'Superas el límite de tu plan' : ''} />
+    <MetricCard label="Sucursales" value="{b.usage.branches} / {b.plan.max_branches}" hint={b.usage.branches > b.plan.max_branches ? 'Superas el límite de tu plan' : ''} />
+    <MetricCard label="Clientes" value={b.usage.clients} />
   </div>
-  <p class="meta">Al pagar, el periodo se suma al que ya tengas vigente. Pagas con Mercado Pago (tarjeta, transferencia o efectivo en tiendas).</p>
+
+  <h2 class="sec">{needsPlan ? 'Elige tu plan' : 'Compara planes'}</h2>
+  {#if !b.online}
+    <div class="gap"><InlineNotice tone="warning" message="El pago en línea no está habilitado en este momento. Puedes pagar por transferencia y la plataforma registrará tu pago." /></div>
+  {/if}
+  <Surface padding="flush">
+    <DataTable caption="Comparación de planes" columns={planCols} rows={planRows} cell={planCell} />
+  </Surface>
+  <p class="meta note">Al pagar, el periodo se suma al que ya tengas vigente. Pagas con Mercado Pago (tarjeta, transferencia o efectivo en tiendas). El año cuesta 10 meses: te ahorras 2.</p>
 
   <h2 class="sec">Historial de pagos</h2>
-  <div class="list">
-    {#each b.payments as p (p.id)}
-      <div class="item-row">
-        <div class="grow">
-          <div class="title">{money(p.amount_cents)} · {PAY_METHODS[p.method]}</div>
-          <div class="meta">Plan {p.plan} · {plural(p.months, 'mes', 'meses')} · hasta {formatDay(p.period_end)}</div>
-        </div>
-        <span class="meta">{formatDay(p.created_at)}</span>
-      </div>
-    {:else}
-      <div class="empty">Aún no hay pagos.</div>
-    {/each}
-  </div>
+  {#if b.payments.length}
+    <Surface padding="flush">
+      <DataTable caption="Historial de pagos" columns={payCols} rows={b.payments} cell={payCell} />
+    </Surface>
+  {:else}
+    <div class="empty">Aún no hay pagos.</div>
+  {/if}
 {/if}
 
+{#snippet planCell({ row, column })}
+  {#if column.key === 'f'}
+    <b class="fl">{row.label}</b>
+  {:else}
+    {@const p = b.plans.find((x) => x.id === column.key)}
+    {#if row.id === 'pay'}
+      <div class="pay">
+        <button class="btn sm" disabled={!!busy} onclick={() => pay(p.id, 1)}>{busy === `${p.id}-1` ? 'Abriendo…' : `1 mes · ${pesos(p.price_month)}`}</button>
+        <button class="btn ghost sm" disabled={!!busy} onclick={() => pay(p.id, 12)}>{busy === `${p.id}-12` ? 'Abriendo…' : `1 año · ${pesos(p.price_year)}`}</button>
+      </div>
+    {:else}
+      <span class:price={row.id === 'price'}>{row.get(p)}</span>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet payCell({ row, column })}
+  {#if column.key === 'created_at'}{formatDay(row.created_at)}
+  {:else if column.key === 'amount'}{money(row.amount_cents)}
+  {:else if column.key === 'method'}{PAY_METHODS[row.method]}
+  {:else if column.key === 'plan'}{row.plan}
+  {:else}{plural(row.months, 'mes', 'meses')} · hasta {formatDay(row.period_end)}{/if}
+{/snippet}
+
 <style>
-  .now { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
-  .now h2 { margin: 0.5rem 0 0.2rem; font-size: 1.6rem; }
-  .usage { display: grid; gap: 4px; font-size: 0.92rem; color: var(--muted); }
-  .usage .over { color: var(--danger); font-weight: 600; }
-  .sec { font-size: 1.4rem; margin: 2.25rem 0 1rem; }
-  .plans { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-bottom: 1rem; }
-  .plan { display: grid; gap: 8px; align-content: start; }
-  .plan.current { border-color: var(--accent); }
-  .plan h3 { margin: 0.4rem 0 0; font-size: 1.4rem; }
-  .price { font-family: var(--font-body, inherit); font-weight: 700; font-variant-numeric: tabular-nums lining-nums; font-size: 2rem; margin: 0.25rem 0 0; }
-  .price small { font-size: 1rem; font-family: var(--font-body); color: var(--muted); }
-  ul { padding-left: 1.1rem; margin: 0.5rem 0 1rem; font-size: 0.92rem; }
+  .gap { margin-bottom: 16px; }
+  .now { display: flex; flex-wrap: wrap; gap: 16px 40px; justify-content: space-between; align-items: flex-end; }
+  .plan-name { margin: 12px 0 0; font-size: 2.25rem; line-height: 1.1; letter-spacing: -0.02em; }
+  .when { display: grid; gap: 4px; }
+  .when strong { font-size: 2rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums lining-nums; }
+  .lbl { color: var(--muted); font-size: 0.9rem; }
+  .usage { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px; }
+  .sec { font-size: 1.25rem; margin: 2.25rem 0 1rem; }
+  .fl { font-weight: 500; }
+  .price { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+  .pay { display: grid; gap: 8px; min-width: 150px; }
   .meta { color: var(--muted); font-size: 0.88rem; margin: 0; }
-  .ok { color: var(--accent); padding: 0.7rem 0.9rem; border: 1px solid currentColor; border-radius: var(--radius-sm); margin: 0 0 1rem; }
+  .note { margin-top: 12px; }
 </style>

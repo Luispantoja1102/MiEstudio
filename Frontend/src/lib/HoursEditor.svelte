@@ -54,31 +54,33 @@
   {#if loading}
     <p class="meta">Cargando…</p>
   {:else}
-    {#each order as d (d)}
-      <div class="day">
-        <label class="check day-name"><input type="checkbox" checked={days[d].on} onchange={() => toggle(d)} />{WEEKDAYS[d]}</label>
-        <div class="blocks">
-          {#if !days[d].on}
-            <span class="meta">No trabaja</span>
-          {:else}
-            {#each days[d].blocks as b, i}
-              <div class="block">
-                <input type="time" bind:value={b.start} aria-label="{WEEKDAYS[d]} desde" />
-                <span>a</span>
-                <input type="time" bind:value={b.end} aria-label="{WEEKDAYS[d]} hasta" />
-                {#if branches.length > 1}
-                  <select bind:value={b.branch_id} aria-label="Sucursal">{#each branches as br (br.id)}<option value={br.id}>{br.name}</option>{/each}</select>
-                {/if}
-                {#if days[d].blocks.length > 1}
-                  <button class="btn ghost sm" onclick={() => days[d].blocks.splice(i, 1)} aria-label="Quitar tramo">Quitar</button>
-                {/if}
-              </div>
-            {/each}
-            <button class="btn ghost sm" onclick={() => days[d].blocks.push({ start: '16:00', end: '20:00', branch_id: firstBranch })}>+ Tramo</button>
-          {/if}
+    <div class="week">
+      {#each order as d (d)}
+        <div class="day" class:rest={!days[d].on}>
+          <label class="check day-name"><input type="checkbox" checked={days[d].on} onchange={() => toggle(d)} />{WEEKDAYS[d]}</label>
+          <div class="blocks">
+            {#if !days[d].on}
+              <span class="meta">No trabaja</span>
+            {:else}
+              {#each days[d].blocks as b, i}
+                <div class="block">
+                  <input type="time" bind:value={b.start} aria-label="{WEEKDAYS[d]} desde" />
+                  <span class="to">a</span>
+                  <input type="time" bind:value={b.end} aria-label="{WEEKDAYS[d]} hasta" />
+                  {#if branches.length > 1}
+                    <select bind:value={b.branch_id} aria-label="Sucursal {WEEKDAYS[d]}">{#each branches as br (br.id)}<option value={br.id}>{br.name}</option>{/each}</select>
+                  {/if}
+                  {#if days[d].blocks.length > 1}
+                    <button class="btn ghost sm" onclick={() => days[d].blocks.splice(i, 1)} aria-label="Quitar tramo de {WEEKDAYS[d]}">Quitar</button>
+                  {/if}
+                </div>
+              {/each}
+              <button class="btn ghost sm" onclick={() => days[d].blocks.push({ start: '16:00', end: '20:00', branch_id: firstBranch })}>+ Tramo</button>
+            {/if}
+          </div>
         </div>
-      </div>
-    {/each}
+      {/each}
+    </div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="form-actions">
       <button class="btn" disabled={busy} onclick={save}>{busy ? 'Guardando…' : 'Guardar horario'}</button>
@@ -88,11 +90,15 @@
 </div>
 
 <style>
-  .hours { flex: 1 1 100%; margin-top: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-  h4 { margin: 0 0 0.75rem; font-size: 1rem; }
-  .day { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: start; padding: 0.35rem 0; }
-  .blocks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 36px; }
-  .block { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .block input, .block select { width: auto; margin: 0; min-height: 38px; }
-  @media (max-width: 520px) { .day { grid-template-columns: 1fr; } }
+  .hours { margin-top: 16px; padding: 20px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  h4 { margin: 0 0 8px; font-size: 1rem; }
+  .week { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 16px; margin: 12px 0; }
+  .day { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .day:last-child { border-bottom: 0; }
+  .blocks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 44px; }
+  .block { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .block input, .block select { width: auto; margin: 0; min-height: 44px; }
+  .to { color: var(--muted); }
+  .rest .day-name { color: var(--muted); }
+  @media (max-width: 520px) { .block { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); width: 100%; } .block select, .block .btn { grid-column: 1 / -1; width: 100%; } .block input { width: 100%; min-width: 0; } .day { grid-template-columns: 1fr; gap: 0; } .hours { padding: 14px; } }
 </style>

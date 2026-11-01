@@ -4,9 +4,25 @@
   import { branches, loadBranches } from '$lib/branch.svelte.js';
   import { longDate, todayIn } from '$lib/time.js';
   import { session } from '$lib/session.svelte.js';
+  import Modal from '$lib/Modal.svelte';
+  import PageHeader from '$lib/ui/PageHeader.svelte';
+  import Surface from '$lib/ui/Surface.svelte';
+  import DataTable from '$lib/ui/DataTable.svelte';
+  import StatusBadge from '$lib/ui/StatusBadge.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import LoadingState from '$lib/ui/LoadingState.svelte';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   const tz = session.me.business.timezone || 'America/Tijuana';
   const STATUS = { waiting: 'En espera', notified: 'Ya se le avisó' };
+  const TONE = { waiting: 'warning', notified: 'success' };
+  const columns = [
+    { key: 'client', label: 'Cliente' },
+    { key: 'service', label: 'Servicio' },
+    { key: 'when', label: 'Día y franja' },
+    { key: 'status', label: 'Estado' },
+    { key: 'act', label: 'Acción' }
+  ];
 
   let list = $state([]);
   let services = $state([]);
@@ -87,19 +103,46 @@
   }
 </script>
 
-<div class="page-head">
-  <div>
-    <h1>Lista de espera</h1>
-    <p>Quien no encontró horario. Cuando se libera uno, se le avisa por correo (el primero que lo reserva se lo queda).</p>
-  </div>
-  <button class="btn" onclick={startNew}>Agregar a la lista</button>
-</div>
+<PageHeader title="Lista de espera" description="Quien no encontró horario. Cuando se libera uno, se le avisa por correo (el primero que lo reserva se lo queda).">
+  {#snippet actions()}
+    <button class="btn" onclick={startNew}>Agregar a la lista</button>
+  {/snippet}
+</PageHeader>
 
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if error && !open}
+  <div class="notice"><InlineNotice tone="danger" message={error} /></div>
+{/if}
 
-{#if open}
-  <form class="card" onsubmit={save} style="margin-bottom: 1.5rem">
-    <h3>Nueva solicitud</h3>
+<Surface padding="flush">
+  {#if loading}
+    <LoadingState />
+  {:else if list.length === 0}
+    <EmptyState title="Nadie en lista de espera" description="Cuando alguien no encuentre horario en la reserva en línea, aparecerá aquí." />
+  {:else}
+    <DataTable caption="Solicitudes en lista de espera" {columns} rows={list}>
+      {#snippet cell({ row: w, column })}
+        {#if column.key === 'client'}
+          <span class="name">{w.client_name}</span>
+          <span class="sub">{w.client_phone}{w.source === 'online' ? ' · desde la reserva en línea' : ''}</span>
+        {:else if column.key === 'service'}
+          <span class="v"><span class="name">{w.service_name}</span>
+          <span class="sub">{w.staff_name ? `Con ${w.staff_name}` : 'Cualquiera'}{branches.list?.length > 1 ? ` · ${w.branch_name}` : ''}</span></span>
+        {:else if column.key === 'when'}
+          <span class="v"><span class="name">{longDate(w.day)}</span>
+          {#if w.from}<span class="sub">de {w.from} a {w.to}</span>{/if}</span>
+        {:else if column.key === 'status'}
+          <StatusBadge label={STATUS[w.status] ?? w.status} tone={TONE[w.status] ?? 'neutral'} />
+        {:else}
+          <button class="btn ghost sm" onclick={() => remove(w)} aria-label={`Quitar a ${w.client_name} de la lista`}>Quitar</button>
+        {/if}
+      {/snippet}
+    </DataTable>
+  {/if}
+</Surface>
+
+<Modal bind:open title="Nueva solicitud">
+  <form onsubmit={save}>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="client">
       {#if client}
         <div class="item-row"><span class="grow title">{client.name}</span><span class="meta">{client.email || 'sin correo'}</span><button type="button" class="btn ghost sm" onclick={() => (client = null)}>Cambiar</button></div>
@@ -132,34 +175,20 @@
       <label class="field">Desde (opcional) <input type="time" bind:value={form.from} /></label>
       <label class="field">Hasta <input type="time" bind:value={form.to} /></label>
     </div>
-    <div class="form-actions">
-      <button class="btn" disabled={busy || !client}>{busy ? 'Guardando…' : 'Agregar'}</button>
+    <div class="actions">
       <button type="button" class="btn ghost" onclick={() => (open = false)}>Cancelar</button>
+      <button class="btn" disabled={busy || !client}>{busy ? 'Guardando…' : 'Agregar'}</button>
     </div>
   </form>
-{/if}
-
-{#if loading}
-  <p class="meta">Cargando…</p>
-{:else if list.length === 0}
-  <div class="empty">Nadie en lista de espera. Cuando alguien no encuentre horario en la reserva en línea, aparecerá aquí.</div>
-{:else}
-  <div class="list">
-    {#each list as w (w.id)}
-      <div class="item-row">
-        <div class="grow">
-          <div class="title">{w.client_name} <span class="badge" class:muted={w.status === 'notified'}>{STATUS[w.status]}</span></div>
-          <div class="meta">{w.service_name}{w.staff_name ? ` con ${w.staff_name}` : ''} · {longDate(w.day)}{w.from ? ` · de ${w.from} a ${w.to}` : ''}{branches.list?.length > 1 ? ` · ${w.branch_name}` : ''} · {w.client_phone}{w.source === 'online' ? ' · desde la reserva en línea' : ''}</div>
-        </div>
-        <button class="btn ghost sm" onclick={() => remove(w)}>Quitar</button>
-      </div>
-    {/each}
-  </div>
-{/if}
+</Modal>
 
 <style>
-  h3 { font-size: 1.25rem; }
+  .notice { margin-bottom: 16px; }
+  .v { display: block; min-width: 0; }
+  .name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .sub { display: block; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
   .client { margin-bottom: 1rem; }
-  .pick { display: flex; justify-content: space-between; width: 100%; min-height: 40px; align-items: center; padding: 0 0.8rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .pick { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; align-items: center; padding: 0 0.8rem; margin-top: 4px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; text-align: left; }
   .pick small { color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 </style>

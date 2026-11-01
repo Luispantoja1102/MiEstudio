@@ -1,113 +1,115 @@
 <script>
-  // 11:20. El anticipo por transferencia: el comprobante entra a la cita, suena la campana y el titular la confirma.
-  import { scene } from './scroll.js';
+  // 11:20. El anticipo: dos estados concretos de la misma cita. Primero llega el comprobante; después el titular la confirma.
+  // Al llegar a la pantalla, el segundo paso toma el relevo. Con «reducir movimiento» se ven los dos estados completos.
+  import AppointmentSummary from '$lib/ui/AppointmentSummary.svelte';
+  import Icon from '$lib/Icon.svelte';
+  import { vista } from './vista.js';
 </script>
 
-<section class="comprobante" use:scene data-hora="11:20" data-momento="Llega un anticipo" aria-labelledby="t-anticipo">
-  <div class="cuadro">
-    <div class="texto">
-      <p class="hora">11:20</p>
-      <h2 id="t-anticipo">Andrea apartó su jueves con $150.</h2>
-      <p>Pide un anticipo para que el horario no se pierda. Con Mercado Pago se confirma solo; por transferencia, el cliente sube su comprobante desde su cita, o tú lo adjuntas desde la agenda, y te llega un aviso para confirmarla.</p>
-      <ul>
-        <li>Solo el titular confirma los pagos.</li>
-        <li>Si el comprobante no llega, el horario se libera solo.</li>
-        <li>El dinero cae directo en tu cuenta.</li>
-      </ul>
+<section class="comprobante" aria-labelledby="t-anticipo">
+  <div class="envoltura">
+    <div class="intro">
+      <div>
+        <p class="kicker"><time>11:20</time>Llega un anticipo</p>
+        <h2 id="t-anticipo" class="titulo">Andrea apartó su jueves con $150.</h2>
+      </div>
+      <div class="lado">
+        <p>Pide un anticipo para que el horario no se pierda.</p>
+        <ul class="puntos">
+          <li>Solo el titular confirma los pagos.</li>
+          <li>Si el comprobante no llega, el horario se libera solo.</li>
+          <li>El dinero cae directo en tu cuenta.</li>
+        </ul>
+      </div>
     </div>
 
-    <div class="mesa" aria-hidden="true">
-      <!-- La cita en la agenda -->
-      <div class="cita">
-        <p class="quien"><b>Andrea Solís</b><span>Acrílico almendra · jue 19, 10:00</span></p>
+    <div class="estados" use:vista>
+      <!-- Estado 1 -->
+      <article class="estado uno" aria-labelledby="e1">
+        <h3 id="e1"><span class="n">1</span>Llega el comprobante</h3>
+        <AppointmentSummary timeLabel="10:00" client="Andrea Solís" service="Acrílico almendra · jue 19" staff="Dani" statusLabel="Esperando confirmación" tone="warning" />
         <dl>
-          <div><dt>Con</dt><dd>Dani</dd></div>
           <div><dt>Anticipo</dt><dd>$150.00</dd></div>
-          <div><dt>Estado</dt><dd class="estado"><span class="antes">Esperando comprobante</span><span class="despues">Confirmada</span></dd></div>
+          <div><dt>Transferencia SPEI</dt><dd>Concepto CITA-214</dd></div>
+          <div><dt>Clave de rastreo</dt><dd>2026111911204417</dd></div>
         </dl>
+        <p class="aviso"><Icon name="bell" size={18} /> Aviso al titular: comprobante recibido</p>
         <span class="boton">Confirmar pago y cita</span>
-        <span class="sello">Confirmada</span>
-        <span class="campana"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg><i>1</i></span>
-      </div>
+      </article>
 
-      <!-- El comprobante del banco que llega -->
-      <div class="recibo">
-        <p class="banco">Transferencia SPEI</p>
-        <p class="monto">$150.00</p>
-        <p class="concepto">Concepto <b>CITA-214</b></p>
-        <p class="rastreo">Clave de rastreo 2026111911204417</p>
-      </div>
+      <span class="paso" aria-hidden="true"></span>
 
+      <!-- Estado 2 -->
+      <article class="estado dos" aria-labelledby="e2">
+        <h3 id="e2"><span class="n">2</span>El titular confirma</h3>
+        <AppointmentSummary timeLabel="10:00" client="Andrea Solís" service="Acrílico almendra · jue 19" staff="Dani" statusLabel="Confirmada" tone="success" />
+        <dl>
+          <div><dt>Anticipo</dt><dd>$150.00 · pagado</dd></div>
+          <div><dt>Confirmó</dt><dd>Titular · 11:24</dd></div>
+          <div><dt>Horario</dt><dd>Apartado para Andrea</dd></div>
+        </dl>
+      </article>
     </div>
     <p class="ejemplo">Ejemplo ilustrativo</p>
+
+    <!-- Los dos caminos -->
+    <dl class="caminos">
+      <div>
+        <dt>Mercado Pago</dt>
+        <dd>Con Mercado Pago se confirma solo.</dd>
+      </div>
+      <div>
+        <dt>Transferencia</dt>
+        <dd>Por transferencia, el cliente sube su comprobante desde su cita, o tú lo adjuntas desde la agenda, y te llega un aviso para confirmarla.</dd>
+      </div>
+    </dl>
   </div>
 </section>
 
 <style>
-  .comprobante { height: 240vh; background: var(--ticket); color: var(--tinta); }
-  .cuadro { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; gap: clamp(24px, 4vw, 64px); padding: 88px clamp(16px, 4vw, 56px) 40px; }
-  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 15ch; text-wrap: balance; }
-  .texto > p:not(.hora) { margin: 0; max-width: 46ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
-  ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-  ul li { padding-left: 18px; position: relative; line-height: 1.4; }
-  ul li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--bermellon); }
+  .comprobante { padding: clamp(72px, 9vw, 112px) 0; background: var(--ticket); color: var(--tinta); }
+  .intro { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); align-items: end; gap: 24px clamp(32px, 6vw, 96px); margin-bottom: clamp(32px, 4vw, 56px); }
+  .titulo { max-width: 15ch; }
+  .lado p { margin: 0; line-height: 1.55; color: var(--tinta-suave); }
+  .lado .puntos { margin-top: 14px; }
 
-  .mesa { position: relative; height: min(520px, 70svh); }
-
-  .cita {
-    --ok: clamp(0, calc((var(--p) - 0.62) * 6), 1);
-    position: absolute; z-index: 2; left: 0; bottom: 6%; width: min(420px, 92%); padding: 24px; border-radius: 16px; background: var(--carta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08);
-    box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.08), 0 24px 48px -24px rgb(var(--ink-rgb) / 0.35);
-  }
-  .quien { display: grid; gap: 4px; margin: 0 0 16px; }
-  .quien b { font-family: var(--display); font-stretch: var(--ancho); font-size: 1.5rem; font-weight: 650; }
-  .quien span { color: var(--tinta-suave); font-size: 0.95rem; }
-  dl { margin: 0; display: grid; gap: 8px; }
-  dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px dashed rgb(var(--ink-rgb) / 0.18); }
+  .estados { display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr); align-items: stretch; }
+  .estado { display: flex; flex-direction: column; padding: 22px 24px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--carta); }
+  h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
+  .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--tinta); color: var(--tinta); font-size: 0.78rem; letter-spacing: 0; }
+  dl { margin: 0; }
+  .estado dl { margin-top: 6px; }
+  .estado dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 0.92rem; }
   dt { color: var(--tinta-suave); }
-  dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .estado { display: grid; text-align: right; }
-  .estado span { grid-area: 1 / 1; }
-  .antes { opacity: calc(1 - var(--ok)); color: var(--miel); }
-  .despues { opacity: var(--ok); color: var(--eucalipto); }
-  .boton { display: block; margin-top: 18px; padding: 12px; border-radius: 10px; text-align: center; font-weight: 600; background: var(--tinta); color: var(--ticket); opacity: calc(1 - var(--ok) * 0.6); }
-  .sello {
-    position: absolute; left: 50%; bottom: 20px; padding: 6px 14px; background: var(--carta); border: 3px solid var(--eucalipto); border-radius: 6px;
-    font-family: var(--rotulo); font-stretch: 75%; font-weight: 800; font-size: 1.4rem; text-transform: uppercase; color: var(--eucalipto);
-    transform: translateX(-50%) rotate(-6deg) scale(calc(1.6 - var(--ok) * 0.6)); opacity: var(--ok);
+  dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .aviso { display: flex; align-items: center; gap: 8px; margin: 12px 0 18px; font-size: 0.9rem; font-weight: 600; color: var(--bermellon); }
+  .boton { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 8px; background: var(--bermellon); color: #fff; font-weight: 700; }
+
+  /* La flecha entre un estado y otro */
+  .paso { position: relative; align-self: center; height: 2px; background: var(--tinta); margin: 0 8px; }
+  .paso::after { content: ''; position: absolute; right: -1px; top: -5px; width: 10px; height: 10px; border-top: 2px solid var(--tinta); border-right: 2px solid var(--tinta); transform: rotate(45deg); transform-origin: 70% 30%; }
+  .ejemplo { margin-top: 14px; }
+
+  .caminos { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); margin-top: clamp(32px, 4vw, 56px); border-top: 2px solid var(--tinta); }
+  .caminos > div { padding: 18px 0 0; }
+  .caminos > div + div { padding-left: clamp(20px, 3vw, 40px); border-left: 1px solid var(--border); }
+  .caminos dt { margin-bottom: 4px; font-weight: 700; color: var(--tinta); }
+  .caminos dd { text-align: left; font-weight: 400; line-height: 1.5; color: var(--tinta-suave); max-width: 52ch; }
+
+  /* Movimiento que explica: el estado 2 toma el relevo del 1 */
+  @media (prefers-reduced-motion: no-preference) {
+    .estados:not(:global(.vista)) .dos { opacity: 0.35; }
+    .estados:not(:global(.vista)) .paso { transform: scaleX(0); }
+    .dos { transition: opacity 600ms var(--ease) 900ms; }
+    .paso { transform-origin: left; transition: transform 500ms var(--ease) 400ms; }
   }
 
-  /* el comprobante viaja de la esquina hasta la cita */
-  .recibo {
-    --mv: clamp(0, calc((var(--p) - 0.08) * 2.2), 1);
-    --tx: -78%;
-    position: absolute; right: 0; top: 0; width: min(260px, 70%); padding: 18px 20px 22px; background: #fbfbfa; border-radius: 4px; --tinta: #141416; --tinta-suave: #55555c; --ink-rgb: 20 20 22; color: var(--tinta);
-    box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.1), 0 18px 32px -18px rgb(var(--ink-rgb) / 0.4);
-    transform: translate3d(calc(var(--mv) * var(--tx)), calc(var(--mv) * 46%), 0) rotate(calc(5deg - var(--mv) * 8deg));
-  }
-  .recibo::after { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; background: radial-gradient(circle at 6px 0, transparent 5px, #fbfbfa 5.5px) 0 0 / 12px 8px repeat-x; }
-  .banco { margin: 0; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-suave); }
-  .monto { margin: 6px 0 10px; font-family: var(--rotulo); font-stretch: 80%; font-weight: 700; font-size: 2.3rem; font-variant-numeric: tabular-nums; }
-  .concepto, .rastreo { margin: 0; font-size: 0.85rem; color: var(--tinta-suave); }
-  .rastreo { margin-top: 4px; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-
-  .campana {
-    --on: clamp(0, calc((var(--p) - 0.45) * 8), 1);
-    position: absolute; right: -18px; top: -18px; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
-    background: var(--tinta); color: var(--ticket); opacity: var(--on); transform: scale(calc(0.6 + var(--on) * 0.4));
-  }
-  .campana i { position: absolute; top: -2px; right: -2px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--bermellon); font-style: normal; font-size: 0.7rem; font-weight: 700; }
-  .ejemplo { position: absolute; right: clamp(16px, 4vw, 56px); bottom: 18px; margin: 0; font-size: 0.75rem; color: var(--tinta-suave); }
-
-  :global(.comprobante.still) { height: auto; }
-  :global(.comprobante.still) .cuadro { position: relative; height: auto; min-height: 100svh; }
-
-  @media (max-width: 900px) {
-    .comprobante { height: 200vh; }
-    .cuadro { grid-template-columns: 1fr; align-content: start; gap: 28px; padding-top: 80px; }
-    .texto ul { display: none; }
-    .mesa { height: 380px; }
-    .recibo { --tx: -12%; }
+  @media (max-width: 860px) {
+    .intro { grid-template-columns: 1fr; }
+    .estados { grid-template-columns: 1fr; }
+    .paso { width: 2px; height: 32px; margin: 0 0 0 28px; }
+    .paso::after { top: auto; bottom: -1px; right: -5px; transform: rotate(135deg); transform-origin: 70% 30%; }
+    .caminos { grid-template-columns: 1fr; }
+    .caminos > div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--border); margin-top: 18px; }
   }
 </style>

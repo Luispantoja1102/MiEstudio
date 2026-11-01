@@ -1,6 +1,7 @@
 <script>
-  // 02:13. La reserva en línea trabaja de noche: cada aviso aparece en su minuto y aparta su horario en el calendario.
-  import { scene } from './scroll.js';
+  // 02:13. La reserva en línea trabaja de noche: una reserva móvil (la que ve el cliente) y, al lado, el registro de lo que fue entrando.
+  // Al llegar a la pantalla, cada reserva toma su horario en el calendario, en orden. Con «reducir movimiento» todo se ve ya completo.
+  import { vista } from './vista.js';
 
   // Ejemplo ilustrativo
   const avisos = [
@@ -14,100 +15,104 @@
   const libres = new Set([3, 4, 5, 6, 10, 11, 12, 13, 17, 18, 19, 20, 24, 25, 26, 27]);
 </script>
 
-<section id="madrugada" class="madrugada" use:scene data-hora="02:13" data-momento="Mientras dormías" aria-labelledby="t-madrugada">
-  <div class="cuadro">
+<section id="madrugada" class="madrugada" aria-labelledby="t-madrugada">
+  <div class="envoltura">
     <div class="texto">
-      <p class="hora">02:13</p>
-      <h2 id="t-madrugada">Mientras dormías, se llenó el jueves.</h2>
-      <p>Tu página de reservas trabaja toda la noche. Tus clientes eligen servicio, persona y hora, y solo ven lo libre: lo ocupado dice «Ocupado», sin contar de quién.</p>
-      <ul>
+      <p class="kicker"><time>02:13</time>Mientras dormías</p>
+      <h2 id="t-madrugada" class="titulo">Mientras dormías, se llenó el jueves.</h2>
+      <p class="lead">Tu página de reservas trabaja toda la noche. Tus clientes eligen servicio, persona y hora, y solo ven lo libre: lo ocupado dice «Ocupado», sin contar de quién.</p>
+      <ul class="puntos">
         <li>El horario se aparta mientras llenan sus datos.</li>
         <li>Recordatorio por correo y WhatsApp antes de la cita.</li>
         <li>Sin apps ni cuentas: reservan desde un enlace en tu Instagram.</li>
       </ul>
     </div>
 
-    <div class="telefono" aria-hidden="true">
-      <div class="pantalla">
+    <div class="pieza" use:vista>
+      <!-- Lo que ve la clienta, en su celular -->
+      <figure class="reserva" aria-label="Página pública de reservas, jueves 19 de noviembre (ejemplo ilustrativo)">
         <p class="negocio">Barbería y Salón Ébano</p>
         <p class="mes">Jueves 19 de noviembre</p>
-        <div class="cal">
+        <div class="cal" aria-hidden="true">
           {#each ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as d}<i>{d}</i>{/each}
           {#each dias as d}<span class:libre={libres.has(d)} class:hoy={d === 19}>{d}</span>{/each}
         </div>
         <div class="slots">
           {#each horarios as h, i}
-            {@const tomado = avisos.findIndex((a) => a.slot === i)}
-            <span class:ocupado={ocupados.has(i)} class:tomado={tomado >= 0} style="--n: {tomado}">
-              {h}{#if ocupados.has(i)}<small>Ocupado</small>{:else if tomado >= 0}<small class="ya">Ocupado</small>{/if}
+            {@const n = avisos.findIndex((a) => a.slot === i)}
+            <span class:ocupado={ocupados.has(i)} class:tomado={n >= 0} style="--n: {n}">
+              {h}<small>{ocupados.has(i) || n >= 0 ? 'Ocupado' : 'Libre'}</small>
             </span>
           {/each}
         </div>
+        <figcaption class="ejemplo">Ejemplo ilustrativo</figcaption>
+      </figure>
+
+      <!-- Lo que fue entrando -->
+      <div class="registro">
+        <h3>Reservas de la madrugada</h3>
+        <ol aria-label="Reservas recibidas de madrugada (ejemplo ilustrativo)">
+          {#each avisos as a, i}
+            <li style="--n: {i}">
+              <time>{a.hora}</time>
+              <span><b>{a.quien}</b> reservó {a.que}</span>
+              <small>{a.cuando}</small>
+            </li>
+          {/each}
+        </ol>
+        <p class="ejemplo">Ejemplo ilustrativo</p>
       </div>
     </div>
-
-    <ol class="avisos" aria-label="Reservas recibidas de madrugada (ejemplo ilustrativo)">
-      {#each avisos as a, i}
-        <li style="--n: {i}">
-          <time>{a.hora}</time>
-          <span><b>{a.quien}</b> reservó {a.que}</span>
-          <small>{a.cuando}</small>
-        </li>
-      {/each}
-    </ol>
   </div>
 </section>
 
 <style>
-  .madrugada { height: 260vh; background: var(--ticket); color: var(--tinta); }
-  .cuadro {
-    position: sticky; top: 0; height: 100svh; overflow: hidden;
-    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.8fr) minmax(0, 0.9fr); align-items: center; gap: clamp(20px, 3vw, 48px);
-    padding: 88px clamp(16px, 4vw, 56px) 40px;
-  }
-  .hora { margin: 0 0 14px; font-family: var(--rotulo); font-stretch: 85%; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bermellon); font-variant-numeric: tabular-nums; }
-  h2 { margin: 8px 0 18px; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1.02; max-width: 14ch; text-wrap: balance; }
-  .texto > p:not(.hora) { margin: 0; max-width: 44ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
-  ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-  li { line-height: 1.4; }
-  ul li { padding-left: 18px; position: relative; }
-  ul li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--bermellon); }
+  .madrugada { padding: clamp(72px, 9vw, 112px) 0; background: var(--papel-2); color: var(--tinta); }
+  .envoltura { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(32px, 5vw, 80px); }
+  .titulo { max-width: 14ch; }
+  .lead { margin: 20px 0 0; max-width: 44ch; line-height: 1.55; color: var(--tinta-suave); text-wrap: pretty; }
 
-  /* Teléfono: la página pública de reservas */
-  .telefono { justify-self: center; width: min(280px, 100%); aspect-ratio: 9 / 18.5; padding: 10px; border-radius: 38px; background: #050608; box-shadow: inset 0 0 0 2px #2a2d33, 0 30px 60px -28px rgb(var(--ink-rgb) / 0.45); }
-  .pantalla { height: 100%; border-radius: 30px; background: var(--ticket); color: var(--tinta); padding: 26px 16px 16px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px; overflow: hidden; }
+  .pieza { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); align-items: start; gap: clamp(20px, 3vw, 40px); }
+
+  /* La reserva móvil: una hoja blanca con borde fino, sin carcasa */
+  .reserva { margin: 0; padding: 22px 18px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--carta); display: grid; gap: 10px; }
   .negocio { margin: 0; font-family: var(--display); font-stretch: var(--ancho); font-weight: 650; font-size: 1.05rem; }
-  .mes { margin: 0; font-size: 0.78rem; color: var(--tinta-suave); }
-  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; font-size: 0.68rem; text-align: center; }
+  .mes { margin: 0; font-size: 0.8rem; color: var(--tinta-suave); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; font-size: 0.7rem; text-align: center; font-variant-numeric: tabular-nums; }
   .cal i { font-style: normal; font-weight: 700; color: var(--tinta-suave); }
-  .cal span { padding: 4px 0; border-radius: 6px; color: rgb(var(--ink-rgb) / 0.3); }
-  .cal .libre { color: var(--tinta); background: rgb(var(--ink-rgb) / 0.05); }
-  .cal .hoy { background: var(--tinta); color: var(--ticket); }
-  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
-  .slots span { display: flex; flex-direction: column; padding: 7px 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.16); font-variant-numeric: tabular-nums; }
-  .slots small { font-size: 0.66rem; font-weight: 500; color: var(--tinta-suave); }
-  .slots .ocupado { color: rgb(var(--ink-rgb) / 0.4); background: rgb(var(--ink-rgb) / 0.05); box-shadow: none; }
-  /* el horario se toma justo cuando llega su aviso */
-  .slots .tomado { --on: clamp(0, calc((var(--p) - 0.18 - var(--n) * 0.22) * 8), 1); background: color-mix(in oklab, var(--tinta) calc(var(--on) * 6%), transparent); color: color-mix(in oklab, var(--tinta) calc(100% - var(--on) * 60%), transparent); }
-  .slots .ya { opacity: var(--on); }
+  .cal span { padding: 5px 0; border-radius: 4px; color: rgb(var(--ink-rgb) / 0.32); }
+  .cal .libre { color: var(--tinta); background: var(--papel-2); }
+  .cal .hoy { background: var(--tinta); color: #fff; }
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .slots span { display: flex; flex-direction: column; padding: 7px 9px; border-radius: 6px; font-size: 0.8rem; font-weight: 650; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.22); font-variant-numeric: tabular-nums; }
+  .slots small { font-size: 0.7rem; font-weight: 500; color: var(--tinta-suave); }
+  .slots .ocupado, .slots .tomado { background: var(--papel-2); box-shadow: none; color: rgb(var(--ink-rgb) / 0.55); }
+  .slots .tomado small { color: var(--tinta-suave); }
+  .reserva .ejemplo { padding-top: 4px; }
 
-  /* Avisos que llegan de madrugada */
-  .avisos { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
-  .avisos li {
-    --on: clamp(0, calc((var(--p) - 0.12 - var(--n) * 0.22) * 6), 1);
-    display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 14px 16px; border-radius: 14px;
-    background: var(--carta); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.08);
-    opacity: var(--on); transform: translate3d(0, calc((1 - var(--on)) * 24px), 0);
+  /* El registro lateral */
+  .registro { padding-top: 6px; }
+  h3 { margin: 0 0 6px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
+  ol { margin: 0; padding: 0; list-style: none; }
+  ol li { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  ol li:first-child { border-top: 2px solid var(--tinta); }
+  ol time { grid-row: span 2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.5rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  ol small { color: var(--tinta-suave); }
+  .registro .ejemplo { margin-top: 12px; }
+
+  /* Movimiento que explica: la reserva llega y toma su horario en el calendario */
+  @media (prefers-reduced-motion: no-preference) {
+    .pieza:not(:global(.vista)) .registro li { opacity: 0; transform: translateY(14px); }
+    .registro li { transition: opacity 500ms var(--ease), transform 500ms var(--ease); transition-delay: calc(var(--n) * 700ms + 200ms); }
+    .pieza:not(:global(.vista)) .slots .tomado { background: transparent; box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.22); color: var(--tinta); }
+    .slots .tomado { transition: background-color 400ms var(--ease), color 400ms var(--ease); transition-delay: calc(var(--n) * 700ms + 500ms); }
   }
-  .avisos time { grid-row: span 2; font-family: var(--rotulo); font-stretch: 75%; font-weight: 700; font-size: 1.3rem; color: var(--tinta); font-variant-numeric: tabular-nums; }
-  .avisos small { color: var(--tinta-suave); }
-
-  :global(.madrugada.still) { height: auto; }
-  :global(.madrugada.still) .cuadro { position: relative; height: auto; min-height: 100svh; }
 
   @media (max-width: 960px) {
-    .madrugada { height: auto; }
-    .cuadro { position: relative; height: auto; grid-template-columns: 1fr; padding-block: 72px; }
-    .avisos li, .slots .tomado { --on: 1; }
+    .envoltura { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .pieza { grid-template-columns: 1fr; }
+    .reserva { max-width: 320px; }
   }
 </style>

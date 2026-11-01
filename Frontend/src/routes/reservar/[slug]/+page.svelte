@@ -248,17 +248,17 @@
     <ol class="steps" aria-label="Pasos">
       {#each ['Servicio', 'Lugar', 'Horario', 'Tus datos'] as label, i}
         <li aria-current={step === i + 1 ? 'step' : undefined} class:on={step >= i + 1}>
-          {#if i + 1 < step}<button type="button" onclick={() => (step = i + 1)}>{label}</button>{:else}<span>{label}</span>{/if}
+          {#if i + 1 < step}<button type="button" onclick={() => (step = i + 1)}><i>{i + 1}</i>{label}</button>{:else}<span><i>{i + 1}</i>{label}</span>{/if}
         </li>
       {/each}
     </ol>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
 
     {#if step === 1}
-      <div class="list">
+      <div class="svc">
         {#each info.services as s (s.id)}
-          <button class="item-row pick" onclick={() => chooseService(s)}>
-            <span class="grow"><span class="title">{s.name}</span><span class="meta">{s.duration_min} min{#if s.deposit_cents} · anticipo {money(s.deposit_cents)}{/if}</span></span>
+          <button class="pick" onclick={() => chooseService(s)}>
+            <span class="grow"><span class="title">{s.name}</span><span class="meta">{s.duration_min} min{#if s.deposit_cents}{' '}· anticipo {money(s.deposit_cents)}{/if}</span></span>
             {#if s.price_cents !== undefined}<b>{money(s.price_cents)}</b>{/if}
           </button>
         {:else}
@@ -300,7 +300,7 @@
             <p class="meta">No hay horarios ese día. Prueba con otra fecha{info.staff.length > 1 ? ' o con otra persona' : ''}.</p>
             {#if info.waitlist}
               {#if joined}
-                <p class="ok" role="status">✓ Listo. Si se libera un lugar ese día, te avisamos por correo.</p>
+                <p class="ok" role="status">Listo. Si se libera un lugar ese día, te avisamos por correo.</p>
               {:else if !wait}
                 <button class="btn ghost" onclick={() => (wait = true)}>Avisarme si se libera un lugar</button>
               {:else}
@@ -343,11 +343,12 @@
     {:else}
       <form class="card" onsubmit={submit}>
         {#if holdLeft > 0}<p class="holdnote" role="status">Tu horario está apartado por <b>{clock(holdLeft)}</b> mientras llenas tus datos.</p>{/if}
-        <p class="summary">
-          <b>{service.name}</b><br />
-          {longDate(picked.iso.slice(0, 10))} · {fmtTime(picked.iso, tz)} · {picked.staffId ? picked.who : staffName}
-          {#if service.deposit_cents}<br /><span class="meta">Para apartarla se pide un anticipo de {money(service.deposit_cents)}, que se descuenta de tu cuenta.</span>{/if}
-        </p>
+        <div class="summary">
+          <b>{service.name}</b>
+          <span>{longDate(picked.iso.slice(0, 10))} · {fmtTime(picked.iso, tz)}</span>
+          <span>{picked.staffId ? picked.who : staffName}</span>
+          {#if service.deposit_cents}<span class="dep">Anticipo para apartarla: <b>{money(service.deposit_cents)}</b><small>Se descuenta de tu cuenta.</small></span>{/if}
+        </div>
         {#if service.deposit_cents && info.deposit_methods?.length > 1}
           <fieldset class="paymeth">
             <legend>¿Cómo pagas el anticipo?</legend>
@@ -388,33 +389,41 @@
 </PublicLayout>
 
 <style>
-  .steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 1.25rem; font-size: 0.88rem; color: var(--muted); flex-wrap: wrap; }
-  .steps li { border-radius: 999px; background: var(--surface-2); }
-  .steps li > span, .steps li > button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 999px; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; list-style: none; padding: 0; margin: 0 0 1.25rem; font-size: 0.8rem; color: var(--muted); }
+  .steps li { border-top: 3px solid var(--border); min-width: 0; }
+  .steps li.on { border-top-color: var(--accent); color: var(--text); }
+  .steps li > span, .steps li > button { display: inline-flex; align-items: flex-start; gap: 5px; max-width: 100%; min-height: 44px; padding-top: 8px !important; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .steps li > button { cursor: pointer; }
-  .steps li.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .steps li[aria-current='step'] { background: var(--accent); color: var(--accent-contrast); }
-  .pick { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
-  .pick:hover { border-color: var(--accent); }
+  .steps li[aria-current='step'] { font-weight: 700; }
+  .steps i { font-style: normal; font-variant-numeric: tabular-nums; }
+  .steps i::after { content: '·'; margin-left: 5px; }
+  .svc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .pick { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 16px; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .pick:last-child { border-bottom: 0; }
+  .pick:hover { background: var(--surface-2); }
+  .pick .grow { flex: 1; min-width: 0; }
+  .pick .title { display: block; font-weight: 600; }
   .pick .meta { display: block; }
-  .summary { padding: 0.8rem 1rem; background: var(--surface-2); border-radius: var(--radius-sm); }
+  .pick b { font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+  .summary { display: grid; gap: 2px; margin-bottom: 1.1rem; padding: 14px 16px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); font-size: 0.95rem; }
+  .summary .dep { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .summary .dep small { display: block; color: var(--muted); font-size: 0.82rem; }
   .privacy { margin: 0.5rem 0 1rem; font-size: 0.85rem; color: var(--muted); }
   .privacy summary { cursor: pointer; }
-  .done { text-align: center; display: grid; gap: 0.5rem; justify-items: center; }
+  .done { display: grid; gap: 0.5rem; justify-items: start; }
   .done h2 { margin-bottom: 0; }
   .foot { text-align: center; margin-top: 1.5rem; }
-  .chip small { opacity: 0.8; }
-  .wait { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+    .wait { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .ok { color: var(--accent); font-weight: 600; }
   .meta { color: var(--muted); font-size: 0.88rem; }
-  .holdnote { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: 0.9rem; }
+  .holdnote { margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: 0.9rem; }
   .holdnote b { font-variant-numeric: tabular-nums; }
   .paymeth { margin: 0 0 1rem; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); display: grid; gap: 6px; }
   .paymeth legend { padding: 0 6px; font-size: 0.9rem; font-weight: 500; }
   .daymeta { margin: 1rem 0 0.6rem; font-weight: 500; }
-  .times { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
-  .time { display: grid; gap: 1px; place-items: center; min-height: 48px; padding: 4px 6px; font: inherit; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease), transform 0.12s var(--ease); }
+  .times { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .time { display: grid; gap: 1px; place-items: center; min-height: 52px; padding: 4px 6px; font: inherit; font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; color: var(--text); background: var(--surface); border: 1px solid var(--control-border, var(--border)); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease), transform 0.12s var(--ease); }
   .time small { font-size: 0.68rem; font-weight: 500; color: var(--muted); }
   .time:hover:not(.busy) { border-color: var(--accent); background: var(--accent-soft); }
   .time:active:not(.busy) { transform: scale(0.96); }

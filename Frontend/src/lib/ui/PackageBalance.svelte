@@ -9,7 +9,7 @@
   <div class="ticks" role="img" aria-label="{remaining} de {total} sesiones disponibles">
     {#each Array(total) as _, i}<i class:used={i >= remaining}></i>{/each}
   </div>
-  <p>Quedan <strong>{remaining}</strong> de {total}{#if expiresLabel} · {expiresLabel}{/if}</p>
+  <p>Quedan <strong>{remaining}</strong> de {total}{#if expiresLabel}{' '}· {expiresLabel}{/if}</p>
 </div>
 
 <style>

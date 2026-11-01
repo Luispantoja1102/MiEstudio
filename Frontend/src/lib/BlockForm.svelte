@@ -1,6 +1,7 @@
 <script>
   import { api } from '$lib/api.js';
   import { zonedToDate } from '$lib/time.js';
+  import InlineNotice from '$lib/ui/InlineNotice.svelte';
 
   let { staff, date, tz, selfId = null, ondone } = $props();
 
@@ -46,6 +47,10 @@
     <label class="field">Hasta <input type="time" bind:value={end} required /></label>
   </div>
   <label class="field">Motivo (opcional) <input bind:value={reason} maxlength="200" placeholder="Comida, trámite, descanso…" /></label>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-  <button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Bloquear horario'}</button>
+  {#if error}<InlineNotice tone="danger" message={error} />{/if}
+  <div class="form-actions"><button class="btn" disabled={busy}>{busy ? 'Guardando…' : 'Bloquear horario'}</button></div>
 </form>
+
+<style>
+  form :global(.notice) { margin-bottom: 1rem; }
+</style>
