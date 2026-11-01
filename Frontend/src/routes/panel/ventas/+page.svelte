@@ -633,7 +633,7 @@
   .ok { color: var(--success, var(--accent)); font-weight: 600; }
   .wait::after { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .balance { margin: 0 0 10px; font-weight: 600; text-align: center; color: var(--accent); }
+  .balance { margin: 0 0 10px; font-weight: 600; text-align: center; color: var(--success); }
   .balance.bad { color: var(--danger); }
 
   /* celular: barra con el total siempre a la vista y el ticket como hoja */
